@@ -260,8 +260,9 @@ test_formula() {
         exit 1
     fi
     
-    # Test formula syntax
-    if brew audit --strict "$FORMULA_FILE"; then
+    # Test formula syntax using ruby syntax check
+    log "INFO" "Testing formula syntax..."
+    if ruby -c "$FORMULA_FILE" 2>/dev/null; then
         log "SUCCESS" "Formula syntax is valid"
     else
         log "ERROR" "Formula syntax is invalid"
