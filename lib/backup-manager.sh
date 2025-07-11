@@ -15,7 +15,7 @@ source "$SCRIPT_DIR/common.sh"
 # =============================================================================
 
 # Retention settings (loaded from common.sh)
-RETENTION_SECONDS=$((RETENTION_DAYS * 24 * 60 * 60))
+RETENTION_SECONDS=$((DSNP_BACKUP_RETENTION_DAYS * 24 * 60 * 60))
 
 # =============================================================================
 # Main Functions
@@ -23,7 +23,7 @@ RETENTION_SECONDS=$((RETENTION_DAYS * 24 * 60 * 60))
 
 cleanup_old_backups() {
     log "STEP" "Starting backup cleanup process..."
-    log "INFO" "Retention period: $RETENTION_DAYS days"
+    log "INFO" "Retention period: $DSNP_BACKUP_RETENTION_DAYS days"
     log "INFO" "Backup directory: $BACKUP_DIR"
     
     # Check if backup directory exists
