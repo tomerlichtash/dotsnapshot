@@ -17,7 +17,18 @@ set -euo pipefail
 # Script configuration
 SCRIPT_NAME="dotsnapshot.sh"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SNAPSHOT_SCRIPTS_DIR="$SCRIPT_DIR"
+
+# Detect if running from Homebrew installation
+if [[ -d "$SCRIPT_DIR/../lib" ]] && [[ -f "$SCRIPT_DIR/../lib/common.sh" ]]; then
+    # Homebrew installation
+    SNAPSHOT_SCRIPTS_DIR="$SCRIPT_DIR/../lib"
+elif [[ -d "$SCRIPT_DIR/lib" ]] && [[ -f "$SCRIPT_DIR/lib/common.sh" ]]; then
+    # Development installation
+    SNAPSHOT_SCRIPTS_DIR="$SCRIPT_DIR"
+else
+    # Fallback: assume current directory
+    SNAPSHOT_SCRIPTS_DIR="$SCRIPT_DIR"
+fi
 
 # Get machine name (hostname)
 MACHINE_NAME=$(hostname 2>/dev/null || echo "unknown-machine")
@@ -29,12 +40,27 @@ source "$SNAPSHOT_SCRIPTS_DIR/lib/config.sh"
 # Utility Functions
 # =============================================================================
 
+get_version() {
+    local version_file="$SNAPSHOT_SCRIPTS_DIR/VERSION"
+    if [[ -f "$version_file" ]]; then
+        cat "$version_file" | tr -d ' \t\n\r'
+    else
+        echo "unknown"
+    fi
+}
+
+show_version() {
+    local version=$(get_version)
+    echo "$version"
+}
+
 show_help() {
     echo "Usage: $SCRIPT_NAME [OPTIONS] [GENERATOR]"
     echo ""
     echo "Options:"
     echo "  --list, -l     List all available snapshot generators"
     echo "  --help, -h     Show this help message"
+    echo "  --version, -v  Show version information"
     echo ""
     echo "Arguments:"
 echo "  GENERATOR      Name of specific snapshot generator to run"
@@ -184,6 +210,10 @@ main() {
     case "${1:-}" in
         --help|-h)
             show_help
+            exit 0
+            ;;
+        --version|-v)
+            show_version
             exit 0
             ;;
         --list|-l)

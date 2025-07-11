@@ -24,7 +24,16 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 # =============================================================================
 
 # Load configuration file
-CONFIG_FILE="$PROJECT_ROOT/config/dotsnapshot.conf"
+# Check for Homebrew configuration first
+if [[ -f "/usr/local/etc/dotsnapshot/dotsnapshot.conf" ]]; then
+    CONFIG_FILE="/usr/local/etc/dotsnapshot/dotsnapshot.conf"
+elif [[ -f "/opt/homebrew/etc/dotsnapshot/dotsnapshot.conf" ]]; then
+    CONFIG_FILE="/opt/homebrew/etc/dotsnapshot/dotsnapshot.conf"
+elif [[ -f "$PROJECT_ROOT/config/dotsnapshot.conf" ]]; then
+    CONFIG_FILE="$PROJECT_ROOT/config/dotsnapshot.conf"
+else
+    CONFIG_FILE="$PROJECT_ROOT/config/dotsnapshot.conf"
+fi
 if [[ -f "$CONFIG_FILE" ]]; then
     source "$CONFIG_FILE"
 else
