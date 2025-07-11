@@ -8,7 +8,17 @@
 
 # Load generators configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-GENERATORS_CONFIG="$SCRIPT_DIR/../config/generators.conf"
+
+# Check for Homebrew configuration first
+if [[ -f "/usr/local/etc/dotsnapshot/generators.conf" ]]; then
+    GENERATORS_CONFIG="/usr/local/etc/dotsnapshot/generators.conf"
+elif [[ -f "/opt/homebrew/etc/dotsnapshot/generators.conf" ]]; then
+    GENERATORS_CONFIG="/opt/homebrew/etc/dotsnapshot/generators.conf"
+elif [[ -f "$SCRIPT_DIR/../config/generators.conf" ]]; then
+    GENERATORS_CONFIG="$SCRIPT_DIR/../config/generators.conf"
+else
+    GENERATORS_CONFIG="$SCRIPT_DIR/../config/generators.conf"
+fi
 
 if [[ -f "$GENERATORS_CONFIG" ]]; then
     source "$GENERATORS_CONFIG"

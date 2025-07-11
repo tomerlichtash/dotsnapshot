@@ -43,28 +43,84 @@ dotsnapshots/
 └── .snapshots/                 # Snapshot output (created automatically)
 ```
 
-## Quick Start
+## Installation
 
-1. **Clone the repository**:
-   ```bash
-   git clone <repository-url>
-   cd dotsnapshots
-   ```
+### Option 1: Homebrew Installation (Recommended)
 
-2. **Run all snapshots**:
-   ```bash
-   ./dotsnapshot.sh
-   ```
+Install DotSnapshot using Homebrew:
 
-3. **Run a specific generator**:
-   ```bash
-   ./dotsnapshot.sh generators/homebrew.sh
-   ```
+```bash
+# Install from Homebrew
+brew install dotsnapshot
 
-4. **List available generators**:
-   ```bash
-   ./dotsnapshot.sh --list
-   ```
+# Or install from tap (if not in homebrew-core yet)
+brew tap tomerlichtash/dotsnapshot
+brew install dotsnapshot
+```
+
+After installation, you can run:
+```bash
+dotsnapshot --help
+dotsnapshot --version
+dotsnapshot --list
+dotsnapshot
+```
+
+### Option 2: System-wide Installation
+
+Install DotSnapshot system-wide so you can run it from anywhere:
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd dotsnapshots
+
+# Install system-wide (requires sudo)
+sudo ./scripts/install.sh
+
+# Or install to a custom location
+sudo ./scripts/install.sh --prefix /opt
+
+# Or install for current user only (no sudo required)
+./scripts/install.sh --user
+```
+
+### Option 3: Run from Project Directory
+
+If you prefer not to install, you can run directly from the project directory:
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd dotsnapshots
+
+# Run all snapshots
+./dotsnapshot.sh
+
+# Run a specific generator
+./dotsnapshot.sh generators/homebrew.sh
+
+# List available generators
+./dotsnapshot.sh --list
+```
+
+### Uninstalling
+
+To remove DotSnapshot from your system:
+
+```bash
+# Uninstall from Homebrew
+brew uninstall dotsnapshot
+
+# Uninstall system-wide installation
+sudo ./scripts/uninstall.sh
+
+# Uninstall user installation
+./scripts/uninstall.sh --user
+
+# Uninstall from custom location
+sudo ./scripts/uninstall.sh --prefix /opt
+```
 
 ## Configuration
 

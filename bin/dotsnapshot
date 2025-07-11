@@ -1,0 +1,124 @@
+#!/bin/bash
+
+# =============================================================================
+# DotSnapshot - System-wide executable
+# =============================================================================
+# This is a wrapper script that allows dotsnapshot to be run from anywhere
+# in the system. It automatically finds the dotsnapshot installation and
+# delegates to the main script.
+
+set -euo pipefail
+
+# =============================================================================
+# Installation Detection
+# =============================================================================
+
+# Try to find the dotsnapshot installation
+find_dotsnapshot_install() {
+    # Method 1: Check if DOTSNAPSHOT_HOME environment variable is set
+    if [[ -n "${DOTSNAPSHOT_HOME:-}" ]]; then
+        if [[ -f "$DOTSNAPSHOT_HOME/dotsnapshot.sh" ]]; then
+            echo "$DOTSNAPSHOT_HOME"
+            return 0
+        fi
+    fi
+    
+    # Method 2: Check common installation locations
+    local common_paths=(
+        "$HOME/.dotsnapshot"
+        "$HOME/dotsnapshot"
+        "/usr/local/share/dotsnapshot"
+        "/opt/dotsnapshot"
+        "/usr/share/dotsnapshot"
+    )
+    
+    for path in "${common_paths[@]}"; do
+        if [[ -f "$path/dotsnapshot.sh" ]]; then
+            echo "$path"
+            return 0
+        fi
+    done
+    
+    # Method 3: Try to find from current script location
+    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local project_root="$(dirname "$script_dir")"
+    
+    if [[ -f "$project_root/dotsnapshot.sh" ]]; then
+        echo "$project_root"
+        return 0
+    fi
+    
+    # Method 4: Search in PATH (for development)
+    local dotsnapshot_path=$(which dotsnapshot.sh 2>/dev/null || echo "")
+    if [[ -n "$dotsnapshot_path" ]]; then
+        local dotsnapshot_dir=$(dirname "$dotsnapshot_path")
+        if [[ -f "$dotsnapshot_dir/dotsnapshot.sh" ]]; then
+            echo "$dotsnapshot_dir"
+            return 0
+        fi
+    fi
+    
+    return 1
+}
+
+# =============================================================================
+# Error Handling
+# =============================================================================
+
+show_installation_error() {
+    echo "Error: DotSnapshot installation not found" >&2
+    echo "" >&2
+    echo "Please ensure DotSnapshot is properly installed:" >&2
+    echo "" >&2
+    echo "1. Set DOTSNAPSHOT_HOME environment variable:" >&2
+    echo "   export DOTSNAPSHOT_HOME=/path/to/dotsnapshot" >&2
+    echo "" >&2
+    echo "2. Or install to a standard location:" >&2
+    echo "   - $HOME/.dotsnapshot" >&2
+    echo "   - /usr/local/share/dotsnapshot" >&2
+    echo "   - /opt/dotsnapshot" >&2
+    echo "" >&2
+    echo "3. Or run from the project directory:" >&2
+    echo "   ./dotsnapshot.sh [options]" >&2
+    echo "" >&2
+    echo "For installation instructions, see:" >&2
+    echo "https://github.com/yourusername/dotsnapshot#installation" >&2
+}
+
+# =============================================================================
+# Main Execution
+# =============================================================================
+
+main() {
+    # Find the dotsnapshot installation
+    local install_dir
+    if ! install_dir=$(find_dotsnapshot_install); then
+        show_installation_error
+        exit 1
+    fi
+    
+    # Execute the main dotsnapshot script
+    local main_script="$install_dir/dotsnapshot.sh"
+    
+    if [[ ! -f "$main_script" ]]; then
+        echo "Error: Main script not found: $main_script" >&2
+        exit 1
+    fi
+    
+    if [[ ! -x "$main_script" ]]; then
+        echo "Error: Main script not executable: $main_script" >&2
+        exit 1
+    fi
+    
+    # Pass all arguments to the main script
+    exec "$main_script" "$@"
+}
+
+# =============================================================================
+# Script Execution
+# =============================================================================
+
+# Only run main if script is executed directly
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi 
