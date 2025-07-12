@@ -43,7 +43,7 @@ source "$SNAPSHOT_SCRIPTS_DIR/lib/config.sh"
 get_version() {
     local version_file="$SNAPSHOT_SCRIPTS_DIR/VERSION"
     if [[ -f "$version_file" ]]; then
-        cat "$version_file" | tr -d ' \t\n\r'
+        tr -d ' \t\n\r' < "$version_file"
     else
         echo "unknown"
     fi
@@ -55,6 +55,9 @@ show_version() {
 }
 
 show_help() {
+    echo "DotSnapshot - Dotfile & System Configuration Snapshot Tool"
+    echo "A comprehensive tool to snapshot, backup, and manage your dotfiles and system configuration."
+    echo ""
     echo "Usage: $SCRIPT_NAME [OPTIONS] [GENERATOR]"
     echo ""
     echo "Options:"
@@ -63,14 +66,14 @@ show_help() {
     echo "  --version, -v  Show version information"
     echo ""
     echo "Arguments:"
-echo "  GENERATOR      Name of specific snapshot generator to run"
-echo "                 (e.g., generators/cursor-extensions.sh, generators/homebrew.sh)"
+    echo "  GENERATOR      Name of specific snapshot generator to run"
+    echo "                 (e.g., generators/cursor-extensions.sh, generators/homebrew.sh)"
     echo ""
     echo "Examples:"
-echo "  $SCRIPT_NAME                                    # Run all snapshots with backups"
-echo "  $SCRIPT_NAME generators/cursor-extensions.sh    # Run only cursor extensions snapshot (no backup)"
-echo "  $SCRIPT_NAME generators/homebrew.sh             # Run only homebrew snapshot (no backup)"
-echo "  $SCRIPT_NAME --list                             # List all available generators"
+    echo "  $SCRIPT_NAME                                    # Run all snapshots with backups"
+    echo "  $SCRIPT_NAME generators/cursor-extensions.sh    # Run only cursor extensions snapshot (no backup)"
+    echo "  $SCRIPT_NAME generators/homebrew.sh             # Run only homebrew snapshot (no backup)"
+    echo "  $SCRIPT_NAME --list                             # List all available generators"
     echo ""
     echo "When no GENERATOR is specified, all snapshots are run with backups enabled."
     echo "When a specific GENERATOR is specified, only that snapshot runs without backups."

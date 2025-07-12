@@ -1,0 +1,135 @@
+# =============================================================================
+# ShellCheck Configuration for DotSnapshot
+# =============================================================================
+# This file configures shellcheck linting rules for the DotSnapshot project.
+# 
+# Rule Reference: https://github.com/koalaman/shellcheck/wiki
+
+# =============================================================================
+# Shell Configuration
+# =============================================================================
+
+# Specify shell type
+shell=bash
+
+# =============================================================================
+# Severity Levels
+# =============================================================================
+# error:   Issues that are likely to cause the script to fail
+# warning: Issues that may cause problems
+# info:    Suggestions for improvements
+# style:   Stylistic suggestions
+
+# Set default severity level
+severity=style
+
+# =============================================================================
+# Disabled Rules
+# =============================================================================
+# Disable rules that are not applicable or too strict for our use case
+
+# SC1090: Can't follow non-constant source. Use a directive to specify location.
+# We use dynamic sourcing in our scripts
+disable=SC1090
+
+# SC1091: Not following: (error message here)
+# We source files that may not exist in all environments
+disable=SC1091
+
+# SC2004: $/${} is unnecessary on arithmetic variables.
+# We prefer explicit $ for clarity
+disable=SC2004
+
+# SC2012: Use find instead of ls to better handle non-alphanumeric filenames.
+# We use ls in specific cases where it's appropriate
+disable=SC2012
+
+# SC2034: VARIABLE appears unused. Verify it or export it.
+# Some variables are used in sourced files
+disable=SC2034
+
+# SC2046: Quote this to prevent word splitting.
+# We handle word splitting intentionally in some cases
+disable=SC2046
+
+# SC2086: Double quote to prevent globbing and word splitting.
+# We handle this intentionally in some cases
+disable=SC2086
+
+# SC2115: Use "${var:?}" to ensure this never expands to / .
+# We handle this with our own validation
+disable=SC2115
+
+# SC2128: Expanding an array without an index only gives the first element.
+# We use this pattern intentionally
+disable=SC2128
+
+# SC2148: Tips depend on target shell and yours is unknown. Add a shebang.
+# We have shebangs in all files
+disable=SC2148
+
+# SC2154: VARIABLE is referenced but not assigned.
+# Some variables are set in sourced files
+disable=SC2154
+
+# SC2155: Declare and assign separately to avoid masking return values.
+# We handle this intentionally in some cases
+disable=SC2155
+
+# SC2164: Use 'cd ... || exit' or 'cd ... || return' in case cd fails.
+# We handle directory changes with our own error checking
+disable=SC2164
+
+# SC2181: Check exit code directly with e.g. 'if mycmd;', not indirectly with $?.
+# We use $? in some cases for clarity
+disable=SC2181
+
+# SC2206: Quote to prevent word splitting/globbing, or split robustly with mapfile or read -a.
+# We handle this intentionally in some cases
+disable=SC2206
+
+# SC2207: Prefer mapfile or read -a to split command output (or quote to avoid splitting).
+# We handle this intentionally in some cases
+disable=SC2207
+
+# SC2230: which is non-standard. Use builtin 'command -v' instead.
+# We use which in some cases for compatibility
+disable=SC2230
+
+# SC2231: Quote expansions in this redirection to prevent word splitting.
+# We handle this intentionally in some cases
+disable=SC2231
+
+# =============================================================================
+# Source Paths
+# =============================================================================
+# Add source paths for better error reporting
+
+# Include common library paths
+source-path=lib
+source-path=scripts
+source-path=generators
+
+# =============================================================================
+# External Sources
+# =============================================================================
+# Define external sources that shellcheck can't follow
+
+# Common utilities that are sourced
+external-sources=lib/common.sh
+external-sources=lib/config.sh
+external-sources=lib/backup-manager.sh
+
+# =============================================================================
+# Color Output
+# =============================================================================
+# Enable colored output for better readability
+
+color=always
+
+# =============================================================================
+# Format
+# =============================================================================
+# Set output format
+
+format=tty 

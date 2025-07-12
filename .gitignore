@@ -1,2 +1,4 @@
 .DS_Store
 .logs
+.snapshots/*/latest-test/
+.snapshots/latest-test/
