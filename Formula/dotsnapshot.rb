@@ -78,6 +78,7 @@ class Dotsnapshot < Formula
         # Array of available snapshot generators
         # Format: "script_name:display_name:description"
         SNAPSHOT_GENERATORS=(
+            "generators/test-generator.sh:Test Generator:Creates a test snapshot for CI testing (works on all platforms)"
             "generators/homebrew.sh:Brewfile:Creates a snapshot of Homebrew packages (Brewfile)"
             "generators/cursor-extensions.sh:Cursor Extensions:Creates a snapshot of Cursor extensions with versions"
             "generators/cursor-settings.sh:Cursor Settings:Creates a snapshot of Cursor's settings.json file"
@@ -114,5 +115,13 @@ class Dotsnapshot < Formula
 
     # Test list command
     assert_match "Available snapshot generators:", shell_output("#{bin}/dotsnapshot --list")
+
+    # Test running a generator (test-generator works on all platforms)
+    system "#{bin}/dotsnapshot", "generators/test-generator.sh"
+    assert_predicate testpath/".snapshots/latest-test/test_snapshot.txt", :exist?
+    assert_match "Test completed successfully!", File.read(testpath/".snapshots/latest-test/test_snapshot.txt")
+    
+    # Clean up test files
+    system "rm", "-rf", testpath/".snapshots/latest-test"
   end
 end

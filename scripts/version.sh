@@ -56,7 +56,7 @@ log() {
 
 get_current_version() {
     if [[ -f "$VERSION_FILE" ]]; then
-        cat "$VERSION_FILE" | tr -d ' \t\n\r'
+        tr -d ' \t\n\r' < "$VERSION_FILE"
     else
         log "ERROR" "VERSION file not found: $VERSION_FILE"
         exit 1

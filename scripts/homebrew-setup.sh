@@ -40,6 +40,18 @@ TEST_FORMULA=false
 # Utility Functions
 # =============================================================================
 
+# =============================================================================
+# log
+# =============================================================================
+# Simple logging function that outputs colored messages to the console.
+# Used for consistent logging throughout the Homebrew setup script.
+#
+# Parameters:
+#   $1 - level: Log level (INFO, SUCCESS, WARNING, ERROR, or custom)
+#   $2 - message: The message to log
+#
+# Returns: None (outputs to console)
+# =============================================================================
 log() {
     local level="$1"
     local message="$2"
@@ -63,6 +75,17 @@ log() {
     esac
 }
 
+# =============================================================================
+# show_help
+# =============================================================================
+# Displays comprehensive help information for the Homebrew setup script,
+# including usage instructions, available options, examples, and submission
+# steps. Used when --help is specified or when invalid options are provided.
+#
+# Parameters: None
+# Returns: None (outputs help text to console)
+# Side Effects: Prints formatted help information
+# =============================================================================
 show_help() {
     echo "Homebrew Formula Setup Script"
     echo "============================="
@@ -89,6 +112,18 @@ show_help() {
     echo "5. Submit to Homebrew/homebrew-core"
 }
 
+# =============================================================================
+# parse_arguments
+# =============================================================================
+# Parses command line arguments and sets global variables accordingly.
+# Handles all supported options and provides appropriate error messages
+# for invalid or missing arguments.
+#
+# Parameters: All command line arguments ($@)
+# Returns: None
+# Side Effects: Sets global variables (VERSION, GITHUB_USERNAME, CREATE_RELEASE, TEST_FORMULA)
+# Exit Code: 1 on error, 0 on success
+# =============================================================================
 parse_arguments() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -130,17 +165,41 @@ parse_arguments() {
     done
 }
 
+# =============================================================================
+# get_version
+# =============================================================================
+# Retrieves the version to use for the Homebrew formula. Prioritizes
+# command line argument, then falls back to reading from VERSION file.
+# Exits with error if no version can be determined.
+#
+# Parameters: None
+# Returns: Version string
+# Exit Code: 1 if no version found, 0 on success
+# Example: get_version returns "1.0.0"
+# =============================================================================
 get_version() {
     if [[ -n "$VERSION" ]]; then
         echo "$VERSION"
     elif [[ -f "$PROJECT_ROOT/VERSION" ]]; then
-        cat "$PROJECT_ROOT/VERSION" | tr -d ' \t\n\r'
+        tr -d ' \t\n\r' < "$PROJECT_ROOT/VERSION"
     else
         log "ERROR" "No version specified and VERSION file not found"
         exit 1
     fi
 }
 
+# =============================================================================
+# get_github_username
+# =============================================================================
+# Retrieves the GitHub username to use for the Homebrew formula. Prioritizes
+# command line argument, then attempts to extract from git remote URL.
+# Exits with error if no username can be determined.
+#
+# Parameters: None
+# Returns: GitHub username string
+# Exit Code: 1 if no username found, 0 on success
+# Example: get_github_username returns "tomerlichtash"
+# =============================================================================
 get_github_username() {
     if [[ -n "$GITHUB_USERNAME" ]]; then
         echo "$GITHUB_USERNAME"
@@ -157,6 +216,20 @@ get_github_username() {
     fi
 }
 
+# =============================================================================
+# update_formula
+# =============================================================================
+# Updates the Homebrew formula file with the current version and GitHub username.
+# Uses sed to replace placeholders in the formula template with actual values.
+# Creates the Formula directory if it doesn't exist.
+#
+# Parameters: None
+# Returns: None
+# Side Effects: 
+#   - Creates Formula directory if needed
+#   - Updates formula file with version and username
+#   - Creates backup of original formula file
+# =============================================================================
 update_formula() {
     local version=$(get_version)
     local username=$(get_github_username)
@@ -178,6 +251,21 @@ update_formula() {
     log "SUCCESS" "Formula updated: $FORMULA_FILE"
 }
 
+# =============================================================================
+# create_github_release
+# =============================================================================
+# Creates a GitHub release by creating and pushing a git tag. Checks for
+# clean working directory and existing tags before proceeding. Waits for
+# GitHub to create the release before calculating SHA256.
+#
+# Parameters: None
+# Returns: None
+# Side Effects: 
+#   - Creates git tag
+#   - Pushes tag to remote repository
+#   - Calls calculate_sha256 after release creation
+# Exit Code: 1 on error, 0 on success
+# =============================================================================
 create_github_release() {
     local version=$(get_version)
     local username=$(get_github_username)
@@ -224,6 +312,21 @@ create_github_release() {
     calculate_sha256
 }
 
+# =============================================================================
+# calculate_sha256
+# =============================================================================
+# Downloads the release tarball from GitHub and calculates its SHA256 hash.
+# Updates the formula file with the calculated hash for Homebrew verification.
+# This function is called after creating a GitHub release.
+#
+# Parameters: None
+# Returns: None
+# Side Effects: 
+#   - Downloads tarball from GitHub
+#   - Updates formula file with SHA256 hash
+#   - Displays hash and URL information
+# Exit Code: 1 on error, 0 on success
+# =============================================================================
 calculate_sha256() {
     local version=$(get_version)
     local username=$(get_github_username)
@@ -252,6 +355,18 @@ calculate_sha256() {
     fi
 }
 
+# =============================================================================
+# test_formula
+# =============================================================================
+# Tests the Homebrew formula locally to ensure it's valid and can be installed.
+# Performs syntax validation using Ruby and a dry-run installation test using
+# Homebrew. Exits with error if any test fails.
+#
+# Parameters: None
+# Returns: None
+# Side Effects: Runs Homebrew commands for testing
+# Exit Code: 1 on test failure, 0 on success
+# =============================================================================
 test_formula() {
     log "INFO" "Testing formula locally..."
     
@@ -279,6 +394,17 @@ test_formula() {
     fi
 }
 
+# =============================================================================
+# show_submission_instructions
+# =============================================================================
+# Displays step-by-step instructions for submitting the formula to Homebrew.
+# Provides the exact commands and URLs needed to complete the submission
+# process to homebrew-core.
+#
+# Parameters: None
+# Returns: None (outputs instructions to console)
+# Side Effects: Prints formatted submission instructions
+# =============================================================================
 show_submission_instructions() {
     echo ""
     echo "Homebrew Submission Instructions"
@@ -309,6 +435,21 @@ show_submission_instructions() {
 # Main Execution
 # =============================================================================
 
+# =============================================================================
+# main
+# =============================================================================
+# Main entry point for the Homebrew setup script. Orchestrates the entire
+# workflow including argument parsing, formula updates, release creation,
+# testing, and providing submission instructions.
+#
+# Parameters: All command line arguments ($@)
+# Returns: None
+# Side Effects: 
+#   - Updates formula files
+#   - Creates GitHub releases
+#   - Runs formula tests
+#   - Displays instructions
+# =============================================================================
 main() {
     log "INFO" "Starting Homebrew formula setup..."
     
@@ -341,4 +482,4 @@ main() {
 # Only run main if script is executed directly
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     main "$@"
-fi 
+fi

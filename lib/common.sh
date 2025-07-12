@@ -88,7 +88,7 @@ fi
 # Check if DSNP_LOGS_DIR is an absolute path
 if [[ "$DSNP_LOGS_DIR" = /* ]]; then
     # Absolute path - use as is
-    DSNP_LOGS_DIR="$DSNP_LOGS_DIR"
+    :
 else
     # Relative path - prepend project root
     DSNP_LOGS_DIR="$PROJECT_ROOT/$DSNP_LOGS_DIR"
@@ -110,6 +110,19 @@ NC='\033[0m' # No Color
 # Logging Functions
 # =============================================================================
 
+# =============================================================================
+# log
+# =============================================================================
+# Centralized logging function that outputs colored messages to both console
+# and log file. Supports different log levels with appropriate colors.
+#
+# Parameters:
+#   $1 - level: Log level (INFO, SUCCESS, WARNING, ERROR, STEP, or custom)
+#   $2 - message: The message to log
+#
+# Returns: None (outputs to console and log file)
+# Side Effects: Creates logs directory if it doesn't exist
+# =============================================================================
 log() {
     local level="$1"
     local message="$2"
@@ -146,6 +159,17 @@ log() {
 # Directory Management
 # =============================================================================
 
+# =============================================================================
+# ensure_directories
+# =============================================================================
+# Creates all required directories for the snapshot system if they don't exist.
+# This includes snapshot directories, machine-specific directories (if enabled),
+# latest directory, backup directory (if backups enabled), and logs directory.
+#
+# Parameters: None
+# Returns: None
+# Side Effects: Creates directories as needed
+# =============================================================================
 ensure_directories() {
     log "INFO" "Ensuring required directories exist..."
     
@@ -203,6 +227,20 @@ ensure_directories() {
 # Backup Functions
 # =============================================================================
 
+# =============================================================================
+# backup_file
+# =============================================================================
+# Creates a backup of an existing file before it's overwritten. Only creates
+# backups if backup functionality is enabled. Backups are stored in timestamped
+# directories for organization.
+#
+# Parameters:
+#   $1 - file_path: Full path to the file to backup
+#   $2 - file_name: Display name of the file (for logging purposes)
+#
+# Returns: None
+# Side Effects: Creates backup file in backup directory
+# =============================================================================
 backup_file() {
     local file_path="$1"
     local file_name="$2"
@@ -229,6 +267,20 @@ backup_file() {
 # Dependency Checking
 # =============================================================================
 
+# =============================================================================
+# check_dependency
+# =============================================================================
+# Checks if a required command is available in the system PATH. Used to
+# validate that external dependencies are installed before running operations
+# that require them.
+#
+# Parameters:
+#   $1 - dependency: Human-readable name of the dependency
+#   $2 - command_name: The actual command to check in PATH
+#
+# Returns: 0 if dependency is available, 1 if missing
+# Side Effects: Logs dependency status
+# =============================================================================
 check_dependency() {
     local dependency="$1"
     local command_name="$2"
@@ -246,6 +298,19 @@ check_dependency() {
 # File Management
 # =============================================================================
 
+# =============================================================================
+# remove_file_if_exists
+# =============================================================================
+# Safely removes a file if it exists, with appropriate logging. Does nothing
+# if the file doesn't exist, preventing errors from missing files.
+#
+# Parameters:
+#   $1 - file_path: Full path to the file to remove
+#   $2 - file_name: Display name of the file (for logging purposes)
+#
+# Returns: None
+# Side Effects: Removes file if it exists
+# =============================================================================
 remove_file_if_exists() {
     local file_path="$1"
     local file_name="$2"
@@ -256,6 +321,19 @@ remove_file_if_exists() {
     fi
 }
 
+# =============================================================================
+# validate_file
+# =============================================================================
+# Validates that a file was created successfully and has content. Checks for
+# file existence and non-empty status, providing appropriate feedback.
+#
+# Parameters:
+#   $1 - file_path: Full path to the file to validate
+#   $2 - file_name: Display name of the file (for logging purposes)
+#
+# Returns: 0 if file is valid, 1 if file is missing
+# Side Effects: Logs validation results
+# =============================================================================
 validate_file() {
     local file_path="$1"
     local file_name="$2"
@@ -273,9 +351,73 @@ validate_file() {
 }
 
 # =============================================================================
+# Utility Functions
+# =============================================================================
+
+# =============================================================================
+# parse_timestamp_from_dirname
+# =============================================================================
+# Extracts a Unix timestamp from a directory name that follows the format
+# YYYYMMDD_HHMMSS. Used for parsing backup directory names to determine
+# their age for cleanup operations.
+#
+# Parameters:
+#   $1 - dir_name: Directory name in format YYYYMMDD_HHMMSS
+#
+# Returns: Unix timestamp as string on success, empty string on failure
+# Exit Code: 0 on success, 1 on failure
+# =============================================================================
+parse_timestamp_from_dirname() {
+    local dir_name="$1"
+    
+    # Check if directory name matches timestamp format (YYYYMMDD_HHMMSS)
+    if [[ "$dir_name" =~ ^[0-9]{8}_[0-9]{6}$ ]]; then
+        # Extract timestamp components
+        local year=${dir_name:0:4}
+        local month=${dir_name:4:2}
+        local day=${dir_name:6:2}
+        local hour=${dir_name:9:2}
+        local minute=${dir_name:11:2}
+        local second=${dir_name:13:2}
+        
+        # Create date string and convert to timestamp
+        local date_string="$year-$month-$day $hour:$minute:$second"
+        local timestamp=$(date -j -f "%Y-%m-%d %H:%M:%S" "$date_string" +%s 2>/dev/null)
+        
+        if [[ -n "$timestamp" ]] && [[ "$timestamp" != "0" ]]; then
+            echo "$timestamp"
+            return 0
+        fi
+    fi
+    
+    # Return empty string if parsing failed
+    echo ""
+    return 1
+}
+
+# =============================================================================
 # Initialization
 # =============================================================================
 
+# =============================================================================
+# init_snapshot
+# =============================================================================
+# Initializes the snapshot system by setting up global variables, creating
+# timestamps, and ensuring all required directories exist. This function
+# must be called at the beginning of any snapshot script.
+#
+# Parameters:
+#   $1 - script_name: Name of the calling script (for logging)
+#   $2 - log_file_name: Name of the log file to create
+#   $3 - enable_backup: Whether to enable backup functionality (default: false)
+#   $4 - external_timestamp: Optional external timestamp to use (default: auto-generated)
+#
+# Returns: None
+# Side Effects: 
+#   - Sets global variables (RUN_TIMESTAMP, SHOULD_BACKUP, LOG_FILE)
+#   - Creates required directories
+#   - Logs initialization information
+# =============================================================================
 init_snapshot() {
     local script_name="$1"
     local log_file_name="$2"
