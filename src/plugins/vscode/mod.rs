@@ -1,7 +1,7 @@
-pub mod settings;
-pub mod keybindings;
 pub mod extensions;
+pub mod keybindings;
+pub mod settings;
 
-pub use settings::VSCodeSettingsPlugin;
-pub use keybindings::VSCodeKeybindingsPlugin;
 pub use extensions::VSCodeExtensionsPlugin;
+pub use keybindings::VSCodeKeybindingsPlugin;
+pub use settings::VSCodeSettingsPlugin;

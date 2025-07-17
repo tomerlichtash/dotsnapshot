@@ -1,7 +1,7 @@
-pub mod settings;
-pub mod keybindings;
 pub mod extensions;
+pub mod keybindings;
+pub mod settings;
 
-pub use settings::CursorSettingsPlugin;
-pub use keybindings::CursorKeybindingsPlugin;
 pub use extensions::CursorExtensionsPlugin;
+pub use keybindings::CursorKeybindingsPlugin;
+pub use settings::CursorSettingsPlugin;

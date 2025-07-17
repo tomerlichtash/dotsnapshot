@@ -12,7 +12,7 @@ impl VSCodeExtensionsPlugin {
     pub fn new() -> Self {
         Self
     }
-    
+
     /// Gets list of installed VSCode extensions
     async fn get_extensions(&self) -> Result<String> {
         let output = tokio::task::spawn_blocking(|| {
@@ -21,15 +21,15 @@ impl VSCodeExtensionsPlugin {
                 .output()
         })
         .await??;
-        
+
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(anyhow::anyhow!("code --list-extensions failed: {}", stderr));
         }
-        
+
         let extensions = String::from_utf8(output.stdout)
             .context("Failed to parse code --list-extensions output as UTF-8")?;
-        
+
         Ok(extensions)
     }
 }
@@ -39,23 +39,23 @@ impl Plugin for VSCodeExtensionsPlugin {
     fn name(&self) -> &str {
         "vscode_extensions"
     }
-    
+
     fn filename(&self) -> &str {
         "vscode_extensions.txt"
     }
-    
+
     fn description(&self) -> &str {
         "Lists installed VSCode extensions with versions"
     }
-    
+
     async fn execute(&self) -> Result<String> {
         self.get_extensions().await
     }
-    
+
     async fn validate(&self) -> Result<()> {
         // Check if code command exists
         which("code").context("code command not found. Please install VSCode CLI.")?;
-        
+
         Ok(())
     }
 }
@@ -74,7 +74,7 @@ mod tests {
     #[tokio::test]
     async fn test_vscode_extensions_plugin_validation() {
         let plugin = VSCodeExtensionsPlugin::new();
-        
+
         // This test will only pass if VSCode CLI is installed
         if which("code").is_ok() {
             assert!(plugin.validate().await.is_ok());
