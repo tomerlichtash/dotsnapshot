@@ -1,0 +1,19 @@
+# Dotsnapshot Configuration
+
+# Output directory for snapshots
+output_dir = "~/tmp/snapshots"
+
+# Specific plugins to include (if not specified, all plugins run)
+# include_plugins = ["homebrew", "vscode"]
+
+[logging]
+# Enable verbose logging by default
+verbose = true
+
+# Time format for log timestamps (uses time crate format syntax)
+# Default: "[year]-[month]-[day] [hour]:[minute]:[second]"
+# Examples:
+# - "[hour]:[minute]:[second]" (time only)
+# - "[month]-[day] [hour]:[minute]" (short date + time)
+# - "[year]/[month]/[day] [hour]:[minute]:[second]" (alternative date format)
+time_format = "[year]-[month]-[day] [hour]:[minute]:[second]"
