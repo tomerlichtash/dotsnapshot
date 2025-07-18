@@ -289,7 +289,7 @@ mod tests {
     #[test]
     fn test_args_parsing() {
         // Test default values
-        let args = Args::parse_from(&["dotsnapshot"]);
+        let args = Args::parse_from(["dotsnapshot"]);
         assert!(args.output.is_none());
         assert!(!args.verbose);
         assert!(args.plugins.is_none());
@@ -297,7 +297,7 @@ mod tests {
         assert!(!args.list);
 
         // Test custom values
-        let args = Args::parse_from(&[
+        let args = Args::parse_from([
             "dotsnapshot",
             "--output",
             "/tmp/test",
@@ -314,7 +314,7 @@ mod tests {
         assert!(!args.list);
 
         // Test --list flag
-        let args = Args::parse_from(&["dotsnapshot", "--list"]);
+        let args = Args::parse_from(["dotsnapshot", "--list"]);
         assert!(args.list);
     }
 }
