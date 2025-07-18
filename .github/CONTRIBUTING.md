@@ -75,6 +75,41 @@ All pull requests are automatically checked for:
 - Security vulnerabilities (`cargo audit`)
 - Commit message format (conventional commits)
 
+## Semantic Versioning and Releases
+
+This project uses [Semantic Versioning](https://semver.org/) with automated releases based on commit messages:
+
+### Version Bumping
+- **Major version** (1.0.0 → 2.0.0): `feat!:` or `fix!:` with breaking changes
+- **Minor version** (1.0.0 → 1.1.0): `feat:` commits
+- **Patch version** (1.0.0 → 1.0.1): `fix:` commits
+
+### Release Process
+- **Automatic**: Releases are created automatically when commits are merged to `main`
+- **Changelog**: Generated automatically from commit messages
+- **GitHub Releases**: Created with release notes and cross-platform binaries
+- **crates.io**: Published automatically (when configured)
+
+### Breaking Changes
+For breaking changes, add `!` after the type and explain the breaking change:
+
+```bash
+feat!: change plugin API to support async execution
+
+BREAKING CHANGE: Plugin trait now requires async methods.
+Update your plugins to use async/await syntax.
+```
+
+## Branch Protection
+
+The `main` branch is protected and requires:
+- Pull request reviews
+- All CI checks to pass
+- Semantic commit format
+- No direct pushes (including from administrators)
+
+See [BRANCH_PROTECTION.md](.github/BRANCH_PROTECTION.md) for setup details.
+
 ## Questions?
 
 Feel free to open an issue if you have any questions about contributing!
