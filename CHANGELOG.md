@@ -1,3 +1,9 @@
+## [1.5.0](https://github.com/tomerlichtash/dotsnapshot/compare/v1.4.2...v1.5.0) (2025-07-18)
+
+### Features
+
+* Update Homebrew formula to v1.4.2 with real checksums ([#25](https://github.com/tomerlichtash/dotsnapshot/issues/25)) ([43ac4e6](https://github.com/tomerlichtash/dotsnapshot/commit/43ac4e604a85552704701374226d1fa1627b795c))
+
 ## [1.4.2](https://github.com/tomerlichtash/dotsnapshot/compare/v1.4.1...v1.4.2) (2025-07-18)
 
 ### Bug Fixes
