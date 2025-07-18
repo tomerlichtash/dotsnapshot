@@ -27,6 +27,13 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+    
+    - name: Clear Cargo cache (cache-busting)
+      run: |
+        rm -rf ~/.cargo/registry/cache/
+        rm -rf ~/.cargo/git/db/
+        rm -rf target/
+      continue-on-error: true
 
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@master
@@ -43,10 +50,10 @@ jobs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
           target/
-        key: ${{ runner.os }}-cargo-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-cargo-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}-${{ github.sha }}
         restore-keys: |
+          ${{ runner.os }}-cargo-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}-
           ${{ runner.os }}-cargo-${{ matrix.rust }}-
-          ${{ runner.os }}-cargo-
 
     - name: Check formatting
       run: cargo fmt --all -- --check
@@ -69,6 +76,13 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+    
+    - name: Clear Cargo cache (cache-busting)
+      run: |
+        rm -rf ~/.cargo/registry/cache/
+        rm -rf ~/.cargo/git/db/
+        rm -rf target/
+      continue-on-error: true
 
     - name: Install Rust toolchain (MSRV)
       uses: dtolnay/rust-toolchain@master
@@ -84,7 +98,7 @@ jobs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
           target/
-        key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('**/Cargo.lock') }}-${{ github.sha }}
 
     - name: Build with MSRV
       run: cargo build --verbose
