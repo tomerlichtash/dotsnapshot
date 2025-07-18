@@ -1,3 +1,9 @@
+## [1.2.0](https://github.com/tomerlichtash/dotsnapshot/compare/v1.1.0...v1.2.0) (2025-07-18)
+
+### Features
+
+* Add Homebrew support with shell completions and man pages ([#13](https://github.com/tomerlichtash/dotsnapshot/issues/13)) ([c3d0b81](https://github.com/tomerlichtash/dotsnapshot/commit/c3d0b813357655ec4899c93df6ad6eda5bbf27b8)), closes [#12](https://github.com/tomerlichtash/dotsnapshot/issues/12)
+
 ## [1.1.0](https://github.com/tomerlichtash/dotsnapshot/compare/v1.0.0...v1.1.0) (2025-07-18)
 
 ### Features
