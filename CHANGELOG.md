@@ -1,3 +1,9 @@
+## [1.3.0](https://github.com/tomerlichtash/dotsnapshot/compare/v1.2.1...v1.3.0) (2025-07-18)
+
+### Features
+
+* Add workflow to build cross-platform binaries ([#17](https://github.com/tomerlichtash/dotsnapshot/issues/17)) ([a6432ce](https://github.com/tomerlichtash/dotsnapshot/commit/a6432ceff2a5d5affacc90fff3025de12dccea4f)), closes [#16](https://github.com/tomerlichtash/dotsnapshot/issues/16)
+
 ## [1.2.1](https://github.com/tomerlichtash/dotsnapshot/compare/v1.2.0...v1.2.1) (2025-07-18)
 
 ### Bug Fixes
