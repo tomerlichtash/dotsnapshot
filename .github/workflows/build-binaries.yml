@@ -1,10 +1,10 @@
-name: Build Missing Binaries
+name: Build Cross-Platform Binaries
 
 on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Release tag to build binaries for'
+        description: 'Release tag to build cross-platform binaries for'
         required: true
         default: 'v1.2.0'
 
