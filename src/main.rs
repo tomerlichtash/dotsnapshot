@@ -238,7 +238,9 @@ async fn main() -> Result<()> {
         println!("   Use --help for detailed options");
         println!();
         println!("🔧 Shell Completions:");
-        println!("   dotsnapshot --completions bash > /usr/local/etc/bash_completion.d/dotsnapshot");
+        println!(
+            "   dotsnapshot --completions bash > /usr/local/etc/bash_completion.d/dotsnapshot"
+        );
         println!("   dotsnapshot --completions zsh > ~/.zfunc/_dotsnapshot");
         println!("   dotsnapshot --completions fish > ~/.config/fish/completions/dotsnapshot.fish");
         println!();
