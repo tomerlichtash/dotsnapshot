@@ -1,3 +1,19 @@
+## 1.0.0 (2025-07-18)
+
+### ⚠ BREAKING CHANGES
+
+* Releases now require semantic commit messages.
+All future commits must follow conventional commit format.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-authored-by: Claude <noreply@anthropic.com>
+
+### Features
+
+* implement comprehensive semantic release automation ([#8](https://github.com/tomerlichtash/dotsnapshot/issues/8)) ([eb0e386](https://github.com/tomerlichtash/dotsnapshot/commit/eb0e386fcab7be8a5c7ea64dae46f8ef1d3bd5f0))
+* Snapshot CLI ([#1](https://github.com/tomerlichtash/dotsnapshot/issues/1)) ([1870c62](https://github.com/tomerlichtash/dotsnapshot/commit/1870c62c4aa7cc156233c772d79a2afefd9905e3))
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
