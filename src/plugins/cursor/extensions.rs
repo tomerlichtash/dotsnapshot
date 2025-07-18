@@ -12,24 +12,24 @@ impl CursorExtensionsPlugin {
     pub fn new() -> Self {
         Self
     }
-    
+
     /// Gets list of installed Cursor extensions
     async fn get_extensions(&self) -> Result<String> {
         let output = tokio::task::spawn_blocking(|| {
             Command::new("cursor")
-                .args(&["--list-extensions", "--show-versions"])
+                .args(["--list-extensions", "--show-versions"])
                 .output()
         })
         .await??;
-        
+
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(anyhow::anyhow!("cursor --list-extensions failed: {}", stderr));
+            return Err(anyhow::anyhow!("cursor --list-extensions failed: {stderr}"));
         }
-        
+
         let extensions = String::from_utf8(output.stdout)
             .context("Failed to parse cursor --list-extensions output as UTF-8")?;
-        
+
         Ok(extensions)
     }
 }
@@ -39,23 +39,23 @@ impl Plugin for CursorExtensionsPlugin {
     fn name(&self) -> &str {
         "cursor_extensions"
     }
-    
+
     fn filename(&self) -> &str {
         "cursor_extensions.txt"
     }
-    
+
     fn description(&self) -> &str {
         "Lists installed Cursor editor extensions with versions"
     }
-    
+
     async fn execute(&self) -> Result<String> {
         self.get_extensions().await
     }
-    
+
     async fn validate(&self) -> Result<()> {
         // Check if cursor command exists
         which("cursor").context("cursor command not found. Please install Cursor CLI.")?;
-        
+
         Ok(())
     }
 }
@@ -74,7 +74,7 @@ mod tests {
     #[tokio::test]
     async fn test_cursor_extensions_plugin_validation() {
         let plugin = CursorExtensionsPlugin::new();
-        
+
         // This test will only pass if Cursor CLI is installed
         if which("cursor").is_ok() {
             assert!(plugin.validate().await.is_ok());
