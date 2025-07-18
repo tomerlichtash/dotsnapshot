@@ -101,18 +101,37 @@ jobs:
     - name: Build release binary
       run: cargo build --release --target ${{ matrix.target }}
 
+    - name: Package binary for distribution
+      run: |
+        cd target/${{ matrix.target }}/release
+        if [ "${{ runner.os }}" = "Windows" ]; then
+          7z a ../../../${{ matrix.asset_name }}.zip ${{ matrix.artifact_name }}
+        else
+          tar -czf ../../../${{ matrix.asset_name }}.tar.gz ${{ matrix.artifact_name }}
+        fi
+        cd ../../..
+
+    - name: Generate checksums
+      run: |
+        if [ "${{ runner.os }}" = "Windows" ]; then
+          certutil -hashfile ${{ matrix.asset_name }}.zip SHA256 > ${{ matrix.asset_name }}.sha256
+        else
+          shasum -a 256 ${{ matrix.asset_name }}.tar.gz > ${{ matrix.asset_name }}.sha256
+        fi
+
     - name: Upload release binary
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.asset_name }}
-        path: target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+        name: ${{ matrix.asset_name }}-package
+        path: |
+          ${{ matrix.asset_name }}.*
 
     - name: Upload to GitHub Release
       uses: softprops/action-gh-release@v2
       with:
         tag_name: v${{ needs.release.outputs.new_release_version }}
-        files: target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
-        name: ${{ matrix.asset_name }}
+        files: |
+          ${{ matrix.asset_name }}.*
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

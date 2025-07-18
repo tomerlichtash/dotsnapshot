@@ -1,5 +1,8 @@
 use anyhow::Result;
-use clap::Parser;
+use clap::{CommandFactory, Parser};
+use clap_complete::{generate, Shell};
+use clap_mangen::Man;
+use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
@@ -47,6 +50,14 @@ struct Args {
     /// Show detailed information about the tool
     #[arg(long)]
     info: bool,
+
+    /// Generate shell completions for the specified shell
+    #[arg(long, value_enum)]
+    completions: Option<Shell>,
+
+    /// Generate man page
+    #[arg(long)]
+    man: bool,
 }
 
 fn create_subscriber(
@@ -194,6 +205,21 @@ async fn main() -> Result<()> {
     let start_time = Instant::now();
     let args = Args::parse();
 
+    // Handle --completions flag early
+    if let Some(shell) = args.completions {
+        let mut app = Args::command();
+        generate(shell, &mut app, "dotsnapshot", &mut io::stdout());
+        return Ok(());
+    }
+
+    // Handle --man flag early
+    if args.man {
+        let app = Args::command();
+        let man = Man::new(app);
+        man.render(&mut io::stdout())?;
+        return Ok(());
+    }
+
     // Handle --info flag early
     if args.info {
         println!("🔧 dotsnapshot v{}", env!("CARGO_PKG_VERSION"));
@@ -210,6 +236,16 @@ async fn main() -> Result<()> {
         println!();
         println!("🚀 Usage: dotsnapshot [OPTIONS]");
         println!("   Use --help for detailed options");
+        println!();
+        println!("🔧 Shell Completions:");
+        println!(
+            "   dotsnapshot --completions bash > /usr/local/etc/bash_completion.d/dotsnapshot"
+        );
+        println!("   dotsnapshot --completions zsh > ~/.zfunc/_dotsnapshot");
+        println!("   dotsnapshot --completions fish > ~/.config/fish/completions/dotsnapshot.fish");
+        println!();
+        println!("📖 Man Page:");
+        println!("   dotsnapshot --man > /usr/local/share/man/man1/dotsnapshot.1");
         return Ok(());
     }
 
