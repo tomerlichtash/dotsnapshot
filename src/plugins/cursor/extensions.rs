@@ -24,9 +24,7 @@ impl CursorExtensionsPlugin {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(anyhow::anyhow!(
-                "cursor --list-extensions failed: {stderr}"
-            ));
+            return Err(anyhow::anyhow!("cursor --list-extensions failed: {stderr}"));
         }
 
         let extensions = String::from_utf8(output.stdout)
