@@ -1,3 +1,9 @@
+## [1.3.1](https://github.com/tomerlichtash/dotsnapshot/compare/v1.3.0...v1.3.1) (2025-07-18)
+
+### Bug Fixes
+
+* Improve release workflow to auto-build binaries on every release ([#19](https://github.com/tomerlichtash/dotsnapshot/issues/19)) ([8758288](https://github.com/tomerlichtash/dotsnapshot/commit/875828857ae1579f6e69517ec6e9fca315b8d0ec)), closes [#18](https://github.com/tomerlichtash/dotsnapshot/issues/18)
+
 ## [1.3.0](https://github.com/tomerlichtash/dotsnapshot/compare/v1.2.1...v1.3.0) (2025-07-18)
 
 ### Features
