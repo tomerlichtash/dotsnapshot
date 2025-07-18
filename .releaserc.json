@@ -8,7 +8,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "sed -i 's/version = \".*\"/version = \"${nextRelease.version}\"/' Cargo.toml"
+        "prepareCmd": "sed -i '3s/version = \".*\"/version = \"${nextRelease.version}\"/' Cargo.toml"
       }
     ],
     [

@@ -1,6 +1,6 @@
 # Dotsnapshot
 
-A Rust CLI utility that creates snapshots of dotfiles and configuration for seamless backup and restoration. The tool supports multiple plugins and uses checksums for efficient snapshot management.
+A fast, extensible Rust CLI utility that creates snapshots of dotfiles and configuration for seamless backup and restoration. The tool supports multiple plugins and uses checksums for efficient snapshot management.
 
 ## Features
 
