@@ -1,3 +1,9 @@
+## [1.3.2](https://github.com/tomerlichtash/dotsnapshot/compare/v1.3.1...v1.3.2) (2025-07-18)
+
+### Bug Fixes
+
+* Restore correct rust-version and dependency versions corrupted by v1.3.1 semantic-release ([#22](https://github.com/tomerlichtash/dotsnapshot/issues/22)) ([eac2b01](https://github.com/tomerlichtash/dotsnapshot/commit/eac2b010bd581743a89b39ec318faaff601ec691))
+
 ## [1.3.1](https://github.com/tomerlichtash/dotsnapshot/compare/v1.3.0...v1.3.1) (2025-07-18)
 
 ### Bug Fixes
