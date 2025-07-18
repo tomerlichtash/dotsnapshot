@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>dotsnapshot - Fast, Extensible CLI for Dotfile Snapshots</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        header {
+            padding: 2rem 0;
+            text-align: center;
+            color: white;
+        }
+        
+        .logo {
+            font-size: 3rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        
+        .tagline {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 2rem;
+        }
+        
+        .hero-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn-primary {
+            background: #ff6b6b;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        main {
+            background: white;
+            border-radius: 12px 12px 0 0;
+            margin-top: 2rem;
+            padding: 3rem 0;
+        }
+        
+        .section {
+            margin-bottom: 3rem;
+        }
+        
+        .section h2 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: #2c3e50;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        
+        .feature {
+            padding: 1.5rem;
+            border-radius: 8px;
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+        }
+        
+        .feature h3 {
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+        
+        .installation {
+            background: #2d3748;
+            color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            margin: 2rem 0;
+        }
+        
+        .installation h3 {
+            margin-bottom: 1rem;
+        }
+        
+        .install-methods {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .install-method {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1rem;
+            border-radius: 6px;
+        }
+        
+        .install-method h4 {
+            margin-bottom: 0.5rem;
+            color: #ff6b6b;
+        }
+        
+        code {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            display: block;
+            margin-top: 0.5rem;
+            overflow-x: auto;
+        }
+        
+        .quick-start code {
+            background: #f7fafc;
+            color: #2d3748;
+            border: 1px solid #e2e8f0;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 2rem 0;
+            color: #666;
+        }
+        
+        .github-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .github-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">📸 dotsnapshot</div>
+            <div class="tagline">A fast, extensible CLI utility to create snapshots of dotfiles and configuration</div>
+            <div class="hero-buttons">
+                <a href="https://github.com/tomerlichtash/dotsnapshot/releases/latest" class="btn btn-primary">Download Latest</a>
+                <a href="https://github.com/tomerlichtash/dotsnapshot" class="btn btn-secondary">View on GitHub</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <section class="section">
+                <h2>Why dotsnapshot?</h2>
+                <div class="features">
+                    <div class="feature">
+                        <h3>🚀 Fast & Lightweight</h3>
+                        <p>Built in Rust for maximum performance. Create snapshots in milliseconds, not seconds.</p>
+                    </div>
+                    <div class="feature">
+                        <h3>🔧 Extensible Plugin System</h3>
+                        <p>Modular architecture with plugins for different tools and configurations. Easy to extend and customize.</p>
+                    </div>
+                    <div class="feature">
+                        <h3>📦 Cross-Platform</h3>
+                        <p>Works seamlessly on macOS, Linux, and Windows. One tool for all your environments.</p>
+                    </div>
+                    <div class="feature">
+                        <h3>⚡ Zero Dependencies</h3>
+                        <p>Single binary with no external dependencies. Just download and run.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="installation">
+                <div class="container">
+                    <h3>Installation</h3>
+                    <div class="install-methods">
+                        <div class="install-method">
+                            <h4>Homebrew (macOS/Linux)</h4>
+                            <code>brew install tomerlichtash/tools/dotsnapshot</code>
+                        </div>
+                        <div class="install-method">
+                            <h4>Cargo (Rust)</h4>
+                            <code>cargo install dotsnapshot</code>
+                        </div>
+                        <div class="install-method">
+                            <h4>Direct Download</h4>
+                            <code>curl -L https://github.com/tomerlichtash/dotsnapshot/releases/latest/download/dotsnapshot-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m).tar.gz | tar -xz</code>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section quick-start">
+                <h2>Quick Start</h2>
+                <p>Get started with dotsnapshot in seconds:</p>
+                
+                <h3>Check available plugins:</h3>
+                <code>dotsnapshot --list</code>
+                
+                <h3>Create a snapshot:</h3>
+                <code>dotsnapshot snapshot --plugins vim,git,zsh</code>
+                
+                <h3>View snapshot info:</h3>
+                <code>dotsnapshot --info</code>
+                
+                <h3>Get help:</h3>
+                <code>dotsnapshot --help</code>
+            </section>
+
+            <section class="section">
+                <h2>Features</h2>
+                <ul style="list-style: none; padding-left: 0;">
+                    <li style="margin-bottom: 0.5rem;">✅ Create snapshots of dotfiles and configurations</li>
+                    <li style="margin-bottom: 0.5rem;">✅ Plugin-based architecture for extensibility</li>
+                    <li style="margin-bottom: 0.5rem;">✅ Cross-platform support (macOS, Linux, Windows)</li>
+                    <li style="margin-bottom: 0.5rem;">✅ Fast Rust implementation</li>
+                    <li style="margin-bottom: 0.5rem;">✅ Shell completions (bash, zsh, fish)</li>
+                    <li style="margin-bottom: 0.5rem;">✅ Man page documentation</li>
+                    <li style="margin-bottom: 0.5rem;">✅ Zero external dependencies</li>
+                </ul>
+            </section>
+
+            <section class="section">
+                <h2>Contributing</h2>
+                <p>dotsnapshot is open source and welcomes contributions! Check out the <a href="https://github.com/tomerlichtash/dotsnapshot" class="github-link">GitHub repository</a> to:</p>
+                <ul style="margin-top: 1rem;">
+                    <li>Report bugs or request features</li>
+                    <li>Submit pull requests</li>
+                    <li>Add new plugins</li>
+                    <li>Improve documentation</li>
+                </ul>
+            </section>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>Built with ❤️ by <a href="https://github.com/tomerlichtash" class="github-link">Tomer Lichtash</a></p>
+            <p>Licensed under MIT • <a href="https://github.com/tomerlichtash/dotsnapshot" class="github-link">Source Code</a></p>
+        </div>
+    </footer>
+</body>
+</html>
