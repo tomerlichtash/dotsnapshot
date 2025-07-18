@@ -1,3 +1,9 @@
+## [1.4.0](https://github.com/tomerlichtash/dotsnapshot/compare/v1.3.2...v1.4.0) (2025-07-18)
+
+### Features
+
+* Improve README description and remove backup file ([#21](https://github.com/tomerlichtash/dotsnapshot/issues/21)) ([4645017](https://github.com/tomerlichtash/dotsnapshot/commit/464501725926b8dd286ca09b288ad9d55e46a4d2))
+
 ## [1.3.2](https://github.com/tomerlichtash/dotsnapshot/compare/v1.3.1...v1.3.2) (2025-07-18)
 
 ### Bug Fixes
