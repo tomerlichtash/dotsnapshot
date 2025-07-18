@@ -43,6 +43,10 @@ struct Args {
     /// List available plugins
     #[arg(short, long)]
     list: bool,
+
+    /// Show detailed information about the tool
+    #[arg(long)]
+    info: bool,
 }
 
 fn create_subscriber(
@@ -189,6 +193,25 @@ async fn list_plugins() {
 async fn main() -> Result<()> {
     let start_time = Instant::now();
     let args = Args::parse();
+
+    // Handle --info flag early
+    if args.info {
+        println!("🔧 dotsnapshot v{}", env!("CARGO_PKG_VERSION"));
+        println!("📝 {}", env!("CARGO_PKG_DESCRIPTION"));
+        println!("🌐 Repository: {}", env!("CARGO_PKG_REPOSITORY"));
+        println!("📄 License: {}", env!("CARGO_PKG_LICENSE"));
+        println!("🏷️  Keywords: dotfiles, backup, configuration, snapshots, cli");
+        println!();
+        println!("📦 Supported Plugins:");
+        println!("  • Homebrew Brewfile generation");
+        println!("  • VSCode settings, keybindings, and extensions");
+        println!("  • Cursor settings, keybindings, and extensions");
+        println!("  • NPM global packages and configuration");
+        println!();
+        println!("🚀 Usage: dotsnapshot [OPTIONS]");
+        println!("   Use --help for detailed options");
+        return Ok(());
+    }
 
     // Handle --list flag early
     if args.list {
