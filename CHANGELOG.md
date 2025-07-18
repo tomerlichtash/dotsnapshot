@@ -1,3 +1,9 @@
+## [1.4.1](https://github.com/tomerlichtash/dotsnapshot/compare/v1.4.0...v1.4.1) (2025-07-18)
+
+### Bug Fixes
+
+* Restore correct rust-version and improve semantic-release pattern ([#23](https://github.com/tomerlichtash/dotsnapshot/issues/23)) ([1374cce](https://github.com/tomerlichtash/dotsnapshot/commit/1374cceeff7b936cdb46f7d5fca3b88ca687174b))
+
 ## [1.4.0](https://github.com/tomerlichtash/dotsnapshot/compare/v1.3.2...v1.4.0) (2025-07-18)
 
 ### Features
