@@ -1,3 +1,9 @@
+## [1.2.1](https://github.com/tomerlichtash/dotsnapshot/compare/v1.2.0...v1.2.1) (2025-07-18)
+
+### Bug Fixes
+
+* Update Cargo.toml and Homebrew formula for v1.2.0 ([#15](https://github.com/tomerlichtash/dotsnapshot/issues/15)) ([1dd374b](https://github.com/tomerlichtash/dotsnapshot/commit/1dd374b7aa95feca177f8fd2489b586c431e3c58)), closes [#14](https://github.com/tomerlichtash/dotsnapshot/issues/14)
+
 ## [1.2.0](https://github.com/tomerlichtash/dotsnapshot/compare/v1.1.0...v1.2.0) (2025-07-18)
 
 ### Features
