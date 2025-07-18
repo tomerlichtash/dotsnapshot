@@ -2,34 +2,60 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [ main ]
+  workflow_dispatch:
 
-env:
-  CARGO_TERM_COLOR: always
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
 
 jobs:
-  create-release:
-    name: Create Release
+  release:
+    name: Semantic Release
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
+      new_release_version: ${{ steps.semantic.outputs.new_release_version }}
+      upload_url: ${{ steps.semantic.outputs.upload_url }}
+    
     steps:
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install semantic-release
+      run: |
+        npm install -g semantic-release
+        npm install -g @semantic-release/changelog
+        npm install -g @semantic-release/git
+        npm install -g @semantic-release/github
+        npm install -g @semantic-release/exec
+        npm install -g conventional-changelog-conventionalcommits
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Run semantic release
+      id: semantic
+      run: npx semantic-release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        draft: false
-        prerelease: false
 
-  build-and-upload:
-    name: Build and Upload
-    needs: create-release
+  build-release:
+    name: Build Release Binaries
     runs-on: ${{ matrix.os }}
+    needs: release
+    if: needs.release.outputs.new_release_published == 'true'
+    
     strategy:
       matrix:
         include:
@@ -48,40 +74,63 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             artifact_name: dotsnapshot
-            asset_name: dotsnapshot-macos-aarch64
+            asset_name: dotsnapshot-macos-arm64
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        ref: v${{ needs.release.outputs.new_release_version }}
 
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
       with:
         targets: ${{ matrix.target }}
 
+    - name: Cache Cargo dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/registry/git/db/
+          target/
+        key: ${{ runner.os }}-${{ matrix.target }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
+
     - name: Build release binary
       run: cargo build --release --target ${{ matrix.target }}
 
-    - name: Upload Release Asset
-      uses: actions/upload-release-asset@v1
+    - name: Upload release binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.asset_name }}
+        path: target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+
+    - name: Upload to GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v${{ needs.release.outputs.new_release_version }}
+        files: target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+        name: ${{ matrix.asset_name }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ needs.create-release.outputs.upload_url }}
-        asset_path: ./target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
-        asset_name: ${{ matrix.asset_name }}
-        asset_content_type: application/octet-stream
 
   publish-crate:
     name: Publish to crates.io
-    needs: build-and-upload
+    needs: [release, build-release]
     runs-on: ubuntu-latest
+    if: needs.release.outputs.new_release_published == 'true'
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        ref: v${{ needs.release.outputs.new_release_version }}
 
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
 
     - name: Publish to crates.io
       run: cargo publish --token ${{ secrets.CRATES_IO_TOKEN }}
+      continue-on-error: true
