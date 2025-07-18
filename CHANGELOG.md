@@ -1,3 +1,9 @@
+## [1.1.0](https://github.com/tomerlichtash/dotsnapshot/compare/v1.0.0...v1.1.0) (2025-07-18)
+
+### Features
+
+* Add detailed info command and fix Cargo.toml issues ([#11](https://github.com/tomerlichtash/dotsnapshot/issues/11)) ([b785130](https://github.com/tomerlichtash/dotsnapshot/commit/b785130a117293a94b24a38b2a845fd19c7a8477))
+
 ## 1.0.0 (2025-07-18)
 
 ### ⚠ BREAKING CHANGES
