@@ -17,14 +17,14 @@ impl NpmGlobalPackagesPlugin {
     async fn get_global_packages(&self) -> Result<String> {
         let output = tokio::task::spawn_blocking(|| {
             Command::new("npm")
-                .args(&["list", "-g", "--depth=0"])
+                .args(["list", "-g", "--depth=0"])
                 .output()
         })
         .await??;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(anyhow::anyhow!("npm list -g failed: {}", stderr));
+            return Err(anyhow::anyhow!("npm list -g failed: {stderr}"));
         }
 
         let packages =

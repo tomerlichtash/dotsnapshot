@@ -1,7 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 /// Represents the result of a plugin execution
@@ -33,7 +33,7 @@ pub trait Plugin: Send + Sync {
     async fn validate(&self) -> Result<()>;
 
     /// Returns the expected output file path for this plugin
-    fn output_path(&self, base_path: &PathBuf) -> PathBuf {
+    fn output_path(&self, base_path: &Path) -> PathBuf {
         base_path.join(self.filename())
     }
 }

@@ -3,9 +3,7 @@ use clap::Parser;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
-use time;
 use tracing::{error, info};
-use tracing_subscriber;
 
 mod config;
 mod core;
@@ -96,8 +94,7 @@ fn create_subscriber(
                     .unwrap();
             if time_format != "[year]-[month]-[day] [hour]:[minute]:[second]" {
                 eprintln!(
-                    "Custom time format '{}' not supported. Using default format.",
-                    time_format
+                    "Custom time format '{time_format}' not supported. Using default format."
                 );
             }
             Box::new(
@@ -153,7 +150,7 @@ async fn list_plugins() {
     if !homebrew_plugins.is_empty() {
         println!("🍺 Homebrew:");
         for (name, filename, description) in homebrew_plugins {
-            println!("  {:<20} -> {:<20} {}", name, filename, description);
+            println!("  {name:<20} -> {filename:<20} {description}");
         }
         println!();
     }
@@ -161,7 +158,7 @@ async fn list_plugins() {
     if !vscode_plugins.is_empty() {
         println!("💻 VSCode:");
         for (name, filename, description) in vscode_plugins {
-            println!("  {:<20} -> {:<20} {}", name, filename, description);
+            println!("  {name:<20} -> {filename:<20} {description}");
         }
         println!();
     }
@@ -169,7 +166,7 @@ async fn list_plugins() {
     if !cursor_plugins.is_empty() {
         println!("✏️  Cursor:");
         for (name, filename, description) in cursor_plugins {
-            println!("  {:<20} -> {:<20} {}", name, filename, description);
+            println!("  {name:<20} -> {filename:<20} {description}");
         }
         println!();
     }
@@ -177,7 +174,7 @@ async fn list_plugins() {
     if !npm_plugins.is_empty() {
         println!("📦 NPM:");
         for (name, filename, description) in npm_plugins {
-            println!("  {:<20} -> {:<20} {}", name, filename, description);
+            println!("  {name:<20} -> {filename:<20} {description}");
         }
         println!();
     }

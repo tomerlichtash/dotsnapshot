@@ -16,12 +16,12 @@ impl NpmConfigPlugin {
     /// Gets NPM configuration
     async fn get_npm_config(&self) -> Result<String> {
         let output =
-            tokio::task::spawn_blocking(|| Command::new("npm").args(&["config", "list"]).output())
+            tokio::task::spawn_blocking(|| Command::new("npm").args(["config", "list"]).output())
                 .await??;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(anyhow::anyhow!("npm config list failed: {}", stderr));
+            return Err(anyhow::anyhow!("npm config list failed: {stderr}"));
         }
 
         let config = String::from_utf8(output.stdout)

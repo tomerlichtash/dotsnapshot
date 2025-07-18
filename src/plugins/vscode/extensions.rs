@@ -17,14 +17,14 @@ impl VSCodeExtensionsPlugin {
     async fn get_extensions(&self) -> Result<String> {
         let output = tokio::task::spawn_blocking(|| {
             Command::new("code")
-                .args(&["--list-extensions", "--show-versions"])
+                .args(["--list-extensions", "--show-versions"])
                 .output()
         })
         .await??;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(anyhow::anyhow!("code --list-extensions failed: {}", stderr));
+            return Err(anyhow::anyhow!("code --list-extensions failed: {stderr}"));
         }
 
         let extensions = String::from_utf8(output.stdout)

@@ -103,9 +103,9 @@ impl Config {
     /// Expand tilde (~) to home directory if present
     fn expand_tilde(path: &Path) -> PathBuf {
         if let Some(path_str) = path.to_str() {
-            if path_str.starts_with("~/") {
+            if let Some(stripped) = path_str.strip_prefix("~/") {
                 if let Some(home_dir) = dirs::home_dir() {
-                    return home_dir.join(&path_str[2..]);
+                    return home_dir.join(stripped);
                 }
             } else if path_str == "~" {
                 if let Some(home_dir) = dirs::home_dir() {

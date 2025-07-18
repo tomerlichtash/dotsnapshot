@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::fs as async_fs;
 use tracing::{error, info, warn};
@@ -104,7 +104,7 @@ impl SnapshotExecutor {
     /// Executes a single plugin with checksum optimization
     async fn execute_plugin(
         plugin: Arc<dyn Plugin>,
-        snapshot_dir: &PathBuf,
+        snapshot_dir: &Path,
         snapshot_manager: &SnapshotManager,
     ) -> Result<PluginResult> {
         let plugin_name = plugin.name().to_string();
@@ -118,7 +118,7 @@ impl SnapshotExecutor {
                 content: String::new(),
                 checksum: String::new(),
                 success: false,
-                error_message: Some(format!("Validation failed: {}", e)),
+                error_message: Some(format!("Validation failed: {e}")),
             });
         }
 
@@ -170,7 +170,7 @@ impl SnapshotExecutor {
         let output_path = plugin.output_path(snapshot_dir);
         async_fs::write(&output_path, &content)
             .await
-            .context(format!("Failed to write output for plugin {}", plugin_name))?;
+            .context(format!("Failed to write output for plugin {plugin_name}"))?;
 
         info!("Plugin {} completed successfully", plugin_name);
 

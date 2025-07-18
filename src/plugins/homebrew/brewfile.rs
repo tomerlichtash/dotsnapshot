@@ -24,7 +24,7 @@ impl HomebrewBrewfilePlugin {
         // Run brew bundle dump to create the Brewfile
         let output = tokio::task::spawn_blocking(move || {
             Command::new("brew")
-                .args(&["bundle", "dump", "--force"])
+                .args(["bundle", "dump", "--force"])
                 .current_dir(&temp_dir_clone)
                 .output()
         })
@@ -74,7 +74,7 @@ impl Plugin for HomebrewBrewfilePlugin {
                     Ok("# No Brewfile content generated\n".to_string())
                 }
             }
-            Err(e) => Ok(format!("# Error generating Brewfile: {}\n", e)),
+            Err(e) => Ok(format!("# Error generating Brewfile: {e}\n")),
         }
     }
 
@@ -84,7 +84,7 @@ impl Plugin for HomebrewBrewfilePlugin {
 
         // Check if brew bundle is available
         let output = tokio::task::spawn_blocking(|| {
-            Command::new("brew").args(&["bundle", "--help"]).output()
+            Command::new("brew").args(["bundle", "--help"]).output()
         })
         .await??;
 

@@ -17,7 +17,7 @@ impl CursorExtensionsPlugin {
     async fn get_extensions(&self) -> Result<String> {
         let output = tokio::task::spawn_blocking(|| {
             Command::new("cursor")
-                .args(&["--list-extensions", "--show-versions"])
+                .args(["--list-extensions", "--show-versions"])
                 .output()
         })
         .await??;
@@ -25,8 +25,7 @@ impl CursorExtensionsPlugin {
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(anyhow::anyhow!(
-                "cursor --list-extensions failed: {}",
-                stderr
+                "cursor --list-extensions failed: {stderr}"
             ));
         }
 
