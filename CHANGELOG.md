@@ -1,3 +1,9 @@
+## [1.4.2](https://github.com/tomerlichtash/dotsnapshot/compare/v1.4.1...v1.4.2) (2025-07-18)
+
+### Bug Fixes
+
+* Add bash shell specification for Windows packaging steps ([#24](https://github.com/tomerlichtash/dotsnapshot/issues/24)) ([5635da0](https://github.com/tomerlichtash/dotsnapshot/commit/5635da0eef3081d5d3d0be37045a95090b36fe47))
+
 ## [1.4.1](https://github.com/tomerlichtash/dotsnapshot/compare/v1.4.0...v1.4.1) (2025-07-18)
 
 ### Bug Fixes
