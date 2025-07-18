@@ -1,20 +1,20 @@
 class Dotsnapshot < Formula
   desc "A CLI utility to create snapshots of dotfiles and configuration"
   homepage "https://github.com/tomerlichtash/dotsnapshot"
-  version "1.1.0"
+  version "1.2.0"
   
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/tomerlichtash/dotsnapshot/releases/download/v1.1.0/dotsnapshot-macos-arm64.tar.gz"
-      sha256 "REPLACE_WITH_ACTUAL_SHA256_FOR_ARM64"
+      url "https://github.com/tomerlichtash/dotsnapshot/releases/download/v1.2.0/dotsnapshot-macos-arm64.tar.gz"
+      sha256 "aa506a303f3eee70e8eb15253f3acea87c6f653216ede98eef8ef4d7eb5ee66f"
     else
-      url "https://github.com/tomerlichtash/dotsnapshot/releases/download/v1.1.0/dotsnapshot-macos-x86_64.tar.gz"
+      url "https://github.com/tomerlichtash/dotsnapshot/releases/download/v1.2.0/dotsnapshot-macos-x86_64.tar.gz"
       sha256 "REPLACE_WITH_ACTUAL_SHA256_FOR_X86_64"
     end
   end
 
   on_linux do
-    url "https://github.com/tomerlichtash/dotsnapshot/releases/download/v1.1.0/dotsnapshot-linux-x86_64.tar.gz"
+    url "https://github.com/tomerlichtash/dotsnapshot/releases/download/v1.2.0/dotsnapshot-linux-x86_64.tar.gz"
     sha256 "REPLACE_WITH_ACTUAL_SHA256_FOR_LINUX"
   end
 
@@ -33,11 +33,11 @@ class Dotsnapshot < Formula
 
   test do
     # Test version command
-    assert_match "dotsnapshot 1.1.0", shell_output("#{bin}/dotsnapshot --version")
+    assert_match "dotsnapshot 1.2.0", shell_output("#{bin}/dotsnapshot --version")
     
     # Test info command
     output = shell_output("#{bin}/dotsnapshot --info")
-    assert_match "dotsnapshot v1.1.0", output
+    assert_match "dotsnapshot v1.2.0", output
     assert_match "A CLI utility to create snapshots of dotfiles and configuration", output
     
     # Test list command
