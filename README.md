@@ -31,8 +31,74 @@ A Rust CLI utility that creates snapshots of dotfiles and configuration for seam
 
 ## Installation
 
+### From GitHub Releases (Recommended)
+
+Download the latest release for your platform from the [releases page](https://github.com/tomerlichtash/dotsnapshot/releases):
+
+**macOS:**
 ```bash
+# Intel Mac
+curl -L -o dotsnapshot-macos-x86_64.tar.gz https://github.com/tomerlichtash/dotsnapshot/releases/latest/download/dotsnapshot-macos-x86_64.tar.gz
+tar -xzf dotsnapshot-macos-x86_64.tar.gz
+sudo mv dotsnapshot /usr/local/bin/
+
+# Apple Silicon Mac
+curl -L -o dotsnapshot-macos-arm64.tar.gz https://github.com/tomerlichtash/dotsnapshot/releases/latest/download/dotsnapshot-macos-arm64.tar.gz
+tar -xzf dotsnapshot-macos-arm64.tar.gz
+sudo mv dotsnapshot /usr/local/bin/
+```
+
+**Linux:**
+```bash
+curl -L -o dotsnapshot-linux-x86_64.tar.gz https://github.com/tomerlichtash/dotsnapshot/releases/latest/download/dotsnapshot-linux-x86_64.tar.gz
+tar -xzf dotsnapshot-linux-x86_64.tar.gz
+sudo mv dotsnapshot /usr/local/bin/
+```
+
+**Windows:**
+```bash
+curl -L -o dotsnapshot-windows-x86_64.exe.zip https://github.com/tomerlichtash/dotsnapshot/releases/latest/download/dotsnapshot-windows-x86_64.exe.zip
+# Extract and add to PATH
+```
+
+### Via Homebrew (macOS/Linux)
+
+```bash
+# Add tap (when available)
+brew tap tomerlichtash/tools
+brew install dotsnapshot
+```
+
+### From Source
+
+```bash
+git clone https://github.com/tomerlichtash/dotsnapshot.git
+cd dotsnapshot
 cargo build --release
+sudo mv target/release/dotsnapshot /usr/local/bin/
+```
+
+### Shell Completions
+
+After installation, you can generate shell completions:
+
+```bash
+# Bash
+dotsnapshot --completions bash | sudo tee /usr/local/etc/bash_completion.d/dotsnapshot
+
+# Zsh
+dotsnapshot --completions zsh | sudo tee /usr/local/share/zsh/site-functions/_dotsnapshot
+
+# Fish
+dotsnapshot --completions fish | sudo tee /usr/local/share/fish/vendor_completions.d/dotsnapshot.fish
+```
+
+### Man Page
+
+Generate and install the man page:
+
+```bash
+dotsnapshot --man | sudo tee /usr/local/share/man/man1/dotsnapshot.1
 ```
 
 ## Usage
