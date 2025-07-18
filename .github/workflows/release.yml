@@ -16,9 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     outputs:
+      new_release_created: ${{ steps.check_release.outputs.new_release_created }}
+      release_tag: ${{ steps.check_release.outputs.release_tag }}
       new_release_published: ${{ steps.semantic.outputs.new_release_published }}
       new_release_version: ${{ steps.semantic.outputs.new_release_version }}
-      upload_url: ${{ steps.semantic.outputs.upload_url }}
     
     steps:
     - name: Checkout code
@@ -49,12 +50,41 @@ jobs:
       run: npx semantic-release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Check if release was created
+      id: check_release
+      run: |
+        # Get the latest release and check if it was created in the last minute
+        LATEST_RELEASE=$(gh release list --limit 1 --json createdAt,tagName | jq -r '.[0]')
+        CREATED_AT=$(echo $LATEST_RELEASE | jq -r '.createdAt')
+        TAG_NAME=$(echo $LATEST_RELEASE | jq -r '.tagName')
+        
+        # Check if release was created in the last 2 minutes
+        if [ -n "$CREATED_AT" ] && [ "$CREATED_AT" != "null" ]; then
+          CREATED_TIMESTAMP=$(date -d "$CREATED_AT" +%s)
+          CURRENT_TIMESTAMP=$(date +%s)
+          DIFF=$((CURRENT_TIMESTAMP - CREATED_TIMESTAMP))
+          
+          if [ $DIFF -lt 120 ]; then
+            echo "new_release_created=true" >> $GITHUB_OUTPUT
+            echo "release_tag=$TAG_NAME" >> $GITHUB_OUTPUT
+            echo "Recent release found: $TAG_NAME"
+          else
+            echo "new_release_created=false" >> $GITHUB_OUTPUT
+            echo "No recent release found"
+          fi
+        else
+          echo "new_release_created=false" >> $GITHUB_OUTPUT
+          echo "No release found"
+        fi
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-release:
     name: Build Release Binaries
     runs-on: ${{ matrix.os }}
     needs: release
-    if: needs.release.outputs.new_release_published == 'true'
+    if: needs.release.outputs.new_release_created == 'true'
     
     strategy:
       matrix:
@@ -80,7 +110,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        ref: v${{ needs.release.outputs.new_release_version }}
+        ref: ${{ needs.release.outputs.release_tag }}
 
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
@@ -129,7 +159,7 @@ jobs:
     - name: Upload to GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v${{ needs.release.outputs.new_release_version }}
+        tag_name: ${{ needs.release.outputs.release_tag }}
         files: |
           ${{ matrix.asset_name }}.*
       env:
@@ -139,13 +169,13 @@ jobs:
     name: Publish to crates.io
     needs: [release, build-release]
     runs-on: ubuntu-latest
-    if: needs.release.outputs.new_release_published == 'true'
+    if: needs.release.outputs.new_release_created == 'true'
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        ref: v${{ needs.release.outputs.new_release_version }}
+        ref: ${{ needs.release.outputs.release_tag }}
 
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
