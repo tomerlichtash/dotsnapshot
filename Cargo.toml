@@ -2,7 +2,7 @@
 name = "dotsnapshot"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.78"
+rust-version = "1.81"
 description = "A CLI utility to create snapshots of dotfiles and configuration for seamless backup and restoration"
 license = "MIT"
 repository = "https://github.com/tomerlichtash/dotsnapshot"
