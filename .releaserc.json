@@ -1,21 +1,40 @@
 {
-  "branches": ["main"],
-  "preset": "conventionalcommits",
+  "branches": [
+    "main",
+    { "name": "next", "prerelease": true },
+    { "name": "beta", "prerelease": true },
+    { "name": "alpha", "prerelease": true }
+  ],
   "plugins": [
     "@semantic-release/commit-analyzer",
     "@semantic-release/release-notes-generator",
-    "@semantic-release/changelog",
+    [
+      "@semantic-release/changelog",
+      {
+        "changelogFile": "CHANGELOG.md"
+      }
+    ],
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "sed -i '/^name = \"dotsnapshot\"/,/^edition = \"2021\"/ s/^version = \".*\"/version = \"${nextRelease.version}\"/' Cargo.toml && cargo check",
-        "publishCmd": ".github/scripts/setup-release-branch.sh '${nextRelease.version}' && .github/scripts/create-release-pr.sh '${nextRelease.version}' '${nextRelease.notes}'"
+        "prepareCmd": "awk -v ver=\"${nextRelease.version}\" '/^version = / { sub(/= \"[^\"]*\"/, \"= \\"\" ver \"\\"\"); print; next } {print}' Cargo.toml > Cargo.toml.new && mv Cargo.toml.new Cargo.toml && cargo update --package dotsnapshot --precise \"${nextRelease.version}\""
       }
     ],
     [
       "@semantic-release/github",
       {
-        "assets": []
+        "assets": [
+          {
+            "path": "release-assets/*"
+          }
+        ]
+      }
+    ],
+    [
+      "@semantic-release/git",
+      {
+        "assets": ["Cargo.toml", "Cargo.lock", "CHANGELOG.md"],
+        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
       }
     ]
   ]
