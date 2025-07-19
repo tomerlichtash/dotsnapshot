@@ -1,3 +1,11 @@
+## [1.2.3] - 2025-07-20
+
+- fix: Prevent sed from matching rust-version field (#67)
+- Release v1.2.2 (#66)
+- fix: Exclude release PRs from semantic commit validation (#65)
+- fix: Prevent release script from corrupting dependency versions (#63)
+- feat: Implement simplified branch-based release workflow (#62)
+
 ## [1.2.2] - 2025-07-20
 
 - fix: Exclude release PRs from semantic commit validation (#65)
