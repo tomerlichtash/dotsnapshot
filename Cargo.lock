@@ -310,7 +310,7 @@ dependencies = [
 
 [[package]]
 name = "dotsnapshot"
-version = "1.7.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "async-trait",
