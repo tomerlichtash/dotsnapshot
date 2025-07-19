@@ -1,3 +1,13 @@
+## [1.2.0](https://github.com/tomerlichtash/dotsnapshot/compare/v1.1.0...v1.2.0) (2025-07-19)
+
+### Features
+
+* Implement static plugin  ([#58](https://github.com/tomerlichtash/dotsnapshot/issues/58)) ([21c665b](https://github.com/tomerlichtash/dotsnapshot/commit/21c665b57692a7747c9bfdb188c85097d4ab43f7))
+
+### Performance Improvements
+
+* Optimize security audit job performance ([#57](https://github.com/tomerlichtash/dotsnapshot/issues/57)) ([5abd299](https://github.com/tomerlichtash/dotsnapshot/commit/5abd29998e96e8a7fcd50c149e5e85c4a8d9413c))
+
 ## [1.7.0](https://github.com/tomerlichtash/dotsnapshot/compare/v1.6.0...v1.7.0) (2025-07-19)
 
 ### Features
