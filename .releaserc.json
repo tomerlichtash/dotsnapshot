@@ -1,5 +1,5 @@
 {
-  "branches": ["stable"],
+  "branches": ["main"],
   "preset": "conventionalcommits",
   "plugins": [
     "@semantic-release/commit-analyzer",
@@ -8,14 +8,8 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "sed -i '/^name = \"dotsnapshot\"/,/^edition = \"2021\"/ s/^version = \".*\"/version = \"${nextRelease.version}\"/' Cargo.toml && cargo check"
-      }
-    ],
-    [
-      "@semantic-release/git",
-      {
-        "assets": ["CHANGELOG.md", "Cargo.toml", "Cargo.lock"],
-        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+        "prepareCmd": "sed -i '/^name = \"dotsnapshot\"/,/^edition = \"2021\"/ s/^version = \".*\"/version = \"${nextRelease.version}\"/' Cargo.toml && cargo check",
+        "publishCmd": ".github/scripts/setup-release-branch.sh '${nextRelease.version}' && .github/scripts/create-release-pr.sh '${nextRelease.version}' '${nextRelease.notes}'"
       }
     ],
     [
