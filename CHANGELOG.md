@@ -1,15 +1,3 @@
-## [1.6.0](https://github.com/tomerlichtash/dotsnapshot/compare/v1.5.0...v1.6.0) (2025-07-19)
-
-### Features
-
-* Add GitHub Pages documentation site ([#27](https://github.com/tomerlichtash/dotsnapshot/issues/27)) ([3ff8958](https://github.com/tomerlichtash/dotsnapshot/commit/3ff89582adbc9cedfc0b2130e41ab70b46502bd9))
-* Revert to main branch releases with RELEASE keyword [RELEASE] ([#40](https://github.com/tomerlichtash/dotsnapshot/issues/40)) ([b3a89af](https://github.com/tomerlichtash/dotsnapshot/commit/b3a89af9b33658da6a9e080fe15828a614bcc6d9))
-* Set up stable branch for controlled releases ([#30](https://github.com/tomerlichtash/dotsnapshot/issues/30)) ([9460000](https://github.com/tomerlichtash/dotsnapshot/commit/94600009129a4cde54c2b4ced1a9486e800e34fe))
-
-### Bug Fixes
-
-* Add cargo check to semantic-release to update Cargo.lock ([#34](https://github.com/tomerlichtash/dotsnapshot/issues/34)) ([9118166](https://github.com/tomerlichtash/dotsnapshot/commit/9118166523e4f796a95aac8ae881818bc94860bb))
-
 ## [1.7.0](https://github.com/tomerlichtash/dotsnapshot/compare/v1.6.0...v1.7.0) (2025-07-19)
 
 ### Features
