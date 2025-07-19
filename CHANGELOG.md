@@ -1,3 +1,9 @@
+## [1.2.2] - 2025-07-20
+
+- fix: Exclude release PRs from semantic commit validation (#65)
+- fix: Prevent release script from corrupting dependency versions (#63)
+- feat: Implement simplified branch-based release workflow (#62)
+
 ## [1.7.0](https://github.com/tomerlichtash/dotsnapshot/compare/v1.6.0...v1.7.0) (2025-07-19)
 
 ### Features
