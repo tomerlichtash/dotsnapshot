@@ -1,2 +1,8 @@
 /target
 .DS_Store
+
+# Build artifacts
+*.tar.gz
+*.sha256
+*.zip
+dotsnapshot-*
