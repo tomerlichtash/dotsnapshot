@@ -45,8 +45,8 @@ jobs:
 
     - name: Update version for release (temporary)
       run: |
-        # Update version temporarily for this build only
-        sed -i "s/version = \".*\"/version = \"${{ steps.version.outputs.version }}\"/" Cargo.toml
+        # Update version temporarily for this build only using awk (more reliable than sed)
+        awk -v ver="${{ steps.version.outputs.version }}" '/^version = / { sub(/= "[^"]*"/, "= \"" ver "\""); print; next } {print}' Cargo.toml > Cargo.toml.new && mv Cargo.toml.new Cargo.toml
         cargo update --package dotsnapshot --precise "${{ steps.version.outputs.version }}"
         
     - name: Build release binary
@@ -136,8 +136,8 @@ jobs:
 
     - name: Update version for release
       run: |
-        # Update version to match the release
-        sed -i "s/version = \".*\"/version = \"${{ needs.release.outputs.new_release_version }}\"/" Cargo.toml
+        # Update version to match the release (only package version, not rust-version)
+        sed -i '/^\[package\]/,/^\[/ s/^version = ".*"$/version = "${{ needs.release.outputs.new_release_version }}"/' Cargo.toml
         cargo update --package dotsnapshot --precise "${{ needs.release.outputs.new_release_version }}"
 
     - name: Cache Cargo dependencies
@@ -223,8 +223,8 @@ jobs:
         NEXT_VERSION="$major.$minor.$next_patch"
         echo "Next development version: $NEXT_VERSION"
         
-        # Update Cargo.toml
-        sed -i "s/^version = \".*\"/version = \"$NEXT_VERSION\"/" Cargo.toml
+        # Update Cargo.toml (only package version, not rust-version)
+        sed -i '/^\[package\]/,/^\[/ s/^version = ".*"$/version = "'$NEXT_VERSION'"/' Cargo.toml
         
         # Update Cargo.lock
         cargo update --package dotsnapshot --precise "$NEXT_VERSION"
