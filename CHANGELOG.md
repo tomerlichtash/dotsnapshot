@@ -1,3 +1,9 @@
+## [1.2.1](https://github.com/tomerlichtash/dotsnapshot/compare/v1.2.0...v1.2.1) (2025-07-19)
+
+### Bug Fixes
+
+* Trigger v1.2.1 release with correct binary version [RELEASE] ([#61](https://github.com/tomerlichtash/dotsnapshot/issues/61)) ([24473e5](https://github.com/tomerlichtash/dotsnapshot/commit/24473e5c79b398b3d96cbba6511d01476b24183b))
+
 ## [1.7.0](https://github.com/tomerlichtash/dotsnapshot/compare/v1.6.0...v1.7.0) (2025-07-19)
 
 ### Features
