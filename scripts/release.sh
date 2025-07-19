@@ -78,39 +78,46 @@ if [ "$BINARY_VERSION" != "$VERSION" ]; then
 fi
 log_success "Binary version verified: $BINARY_VERSION"
 
-# 4. Generate changelog for this release
-log_info "Generating release notes"
+# 4. Update CHANGELOG.md
+log_info "Updating CHANGELOG.md"
 LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 if [ -n "$LAST_TAG" ]; then
     log_info "Generating changelog since $LAST_TAG"
-    echo "# Release v$VERSION" > RELEASE_NOTES_TEMP.md
-    echo "" >> RELEASE_NOTES_TEMP.md
-    git log --oneline "${LAST_TAG}..HEAD" --pretty=format:"- %s" >> RELEASE_NOTES_TEMP.md
-    echo "" >> RELEASE_NOTES_TEMP.md
+    # Generate changes for this release
+    CHANGES=$(git log --oneline "${LAST_TAG}..HEAD" --pretty=format:"- %s")
 else
-    log_warning "No previous tags found, creating initial release notes"
-    echo "# Release v$VERSION" > RELEASE_NOTES_TEMP.md
-    echo "" >> RELEASE_NOTES_TEMP.md
-    echo "Initial release" >> RELEASE_NOTES_TEMP.md
+    log_warning "No previous tags found, creating initial changelog"
+    CHANGES="- Initial release"
 fi
+
+# Update or create CHANGELOG.md
+if [ ! -f "CHANGELOG.md" ]; then
+    echo "# Changelog" > CHANGELOG.md
+    echo "" >> CHANGELOG.md
+    echo "All notable changes to this project will be documented in this file." >> CHANGELOG.md
+    echo "" >> CHANGELOG.md
+fi
+
+# Prepend new version to CHANGELOG.md
+{
+    echo "## [${VERSION}] - $(date +%Y-%m-%d)"
+    echo ""
+    echo "$CHANGES"
+    echo ""
+    cat CHANGELOG.md
+} > CHANGELOG_TEMP.md && mv CHANGELOG_TEMP.md CHANGELOG.md
 
 # 5. Create release branch and PR (no direct main pushes)
 RELEASE_BRANCH="release/v$VERSION"
 log_info "Creating release branch: $RELEASE_BRANCH"
 git checkout -b "$RELEASE_BRANCH"
 
-# Commit version changes
-git add Cargo.toml Cargo.lock
+# Commit version and changelog changes
+git add Cargo.toml Cargo.lock CHANGELOG.md
 git commit -m "chore: Release v$VERSION
 
-Updates version to $VERSION for release"
-
-# Add release notes if they exist
-if [ -f "RELEASE_NOTES_TEMP.md" ]; then
-    mv RELEASE_NOTES_TEMP.md "RELEASE_NOTES_v$VERSION.md"
-    git add "RELEASE_NOTES_v$VERSION.md"
-    git commit -m "docs: Add release notes for v$VERSION"
-fi
+- Update version to $VERSION
+- Update CHANGELOG.md with changes since last release"
 
 # Push release branch
 log_info "Pushing release branch to origin"
@@ -123,17 +130,16 @@ PR_URL=$(gh pr create \
     --body "🚀 Release version $VERSION
 
 ## Changes
-$(cat RELEASE_NOTES_v$VERSION.md | tail -n +3)
+$CHANGES
 
 ## Checklist
 - [x] Version updated in Cargo.toml
 - [x] Cargo.lock updated
+- [x] CHANGELOG.md updated
 - [x] Binary version verified
 - [x] Tests passing
-- [x] Release notes generated
 
-**⚠️ This PR will trigger the release workflow when merged.**" \
-    --label "release")
+**⚠️ This PR will trigger the release workflow when merged.**")
 
 log_success "Release PR created: $PR_URL"
 

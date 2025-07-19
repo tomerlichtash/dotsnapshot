@@ -62,17 +62,30 @@ jobs:
         fi
         echo "✅ Binary version verified: $BINARY_VERSION"
         
-    - name: Generate release notes
+    - name: Extract release notes from CHANGELOG.md
       run: |
-        LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-        if [ -n "$LAST_TAG" ]; then
-          echo "# Release v${{ steps.version.outputs.version }}" > RELEASE_NOTES.md
-          echo "" >> RELEASE_NOTES.md
-          git log --oneline "${LAST_TAG}..HEAD" --pretty=format:"- %s" >> RELEASE_NOTES.md
+        if [ -f "CHANGELOG.md" ]; then
+          # Extract content for this version from CHANGELOG.md
+          awk '/^## \[${{ steps.version.outputs.version }}\]/{flag=1; next} /^## \[/{flag=0} flag' CHANGELOG.md > RELEASE_NOTES.md
+          
+          # If nothing was extracted, fall back to git log
+          if [ ! -s RELEASE_NOTES.md ]; then
+            echo "No changelog entry found, generating from git log"
+            LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+            if [ -n "$LAST_TAG" ]; then
+              git log --oneline "${LAST_TAG}..HEAD" --pretty=format:"- %s" > RELEASE_NOTES.md
+            else
+              echo "Initial release" > RELEASE_NOTES.md
+            fi
+          fi
         else
-          echo "# Release v${{ steps.version.outputs.version }}" > RELEASE_NOTES.md
-          echo "" >> RELEASE_NOTES.md
-          echo "Initial release" >> RELEASE_NOTES.md
+          echo "CHANGELOG.md not found, generating from git log"
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            git log --oneline "${LAST_TAG}..HEAD" --pretty=format:"- %s" > RELEASE_NOTES.md
+          else
+            echo "Initial release" > RELEASE_NOTES.md
+          fi
         fi
         
     - name: Create GitHub Release
