@@ -1,3 +1,9 @@
+## [1.6.1](https://github.com/tomerlichtash/dotsnapshot/compare/v1.6.0...v1.6.1) (2025-07-19)
+
+### Bug Fixes
+
+* Reset all versions to 1.0.0 and delete all tags/releases [RELEASE] ([#54](https://github.com/tomerlichtash/dotsnapshot/issues/54)) ([9d439e4](https://github.com/tomerlichtash/dotsnapshot/commit/9d439e4b3be305b19b12f85780549cd3f0fe1139))
+
 ## [1.7.0](https://github.com/tomerlichtash/dotsnapshot/compare/v1.6.0...v1.7.0) (2025-07-19)
 
 ### Features
