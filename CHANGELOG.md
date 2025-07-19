@@ -1,3 +1,22 @@
+## [1.6.0](https://github.com/tomerlichtash/dotsnapshot/compare/v1.5.0...v1.6.0) (2025-07-19)
+
+### Features
+
+* Add GitHub Pages documentation site ([#27](https://github.com/tomerlichtash/dotsnapshot/issues/27)) ([3ff8958](https://github.com/tomerlichtash/dotsnapshot/commit/3ff89582adbc9cedfc0b2130e41ab70b46502bd9))
+* Revert to main branch releases with RELEASE keyword [RELEASE] ([#40](https://github.com/tomerlichtash/dotsnapshot/issues/40)) ([b3a89af](https://github.com/tomerlichtash/dotsnapshot/commit/b3a89af9b33658da6a9e080fe15828a614bcc6d9))
+* Set up stable branch for controlled releases ([#30](https://github.com/tomerlichtash/dotsnapshot/issues/30)) ([9460000](https://github.com/tomerlichtash/dotsnapshot/commit/94600009129a4cde54c2b4ced1a9486e800e34fe))
+
+### Bug Fixes
+
+* Add cargo check to semantic-release to update Cargo.lock ([#34](https://github.com/tomerlichtash/dotsnapshot/issues/34)) ([9118166](https://github.com/tomerlichtash/dotsnapshot/commit/9118166523e4f796a95aac8ae881818bc94860bb))
+* Add semantic-release tracking commit for v1.7.0 [RELEASE] ([#52](https://github.com/tomerlichtash/dotsnapshot/issues/52)) ([3a6c182](https://github.com/tomerlichtash/dotsnapshot/commit/3a6c182b8ff07b18c82e2b0030f9cf3546689105))
+* Bump v1.7.1 to resolve tagging conflict [RELEASE] ([#51](https://github.com/tomerlichtash/dotsnapshot/issues/51)) ([75e0be3](https://github.com/tomerlichtash/dotsnapshot/commit/75e0be32770be43e6679321cb051aed69c0a418f))
+* Clear GH_TOKEN before gh auth in publishCmd ([#47](https://github.com/tomerlichtash/dotsnapshot/issues/47)) ([c2f0956](https://github.com/tomerlichtash/dotsnapshot/commit/c2f09569714008e98286f43057c8e0ec6b43c17e))
+* Configure semantic-release to work through PRs ([#44](https://github.com/tomerlichtash/dotsnapshot/issues/44)) ([4ad8515](https://github.com/tomerlichtash/dotsnapshot/commit/4ad85154795831d72797a7bc20f25c62b44b5cd0))
+* Remove manual gh auth from publishCmd to use GH_TOKEN [RELEASE] ([#50](https://github.com/tomerlichtash/dotsnapshot/issues/50)) ([4a2fd20](https://github.com/tomerlichtash/dotsnapshot/commit/4a2fd20293e02d700a745b109bedb63c1d6bc47a))
+* Reset semantic-release by deleting conflicting tags [RELEASE] ([#53](https://github.com/tomerlichtash/dotsnapshot/issues/53)) ([9132fcb](https://github.com/tomerlichtash/dotsnapshot/commit/9132fcb59c7218282ab2a3665294da99867fd1dc))
+* Sync main branch to actual v1.7.0 release state ([#42](https://github.com/tomerlichtash/dotsnapshot/issues/42)) ([29e5b15](https://github.com/tomerlichtash/dotsnapshot/commit/29e5b150dedf5f83cf6e1722fe0a7fe5cf58a3d8))
+
 ## [1.7.0](https://github.com/tomerlichtash/dotsnapshot/compare/v1.6.0...v1.7.0) (2025-07-19)
 
 ### Features
