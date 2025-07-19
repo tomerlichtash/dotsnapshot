@@ -1,3 +1,9 @@
+## [1.1.0](https://github.com/tomerlichtash/dotsnapshot/compare/v1.0.0...v1.1.0) (2025-07-19)
+
+### Features
+
+* Add new feature to trigger minor version release [RELEASE] ([#56](https://github.com/tomerlichtash/dotsnapshot/issues/56)) ([f845f75](https://github.com/tomerlichtash/dotsnapshot/commit/f845f75e4377a4a8b508533bdfc396fadb9e43d0))
+
 ## [1.7.0](https://github.com/tomerlichtash/dotsnapshot/compare/v1.6.0...v1.7.0) (2025-07-19)
 
 ### Features
