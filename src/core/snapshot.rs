@@ -50,7 +50,13 @@ impl SnapshotManager {
         snapshot_dir: &Path,
         metadata: &SnapshotMetadata,
     ) -> Result<()> {
-        let metadata_path = snapshot_dir.join("metadata.json");
+        // Create .snapshot subdirectory for metadata files
+        let snapshot_meta_dir = snapshot_dir.join(".snapshot");
+        async_fs::create_dir_all(&snapshot_meta_dir)
+            .await
+            .context("Failed to create .snapshot directory")?;
+
+        let metadata_path = snapshot_meta_dir.join("checksum.json");
         let json = serde_json::to_string_pretty(metadata)?;
 
         async_fs::write(&metadata_path, json)
@@ -62,11 +68,18 @@ impl SnapshotManager {
 
     /// Loads snapshot metadata from a snapshot directory
     pub async fn load_metadata(&self, snapshot_dir: &Path) -> Result<SnapshotMetadata> {
-        let metadata_path = snapshot_dir.join("metadata.json");
-
-        if !metadata_path.exists() {
+        // Try new location first (.snapshot/checksum.json)
+        let new_metadata_path = snapshot_dir.join(".snapshot").join("checksum.json");
+        let old_metadata_path = snapshot_dir.join("metadata.json");
+        
+        let metadata_path = if new_metadata_path.exists() {
+            new_metadata_path
+        } else if old_metadata_path.exists() {
+            // Fallback to old location for backward compatibility
+            old_metadata_path
+        } else {
             return Err(anyhow::anyhow!("Metadata file not found"));
-        }
+        };
 
         let json = async_fs::read_to_string(&metadata_path).await?;
         let metadata: SnapshotMetadata = serde_json::from_str(&json)?;
@@ -125,9 +138,16 @@ impl SnapshotManager {
 
         if let Some(stored_checksum) = metadata.checksums.get(plugin_name) {
             if checksums_equal(checksum, stored_checksum) {
-                let file_path = latest_snapshot.join(filename);
-                if file_path.exists() {
-                    return Ok(Some(file_path));
+                // Try .snapshot subdirectory first (for static plugin and other metadata files)
+                let snapshot_subdir_path = latest_snapshot.join(".snapshot").join(filename);
+                if snapshot_subdir_path.exists() {
+                    return Ok(Some(snapshot_subdir_path));
+                }
+                
+                // Fallback to root directory (for other plugins)
+                let root_path = latest_snapshot.join(filename);
+                if root_path.exists() {
+                    return Ok(Some(root_path));
                 }
             }
         }
@@ -147,11 +167,30 @@ impl SnapshotManager {
             None => return Ok(false),
         };
 
-        let source_file = latest_snapshot.join(filename);
-        let target_file = target_dir.join(filename);
-
-        if source_file.exists() {
-            async_fs::copy(&source_file, &target_file)
+        // Try .snapshot subdirectory first
+        let snapshot_subdir_source = latest_snapshot.join(".snapshot").join(filename);
+        let snapshot_subdir_target = target_dir.join(".snapshot").join(filename);
+        
+        if snapshot_subdir_source.exists() {
+            // Create target .snapshot directory if it doesn't exist
+            if let Some(parent) = snapshot_subdir_target.parent() {
+                async_fs::create_dir_all(parent)
+                    .await
+                    .context("Failed to create .snapshot directory")?;
+            }
+            
+            async_fs::copy(&snapshot_subdir_source, &snapshot_subdir_target)
+                .await
+                .context("Failed to copy file from latest snapshot")?;
+            return Ok(true);
+        }
+        
+        // Fallback to root directory
+        let root_source = latest_snapshot.join(filename);
+        let root_target = target_dir.join(filename);
+        
+        if root_source.exists() {
+            async_fs::copy(&root_source, &root_target)
                 .await
                 .context("Failed to copy file from latest snapshot")?;
             return Ok(true);

@@ -1,0 +1,21 @@
+# Test configuration for dotsnapshot
+output_dir = "~/dotfiles/snapshots"
+include_plugins = ["static"]
+
+[static]
+files = [
+    "~/.gitconfig",
+    "~/.ssh",
+    "/etc/hosts",
+    "~/dev/projects/file-snapshots"
+]
+ignore = [
+    "*.key",
+    "*_rsa",
+    "known_hosts*",
+    ".git",
+    "target"
+]
+
+[logging]
+verbose = true

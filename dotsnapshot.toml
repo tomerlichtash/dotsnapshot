@@ -1,19 +1,33 @@
-# Dotsnapshot Configuration
+# dotsnapshot configuration file
+# This file configures the behavior of the dotsnapshot tool
 
-# Output directory for snapshots
-output_dir = "~/tmp/snapshots"
+# Output directory for snapshots (default: ./snapshots)
+output_dir = "./.snapshots"
 
 # Specific plugins to include (if not specified, all plugins run)
-# include_plugins = ["homebrew", "vscode"]
+# Available plugins: homebrew, vscode, cursor, npm, static
+# include_plugins = ["homebrew", "vscode", "static"]
 
+# Static plugin configuration
+[static]
+# files = [
+#   "~/.zshrc",
+# ]
+# Glob patterns to ignore when copying files/directories
+# ignore = [
+#   ".git",           # Ignore all .git directories
+#   "target",         # Ignore Rust build directories
+#   "node_modules",   # Ignore Node.js dependencies
+#   "*.key",          # Ignore private key files
+#   "*_rsa",          # Ignore RSA private keys
+#   "known_hosts*",   # Ignore SSH known hosts files
+#   ".DS_Store",      # Ignore macOS metadata files
+# ]
+
+# Logging configuration
 [logging]
 # Enable verbose logging by default
 verbose = true
 
 # Time format for log timestamps (uses time crate format syntax)
-# Default: "[year]-[month]-[day] [hour]:[minute]:[second]"
-# Examples:
-# - "[hour]:[minute]:[second]" (time only)
-# - "[month]-[day] [hour]:[minute]" (short date + time)
-# - "[year]/[month]/[day] [hour]:[minute]:[second]" (alternative date format)
 time_format = "[year]-[month]-[day] [hour]:[minute]:[second]"
