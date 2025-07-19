@@ -55,10 +55,35 @@
 
 ## Release Process
 
-- Development happens on `main` via PRs
-- Releases trigger from `main` when PR title contains **"RELEASE"**
-- Only PRs with "RELEASE" in title will trigger semantic-release
-- Example: `feat: Add new feature [RELEASE]`
+**Simplified Branch-Based Release Workflow:**
+
+1. **Use Release Script (Recommended)**
+   ```bash
+   ./scripts/release.sh 1.3.0
+   ```
+   
+   This script automatically:
+   - Creates `release/v1.3.0` branch
+   - Updates version in Cargo.toml
+   - Builds and tests the release
+   - Creates PR with release notes
+   - When PR is merged → automatic release
+
+2. **Manual Process (Alternative)**
+   ```bash
+   # 1. Create release branch
+   git checkout main && git pull origin main
+   git checkout -b release/v1.3.0
+   
+   # 2. Update version and create PR
+   # (Release workflow triggers when release/v* branch is merged to main)
+   ```
+
+**Key Changes:**
+- ✅ **No "[RELEASE]" keyword required**
+- ✅ **Branch name triggers release**: `release/v1.3.0` → version 1.3.0
+- ✅ **Automatic version verification** in CI
+- ✅ **Clean, predictable process**
 
 ## Repository Structure
 
