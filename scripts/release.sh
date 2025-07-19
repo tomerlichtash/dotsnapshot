@@ -56,7 +56,7 @@ git pull origin main
 
 # 1. Update version in Cargo.toml
 log_info "Updating Cargo.toml to version $VERSION"
-sed -i '' "s/version = \".*\"/version = \"$VERSION\"/" Cargo.toml
+sed -i '' '/^\[package\]/,/^\[/ s/^version = ".*"/version = "'$VERSION'"/' Cargo.toml
 
 # Update Cargo.lock
 log_info "Updating Cargo.lock"
