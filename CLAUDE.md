@@ -50,15 +50,15 @@
 
 ## Branch Strategy
 
-- **main:** Development branch - no releases
-- **stable:** Release branch - triggers semantic-release
+- **main:** Development and release branch
 - **Feature branches:** For all development work
 
 ## Release Process
 
-- Development happens on `main`
-- Releases only from `stable` branch via semantic-release
-- To release: merge `main` into `stable`
+- Development happens on `main` via PRs
+- Releases trigger from `main` when PR title contains **"RELEASE"**
+- Only PRs with "RELEASE" in title will trigger semantic-release
+- Example: `feat: Add new feature [RELEASE]`
 
 ## Repository Structure
 
