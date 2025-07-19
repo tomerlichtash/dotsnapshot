@@ -167,6 +167,63 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  update-main-version:
+    name: Update main branch version after release
+    needs: [release, build-release]
+    runs-on: ubuntu-latest
+    if: needs.release.outputs.new_release_created == 'true'
+    
+    steps:
+    - name: Checkout main branch
+      uses: actions/checkout@v4
+      with:
+        ref: main
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+
+    - name: Setup git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+
+    - name: Update Cargo.toml version to next development version
+      run: |
+        # Get the current version from the release
+        RELEASE_VERSION="${{ needs.release.outputs.new_release_version }}"
+        echo "Released version: $RELEASE_VERSION"
+        
+        # Extract version components (e.g., 1.2.1 -> 1 2 1)
+        IFS='.' read -r major minor patch <<< "${RELEASE_VERSION#v}"
+        
+        # Increment patch version for next development cycle
+        next_patch=$((patch + 1))
+        NEXT_VERSION="$major.$minor.$next_patch"
+        echo "Next development version: $NEXT_VERSION"
+        
+        # Update Cargo.toml
+        sed -i "s/^version = \".*\"/version = \"$NEXT_VERSION\"/" Cargo.toml
+        
+        # Update Cargo.lock
+        cargo update --package dotsnapshot --precise "$NEXT_VERSION"
+        
+        echo "Updated version to $NEXT_VERSION"
+
+    - name: Commit version update
+      run: |
+        RELEASE_VERSION="${{ needs.release.outputs.new_release_version }}"
+        IFS='.' read -r major minor patch <<< "${RELEASE_VERSION#v}"
+        next_patch=$((patch + 1))
+        NEXT_VERSION="$major.$minor.$next_patch"
+        
+        git add Cargo.toml Cargo.lock
+        git commit -m "chore: Bump version to $NEXT_VERSION for next development cycle
+
+        Automated version bump after release $RELEASE_VERSION
+
+        🤖 Generated with GitHub Actions"
+        
+        git push origin main
+
 # Disabled crates.io publishing to prevent release failures
   # Re-enable when CRATES_IO_TOKEN is configured and crates.io publishing is desired
   # publish-crate:
