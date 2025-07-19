@@ -99,11 +99,24 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+    - name: Cache cargo-audit binary
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/bin/cargo-audit
+        key: ${{ runner.os }}-cargo-audit-${{ hashFiles('~/.cargo/bin/cargo-audit') }}
 
     - name: Install cargo-audit
-      run: cargo install cargo-audit
+      run: |
+        if ! command -v cargo-audit &> /dev/null; then
+          cargo install cargo-audit --locked
+        fi
+
+    - name: Cache audit database
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/advisory-db
+        key: advisory-db-${{ hashFiles('~/.cargo/advisory-db/**') }}
+        restore-keys: advisory-db-
 
     - name: Run security audit
       run: cargo audit
