@@ -19,6 +19,7 @@ use plugins::{
     cursor::{CursorExtensionsPlugin, CursorKeybindingsPlugin, CursorSettingsPlugin},
     homebrew::HomebrewBrewfilePlugin,
     npm::{NpmConfigPlugin, NpmGlobalPackagesPlugin},
+    static_files::StaticFilesPlugin,
     vscode::{VSCodeExtensionsPlugin, VSCodeKeybindingsPlugin, VSCodeSettingsPlugin},
 };
 
@@ -139,6 +140,7 @@ async fn list_plugins() {
     registry.register(Arc::new(CursorExtensionsPlugin::new()));
     registry.register(Arc::new(NpmGlobalPackagesPlugin::new()));
     registry.register(Arc::new(NpmConfigPlugin::new()));
+    registry.register(Arc::new(StaticFilesPlugin::new()));
 
     // Get plugin information
     let plugins = registry.list_plugins();
@@ -148,6 +150,7 @@ async fn list_plugins() {
     let mut vscode_plugins = Vec::new();
     let mut cursor_plugins = Vec::new();
     let mut npm_plugins = Vec::new();
+    let mut static_plugins = Vec::new();
 
     for (name, filename, description) in plugins {
         if name.starts_with("homebrew_") {
@@ -158,6 +161,8 @@ async fn list_plugins() {
             cursor_plugins.push((name, filename, description));
         } else if name.starts_with("npm_") {
             npm_plugins.push((name, filename, description));
+        } else if name == "static" {
+            static_plugins.push((name, filename, description));
         }
     }
 
@@ -189,6 +194,14 @@ async fn list_plugins() {
     if !npm_plugins.is_empty() {
         println!("📦 NPM:");
         for (name, filename, description) in npm_plugins {
+            println!("  {name:<20} -> {filename:<20} {description}");
+        }
+        println!();
+    }
+
+    if !static_plugins.is_empty() {
+        println!("📄 Static:");
+        for (name, filename, description) in static_plugins {
             println!("  {name:<20} -> {filename:<20} {description}");
         }
         println!();
@@ -262,6 +275,9 @@ async fn main() -> Result<()> {
         Config::load().await?
     };
 
+    // Store config path for later logging (after logging is initialized)
+    let custom_config_path = args.config.clone();
+
     // Determine final settings (CLI args override config file)
     let output_dir = args.output.unwrap_or_else(|| config.get_output_dir());
     let verbose = args.verbose || config.is_verbose_default();
@@ -273,6 +289,11 @@ async fn main() -> Result<()> {
     tracing::subscriber::set_global_default(subscriber).expect("Failed to set default subscriber");
 
     info!("Starting dotsnapshot v{}", env!("CARGO_PKG_VERSION"));
+
+    // Log custom config usage if applicable
+    if let Some(config_path) = custom_config_path {
+        info!("📋 Using custom config file: {}", config_path.display());
+    }
 
     // Create output directory if it doesn't exist
     tokio::fs::create_dir_all(&output_dir).await?;
@@ -318,6 +339,13 @@ async fn main() -> Result<()> {
     if selected_plugins == "all" || selected_plugins.contains("npm") {
         registry.register(Arc::new(NpmGlobalPackagesPlugin::new()));
         registry.register(Arc::new(NpmConfigPlugin::new()));
+    }
+
+    // Static files plugin
+    if selected_plugins == "all" || selected_plugins.contains("static") {
+        registry.register(Arc::new(StaticFilesPlugin::with_config(Arc::new(
+            config.clone(),
+        ))));
     }
 
     // Create executor and run snapshot

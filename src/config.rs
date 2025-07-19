@@ -14,6 +14,10 @@ pub struct Config {
 
     /// Logging configuration
     pub logging: Option<LoggingConfig>,
+
+    /// Static plugin configuration
+    #[serde(rename = "static")]
+    pub static_files: Option<StaticFilesConfig>,
 }
 
 /// Logging configuration
@@ -26,12 +30,22 @@ pub struct LoggingConfig {
     pub time_format: Option<String>,
 }
 
+/// Static files plugin configuration
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct StaticFilesConfig {
+    /// List of file paths to include in snapshots
+    pub files: Option<Vec<String>>,
+    /// Glob patterns to ignore when copying files/directories
+    pub ignore: Option<Vec<String>>,
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
             output_dir: Some(PathBuf::from("./snapshots")),
             include_plugins: None,
             logging: None,
+            static_files: None,
         }
     }
 }
@@ -137,6 +151,11 @@ impl Config {
             .unwrap_or_else(|| "[year]-[month]-[day] [hour]:[minute]:[second]".to_string())
     }
 
+    /// Get static files configuration
+    pub fn get_static_files(&self) -> Option<&StaticFilesConfig> {
+        self.static_files.as_ref()
+    }
+
     /// Save configuration to file
     #[allow(dead_code)]
     pub async fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
@@ -181,6 +200,10 @@ mod tests {
             logging: Some(LoggingConfig {
                 verbose: Some(true),
                 time_format: Some("[year]-[month]-[day] [hour]:[minute]:[second]".to_string()),
+            }),
+            static_files: Some(StaticFilesConfig {
+                files: Some(vec!["~/.gitconfig".to_string(), "/etc/hosts".to_string()]),
+                ignore: None,
             }),
         };
 

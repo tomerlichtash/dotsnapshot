@@ -122,6 +122,9 @@ impl SnapshotExecutor {
             });
         }
 
+        // Set environment variable for snapshot directory (for plugins that need it)
+        std::env::set_var("DOTSNAPSHOT_SNAPSHOT_DIR", snapshot_dir);
+
         // Execute plugin to get content
         let content = match plugin.execute().await {
             Ok(content) => content,
@@ -168,6 +171,14 @@ impl SnapshotExecutor {
 
         // Save new content to file
         let output_path = plugin.output_path(snapshot_dir);
+
+        // Create parent directory if it doesn't exist
+        if let Some(parent) = output_path.parent() {
+            async_fs::create_dir_all(parent).await.context(format!(
+                "Failed to create parent directory for plugin {plugin_name}"
+            ))?;
+        }
+
         async_fs::write(&output_path, &content)
             .await
             .context(format!("Failed to write output for plugin {plugin_name}"))?;
@@ -241,7 +252,10 @@ mod tests {
 
         assert!(snapshot_dir.exists());
         assert!(snapshot_dir.join("test.txt").exists());
-        assert!(snapshot_dir.join("metadata.json").exists());
+        assert!(snapshot_dir
+            .join(".snapshot")
+            .join("checksum.json")
+            .exists());
 
         Ok(())
     }
