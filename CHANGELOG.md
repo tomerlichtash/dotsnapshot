@@ -1,3 +1,45 @@
+## 1.0.0 (2025-07-19)
+
+### ⚠ BREAKING CHANGES
+
+* Releases now require semantic commit messages.
+All future commits must follow conventional commit format.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-authored-by: Claude <noreply@anthropic.com>
+
+### Features
+
+* Add detailed info command and fix Cargo.toml issues ([#11](https://github.com/tomerlichtash/dotsnapshot/issues/11)) ([b785130](https://github.com/tomerlichtash/dotsnapshot/commit/b785130a117293a94b24a38b2a845fd19c7a8477))
+* Add GitHub Pages documentation site ([#27](https://github.com/tomerlichtash/dotsnapshot/issues/27)) ([3ff8958](https://github.com/tomerlichtash/dotsnapshot/commit/3ff89582adbc9cedfc0b2130e41ab70b46502bd9))
+* Add Homebrew support with shell completions and man pages ([#13](https://github.com/tomerlichtash/dotsnapshot/issues/13)) ([c3d0b81](https://github.com/tomerlichtash/dotsnapshot/commit/c3d0b813357655ec4899c93df6ad6eda5bbf27b8)), closes [#12](https://github.com/tomerlichtash/dotsnapshot/issues/12)
+* Add workflow to build cross-platform binaries ([#17](https://github.com/tomerlichtash/dotsnapshot/issues/17)) ([a6432ce](https://github.com/tomerlichtash/dotsnapshot/commit/a6432ceff2a5d5affacc90fff3025de12dccea4f)), closes [#16](https://github.com/tomerlichtash/dotsnapshot/issues/16)
+* implement comprehensive semantic release automation ([#8](https://github.com/tomerlichtash/dotsnapshot/issues/8)) ([eb0e386](https://github.com/tomerlichtash/dotsnapshot/commit/eb0e386fcab7be8a5c7ea64dae46f8ef1d3bd5f0))
+* Improve README description and remove backup file ([#21](https://github.com/tomerlichtash/dotsnapshot/issues/21)) ([4645017](https://github.com/tomerlichtash/dotsnapshot/commit/464501725926b8dd286ca09b288ad9d55e46a4d2))
+* Revert to main branch releases with RELEASE keyword [RELEASE] ([#40](https://github.com/tomerlichtash/dotsnapshot/issues/40)) ([b3a89af](https://github.com/tomerlichtash/dotsnapshot/commit/b3a89af9b33658da6a9e080fe15828a614bcc6d9))
+* Set up stable branch for controlled releases ([#30](https://github.com/tomerlichtash/dotsnapshot/issues/30)) ([9460000](https://github.com/tomerlichtash/dotsnapshot/commit/94600009129a4cde54c2b4ced1a9486e800e34fe))
+* Snapshot CLI ([#1](https://github.com/tomerlichtash/dotsnapshot/issues/1)) ([1870c62](https://github.com/tomerlichtash/dotsnapshot/commit/1870c62c4aa7cc156233c772d79a2afefd9905e3))
+* Update Homebrew formula to v1.4.2 with real checksums ([#25](https://github.com/tomerlichtash/dotsnapshot/issues/25)) ([43ac4e6](https://github.com/tomerlichtash/dotsnapshot/commit/43ac4e604a85552704701374226d1fa1627b795c))
+
+### Bug Fixes
+
+* Add bash shell specification for Windows packaging steps ([#24](https://github.com/tomerlichtash/dotsnapshot/issues/24)) ([5635da0](https://github.com/tomerlichtash/dotsnapshot/commit/5635da0eef3081d5d3d0be37045a95090b36fe47))
+* Add cargo check to semantic-release to update Cargo.lock ([#34](https://github.com/tomerlichtash/dotsnapshot/issues/34)) ([9118166](https://github.com/tomerlichtash/dotsnapshot/commit/9118166523e4f796a95aac8ae881818bc94860bb))
+* Add semantic-release tracking commit for v1.7.0 [RELEASE] ([#52](https://github.com/tomerlichtash/dotsnapshot/issues/52)) ([3a6c182](https://github.com/tomerlichtash/dotsnapshot/commit/3a6c182b8ff07b18c82e2b0030f9cf3546689105))
+* Bump v1.7.1 to resolve tagging conflict [RELEASE] ([#51](https://github.com/tomerlichtash/dotsnapshot/issues/51)) ([75e0be3](https://github.com/tomerlichtash/dotsnapshot/commit/75e0be32770be43e6679321cb051aed69c0a418f))
+* Clear GH_TOKEN before gh auth in publishCmd ([#47](https://github.com/tomerlichtash/dotsnapshot/issues/47)) ([c2f0956](https://github.com/tomerlichtash/dotsnapshot/commit/c2f09569714008e98286f43057c8e0ec6b43c17e))
+* Configure semantic-release to work through PRs ([#44](https://github.com/tomerlichtash/dotsnapshot/issues/44)) ([4ad8515](https://github.com/tomerlichtash/dotsnapshot/commit/4ad85154795831d72797a7bc20f25c62b44b5cd0))
+* Disable crates.io publishing to prevent release failures ([#36](https://github.com/tomerlichtash/dotsnapshot/issues/36)) ([dcf770b](https://github.com/tomerlichtash/dotsnapshot/commit/dcf770b77b202ab17522299483161daa30ae4236))
+* Improve release workflow to auto-build binaries on every release ([#19](https://github.com/tomerlichtash/dotsnapshot/issues/19)) ([8758288](https://github.com/tomerlichtash/dotsnapshot/commit/875828857ae1579f6e69517ec6e9fca315b8d0ec)), closes [#18](https://github.com/tomerlichtash/dotsnapshot/issues/18)
+* Remove manual gh auth from publishCmd to use GH_TOKEN [RELEASE] ([#50](https://github.com/tomerlichtash/dotsnapshot/issues/50)) ([4a2fd20](https://github.com/tomerlichtash/dotsnapshot/commit/4a2fd20293e02d700a745b109bedb63c1d6bc47a))
+* Reset all versions to 1.0.0 and delete all tags/releases [RELEASE] ([#54](https://github.com/tomerlichtash/dotsnapshot/issues/54)) ([9d439e4](https://github.com/tomerlichtash/dotsnapshot/commit/9d439e4b3be305b19b12f85780549cd3f0fe1139))
+* Reset semantic-release by deleting conflicting tags [RELEASE] ([#53](https://github.com/tomerlichtash/dotsnapshot/issues/53)) ([9132fcb](https://github.com/tomerlichtash/dotsnapshot/commit/9132fcb59c7218282ab2a3665294da99867fd1dc))
+* Restore correct rust-version and dependency versions corrupted by v1.3.1 semantic-release ([#22](https://github.com/tomerlichtash/dotsnapshot/issues/22)) ([eac2b01](https://github.com/tomerlichtash/dotsnapshot/commit/eac2b010bd581743a89b39ec318faaff601ec691))
+* Restore correct rust-version and improve semantic-release pattern ([#23](https://github.com/tomerlichtash/dotsnapshot/issues/23)) ([1374cce](https://github.com/tomerlichtash/dotsnapshot/commit/1374cceeff7b936cdb46f7d5fca3b88ca687174b))
+* Sync main branch to actual v1.7.0 release state ([#42](https://github.com/tomerlichtash/dotsnapshot/issues/42)) ([29e5b15](https://github.com/tomerlichtash/dotsnapshot/commit/29e5b150dedf5f83cf6e1722fe0a7fe5cf58a3d8))
+* Update Cargo.toml and Homebrew formula for v1.2.0 ([#15](https://github.com/tomerlichtash/dotsnapshot/issues/15)) ([1dd374b](https://github.com/tomerlichtash/dotsnapshot/commit/1dd374b7aa95feca177f8fd2489b586c431e3c58)), closes [#14](https://github.com/tomerlichtash/dotsnapshot/issues/14)
+
 ## [1.7.0](https://github.com/tomerlichtash/dotsnapshot/compare/v1.6.0...v1.7.0) (2025-07-19)
 
 ### Features
