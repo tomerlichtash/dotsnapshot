@@ -167,21 +167,23 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  publish-crate:
-    name: Publish to crates.io
-    needs: [release, build-release]
-    runs-on: ubuntu-latest
-    if: needs.release.outputs.new_release_created == 'true'
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ needs.release.outputs.release_tag }}
-
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-
-    - name: Publish to crates.io
-      run: cargo publish --token ${{ secrets.CRATES_IO_TOKEN }}
-      continue-on-error: true
+# Disabled crates.io publishing to prevent release failures
+  # Re-enable when CRATES_IO_TOKEN is configured and crates.io publishing is desired
+  # publish-crate:
+  #   name: Publish to crates.io
+  #   needs: [release, build-release]
+  #   runs-on: ubuntu-latest
+  #   if: needs.release.outputs.new_release_created == 'true'
+  #   
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
+  #     with:
+  #       ref: ${{ needs.release.outputs.release_tag }}
+  #
+  #   - name: Install Rust toolchain
+  #     uses: dtolnay/rust-toolchain@stable
+  #
+  #   - name: Publish to crates.io
+  #     run: cargo publish --token ${{ secrets.CRATES_IO_TOKEN }}
+  #     continue-on-error: true
