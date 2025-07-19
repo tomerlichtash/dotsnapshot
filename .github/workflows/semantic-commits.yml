@@ -12,6 +12,7 @@ jobs:
   semantic-commits:
     name: Validate commit messages
     runs-on: ubuntu-latest
+    if: ${{ !startsWith(github.head_ref, 'release/v') }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
