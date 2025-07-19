@@ -8,14 +8,8 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "sed -i '/^name = \"dotsnapshot\"/,/^edition = \"2021\"/ s/^version = \".*\"/version = \"${nextRelease.version}\"/' Cargo.toml && cargo check"
-      }
-    ],
-    [
-      "@semantic-release/git",
-      {
-        "assets": ["CHANGELOG.md", "Cargo.toml", "Cargo.lock"],
-        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+        "prepareCmd": "sed -i '/^name = \"dotsnapshot\"/,/^edition = \"2021\"/ s/^version = \".*\"/version = \"${nextRelease.version}\"/' Cargo.toml && cargo check",
+        "publishCmd": "git config --global user.name 'github-actions[bot]' && git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com' && git checkout -b release/v${nextRelease.version} && git add CHANGELOG.md Cargo.toml Cargo.lock && git commit -m 'chore(release): ${nextRelease.version} [skip ci]' && git push origin release/v${nextRelease.version} && gh pr create --title 'chore(release): ${nextRelease.version} [RELEASE]' --body 'Automated release PR for version ${nextRelease.version}\\n\\n${nextRelease.notes}' --base main --head release/v${nextRelease.version} && gh pr merge --squash --auto"
       }
     ],
     [

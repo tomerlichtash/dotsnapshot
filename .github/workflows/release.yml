@@ -33,7 +33,7 @@ jobs:
       with:
         node-version: '20'
 
-    - name: Install semantic-release
+    - name: Install semantic-release and GitHub CLI
       run: |
         npm install -g semantic-release
         npm install -g @semantic-release/changelog
@@ -47,9 +47,13 @@ jobs:
 
     - name: Run semantic release
       id: semantic
-      run: npx semantic-release
+      run: |
+        # Set up GitHub CLI authentication
+        echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+        npx semantic-release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
     - name: Check if release was created
       id: check_release
