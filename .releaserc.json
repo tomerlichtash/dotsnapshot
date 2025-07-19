@@ -9,7 +9,7 @@
       "@semantic-release/exec",
       {
         "prepareCmd": "sed -i '/^name = \"dotsnapshot\"/,/^edition = \"2021\"/ s/^version = \".*\"/version = \"${nextRelease.version}\"/' Cargo.toml && cargo check",
-        "publishCmd": "git config --global user.name 'github-actions[bot]' && git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com' && git checkout -b release/v${nextRelease.version} && git add CHANGELOG.md Cargo.toml Cargo.lock && git commit -m 'chore(release): ${nextRelease.version} [skip ci]' && git push origin release/v${nextRelease.version} && curl -X POST -H 'Authorization: token $GITHUB_TOKEN' -H 'Accept: application/vnd.github.v3+json' https://api.github.com/repos/tomerlichtash/dotsnapshot/pulls -d '{\"title\":\"chore(release): ${nextRelease.version} [RELEASE]\",\"body\":\"Automated release PR for version ${nextRelease.version}\\n\\n${nextRelease.notes}\",\"head\":\"release/v${nextRelease.version}\",\"base\":\"main\"}' > pr_response.json && PR_NUMBER=$(cat pr_response.json | grep '\"number\":' | head -1 | sed 's/.*\"number\": *\\([0-9]*\\).*/\\1/') && curl -X PUT -H 'Authorization: token $GITHUB_TOKEN' -H 'Accept: application/vnd.github.v3+json' https://api.github.com/repos/tomerlichtash/dotsnapshot/pulls/$PR_NUMBER/merge -d '{\"merge_method\":\"squash\"}'"
+        "publishCmd": ".github/scripts/setup-release-branch.sh '${nextRelease.version}' && .github/scripts/create-release-pr.sh '${nextRelease.version}' '${nextRelease.notes}'"
       }
     ],
     [
