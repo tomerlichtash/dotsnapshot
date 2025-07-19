@@ -71,7 +71,7 @@ impl SnapshotManager {
         // Try new location first (.snapshot/checksum.json)
         let new_metadata_path = snapshot_dir.join(".snapshot").join("checksum.json");
         let old_metadata_path = snapshot_dir.join("metadata.json");
-        
+
         let metadata_path = if new_metadata_path.exists() {
             new_metadata_path
         } else if old_metadata_path.exists() {
@@ -143,7 +143,7 @@ impl SnapshotManager {
                 if snapshot_subdir_path.exists() {
                     return Ok(Some(snapshot_subdir_path));
                 }
-                
+
                 // Fallback to root directory (for other plugins)
                 let root_path = latest_snapshot.join(filename);
                 if root_path.exists() {
@@ -170,7 +170,7 @@ impl SnapshotManager {
         // Try .snapshot subdirectory first
         let snapshot_subdir_source = latest_snapshot.join(".snapshot").join(filename);
         let snapshot_subdir_target = target_dir.join(".snapshot").join(filename);
-        
+
         if snapshot_subdir_source.exists() {
             // Create target .snapshot directory if it doesn't exist
             if let Some(parent) = snapshot_subdir_target.parent() {
@@ -178,17 +178,17 @@ impl SnapshotManager {
                     .await
                     .context("Failed to create .snapshot directory")?;
             }
-            
+
             async_fs::copy(&snapshot_subdir_source, &snapshot_subdir_target)
                 .await
                 .context("Failed to copy file from latest snapshot")?;
             return Ok(true);
         }
-        
+
         // Fallback to root directory
         let root_source = latest_snapshot.join(filename);
         let root_target = target_dir.join(filename);
-        
+
         if root_source.exists() {
             async_fs::copy(&root_source, &root_target)
                 .await

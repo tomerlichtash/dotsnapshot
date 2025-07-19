@@ -1,14 +1,14 @@
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use std::path::{Path, PathBuf};
+use glob::Pattern;
 use serde_json;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tracing::info;
-use glob::Pattern;
 
-use crate::core::plugin::Plugin;
-use crate::core::checksum::calculate_directory_checksum;
 use crate::config::Config;
+use crate::core::checksum::calculate_directory_checksum;
+use crate::core::plugin::Plugin;
 
 /// Plugin for copying static files to snapshots based on configuration
 pub struct StaticFilesPlugin {
@@ -30,7 +30,6 @@ impl StaticFilesPlugin {
             snapshot_dir: None,
         }
     }
-
 
     #[allow(dead_code)]
     pub fn with_config_path<P: AsRef<Path>>(_config_path: P) -> Self {
@@ -87,21 +86,21 @@ impl StaticFilesPlugin {
     /// Check if a path should be ignored based on ignore patterns
     fn should_ignore(&self, path: &Path, ignore_patterns: &[String]) -> bool {
         let path_str = path.to_string_lossy();
-        
+
         for pattern_str in ignore_patterns {
             if let Ok(pattern) = Pattern::new(pattern_str) {
                 // Check if the full path matches
                 if pattern.matches(&path_str) {
                     return true;
                 }
-                
+
                 // Also check just the file/directory name
                 if let Some(file_name) = path.file_name() {
                     if pattern.matches(&file_name.to_string_lossy()) {
                         return true;
                     }
                 }
-                
+
                 // Check each component of the path
                 for component in path.components() {
                     if pattern.matches(&component.as_os_str().to_string_lossy()) {
@@ -110,7 +109,7 @@ impl StaticFilesPlugin {
                 }
             }
         }
-        
+
         false
     }
 
@@ -129,8 +128,7 @@ impl StaticFilesPlugin {
     /// Expands path variables like ~, $HOME, etc.
     fn expand_path(&self, path: &str) -> Result<PathBuf> {
         let expanded = if path.starts_with('~') {
-            let home = dirs::home_dir()
-                .context("Could not determine home directory")?;
+            let home = dirs::home_dir().context("Could not determine home directory")?;
             home.join(&path[2..]) // Skip "~/"
         } else if path.contains('$') {
             // Simple environment variable expansion
@@ -156,21 +154,37 @@ impl StaticFilesPlugin {
         let ignore_patterns = self.get_ignore_patterns();
 
         // Create static directory if it doesn't exist
-        tokio::fs::create_dir_all(static_dir).await
+        tokio::fs::create_dir_all(static_dir)
+            .await
             .context("Failed to create static directory")?;
 
         for file_path in file_paths {
             // Check if this path should be ignored
             if self.should_ignore(&file_path, &ignore_patterns) {
-                info!("🚫 Ignoring static item: {} (matches ignore pattern)", file_path.display());
+                info!(
+                    "🚫 Ignoring static item: {} (matches ignore pattern)",
+                    file_path.display()
+                );
                 ignored_files.push(file_path.display().to_string());
                 continue;
             }
 
-            match self.copy_single_file(&file_path, static_dir, &ignore_patterns).await {
+            match self
+                .copy_single_file(&file_path, static_dir, &ignore_patterns)
+                .await
+            {
                 Ok(dest_path) => {
-                    let item_type = if file_path.is_dir() { "directory" } else { "file" };
-                    info!("📄 Copied static {}: {} -> {}", item_type, file_path.display(), dest_path.display());
+                    let item_type = if file_path.is_dir() {
+                        "directory"
+                    } else {
+                        "file"
+                    };
+                    info!(
+                        "📄 Copied static {}: {} -> {}",
+                        item_type,
+                        file_path.display(),
+                        dest_path.display()
+                    );
                     copied_files.push(file_path.display().to_string());
                 }
                 Err(e) => {
@@ -199,7 +213,12 @@ impl StaticFilesPlugin {
     }
 
     /// Copies a single file or directory to the static directory, preserving directory structure
-    async fn copy_single_file(&self, file_path: &Path, static_dir: &Path, ignore_patterns: &[String]) -> Result<PathBuf> {
+    async fn copy_single_file(
+        &self,
+        file_path: &Path,
+        static_dir: &Path,
+        ignore_patterns: &[String],
+    ) -> Result<PathBuf> {
         if !file_path.exists() {
             return Err(anyhow::anyhow!("Path does not exist"));
         }
@@ -228,16 +247,19 @@ impl StaticFilesPlugin {
 
         if file_path.is_dir() {
             // Copy entire directory recursively
-            self.copy_directory_recursive(file_path, &dest_path, ignore_patterns).await?;
+            self.copy_directory_recursive(file_path, &dest_path, ignore_patterns)
+                .await?;
         } else {
             // Create parent directories if they don't exist
             if let Some(parent) = dest_path.parent() {
-                tokio::fs::create_dir_all(parent).await
+                tokio::fs::create_dir_all(parent)
+                    .await
                     .context("Failed to create parent directories")?;
             }
 
             // Copy the file
-            tokio::fs::copy(file_path, &dest_path).await
+            tokio::fs::copy(file_path, &dest_path)
+                .await
                 .context("Failed to copy file")?;
         }
 
@@ -245,36 +267,51 @@ impl StaticFilesPlugin {
     }
 
     /// Recursively copies a directory and all its contents
-    fn copy_directory_recursive<'a>(&'a self, src_dir: &'a Path, dest_dir: &'a Path, ignore_patterns: &'a [String]) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + 'a>> {
+    fn copy_directory_recursive<'a>(
+        &'a self,
+        src_dir: &'a Path,
+        dest_dir: &'a Path,
+        ignore_patterns: &'a [String],
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + 'a>> {
         Box::pin(async move {
             // Create the destination directory
-            tokio::fs::create_dir_all(dest_dir).await
+            tokio::fs::create_dir_all(dest_dir)
+                .await
                 .context("Failed to create destination directory")?;
 
-            let mut entries = tokio::fs::read_dir(src_dir).await
+            let mut entries = tokio::fs::read_dir(src_dir)
+                .await
                 .context("Failed to read source directory")?;
 
-            while let Some(entry) = entries.next_entry().await
-                .context("Failed to read directory entry")? {
-                
+            while let Some(entry) = entries
+                .next_entry()
+                .await
+                .context("Failed to read directory entry")?
+            {
                 let src_path = entry.path();
-                
+
                 // Check if this item should be ignored
                 if self.should_ignore(&src_path, ignore_patterns) {
-                    info!("🚫 Ignoring static item: {} (matches ignore pattern)", src_path.display());
+                    info!(
+                        "🚫 Ignoring static item: {} (matches ignore pattern)",
+                        src_path.display()
+                    );
                     continue;
                 }
-                
-                let file_name = src_path.file_name()
+
+                let file_name = src_path
+                    .file_name()
                     .ok_or_else(|| anyhow::anyhow!("Invalid file name"))?;
                 let dest_path = dest_dir.join(file_name);
 
                 if src_path.is_dir() {
                     // Recursively copy subdirectory
-                    self.copy_directory_recursive(&src_path, &dest_path, ignore_patterns).await?;
+                    self.copy_directory_recursive(&src_path, &dest_path, ignore_patterns)
+                        .await?;
                 } else {
                     // Copy file
-                    tokio::fs::copy(&src_path, &dest_path).await
+                    tokio::fs::copy(&src_path, &dest_path)
+                        .await
                         .context(format!("Failed to copy file: {}", src_path.display()))?;
                 }
             }
@@ -341,7 +378,7 @@ impl Plugin for StaticFilesPlugin {
         };
 
         let summary = self.copy_files(file_paths, &static_dir).await?;
-        
+
         // Calculate checksum of the static directory contents for better change detection
         let directory_checksum = if static_dir.exists() {
             calculate_directory_checksum(&static_dir)
@@ -349,21 +386,22 @@ impl Plugin for StaticFilesPlugin {
         } else {
             "no_static_directory".to_string()
         };
-        
+
         // Parse the summary JSON and add the directory checksum
         let mut summary_json: serde_json::Value = serde_json::from_str(&summary)?;
         if let Some(summary_obj) = summary_json.get_mut("summary") {
-            summary_obj["directory_checksum"] = serde_json::Value::String(directory_checksum.clone());
+            summary_obj["directory_checksum"] =
+                serde_json::Value::String(directory_checksum.clone());
         }
-        
+
         // Create the final content with directory checksum as the primary identifier
         // This ensures that when file contents change, the plugin checksum changes too
         let final_content = format!(
-            "STATIC_DIR_CHECKSUM:{}\n{}", 
+            "STATIC_DIR_CHECKSUM:{}\n{}",
             directory_checksum,
             serde_json::to_string_pretty(&summary_json)?
         );
-        
+
         Ok(final_content)
     }
 
@@ -392,11 +430,11 @@ mod tests {
     #[tokio::test]
     async fn test_expand_path() {
         let plugin = StaticFilesPlugin::new();
-        
+
         // Test absolute path
         let abs_path = plugin.expand_path("/usr/local/bin/test").unwrap();
         assert_eq!(abs_path, PathBuf::from("/usr/local/bin/test"));
-        
+
         // Test home expansion
         if let Ok(home) = std::env::var("HOME") {
             let home_path = plugin.expand_path("~/test").unwrap();
@@ -409,7 +447,7 @@ mod tests {
         // Test with no config
         let plugin = StaticFilesPlugin::new();
         let result = plugin.execute().await.unwrap();
-        
+
         // Should return empty result when no config exists
         assert!(result.contains("No files configured"));
     }
@@ -419,14 +457,14 @@ mod tests {
         use crate::config::{Config, StaticFilesConfig};
         use std::sync::Arc;
         use tempfile::TempDir;
-        
+
         // Create a temporary directory for testing
         let temp_dir = TempDir::new().unwrap();
         let static_dir = temp_dir.path().join("static");
-        
+
         // Set environment variable for snapshot directory
         std::env::set_var("DOTSNAPSHOT_SNAPSHOT_DIR", temp_dir.path());
-        
+
         // Create a test config with static files
         let config = Config {
             output_dir: None,
@@ -440,13 +478,13 @@ mod tests {
 
         let plugin = StaticFilesPlugin::with_config(Arc::new(config));
         let result = plugin.execute().await.unwrap();
-        
+
         // Should attempt to process the config file
         assert!(result.contains("/etc/hosts") || result.contains("summary"));
-        
+
         // Check that static directory was created
         assert!(static_dir.exists());
-        
+
         // Clean up environment variable
         std::env::remove_var("DOTSNAPSHOT_SNAPSHOT_DIR");
     }

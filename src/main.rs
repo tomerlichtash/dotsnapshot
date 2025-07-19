@@ -274,7 +274,7 @@ async fn main() -> Result<()> {
     } else {
         Config::load().await?
     };
-    
+
     // Store config path for later logging (after logging is initialized)
     let custom_config_path = args.config.clone();
 
@@ -289,7 +289,7 @@ async fn main() -> Result<()> {
     tracing::subscriber::set_global_default(subscriber).expect("Failed to set default subscriber");
 
     info!("Starting dotsnapshot v{}", env!("CARGO_PKG_VERSION"));
-    
+
     // Log custom config usage if applicable
     if let Some(config_path) = custom_config_path {
         info!("📋 Using custom config file: {}", config_path.display());
@@ -343,7 +343,9 @@ async fn main() -> Result<()> {
 
     // Static files plugin
     if selected_plugins == "all" || selected_plugins.contains("static") {
-        registry.register(Arc::new(StaticFilesPlugin::with_config(Arc::new(config.clone()))));
+        registry.register(Arc::new(StaticFilesPlugin::with_config(Arc::new(
+            config.clone(),
+        ))));
     }
 
     // Create executor and run snapshot
