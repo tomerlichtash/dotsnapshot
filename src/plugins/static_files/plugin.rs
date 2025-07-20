@@ -474,6 +474,7 @@ mod tests {
                 files: Some(vec!["/etc/hosts".to_string()]),
                 ignore: None,
             }),
+            plugins: None,
         };
 
         let plugin = StaticFilesPlugin::with_config(Arc::new(config));

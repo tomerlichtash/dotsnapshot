@@ -15,9 +15,12 @@ pub struct Config {
     /// Logging configuration
     pub logging: Option<LoggingConfig>,
 
-    /// Static plugin configuration
+    /// Static plugin configuration (legacy)
     #[serde(rename = "static")]
     pub static_files: Option<StaticFilesConfig>,
+
+    /// Plugin-specific configurations
+    pub plugins: Option<PluginsConfig>,
 }
 
 /// Logging configuration
@@ -30,7 +33,50 @@ pub struct LoggingConfig {
     pub time_format: Option<String>,
 }
 
-/// Static files plugin configuration
+/// Plugin-specific configurations
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct PluginsConfig {
+    /// Homebrew plugin configurations
+    pub homebrew_brewfile: Option<PluginConfig>,
+
+    /// VSCode plugin configurations
+    pub vscode_settings: Option<PluginConfig>,
+    pub vscode_keybindings: Option<PluginConfig>,
+    pub vscode_extensions: Option<PluginConfig>,
+
+    /// Cursor plugin configurations
+    pub cursor_settings: Option<PluginConfig>,
+    pub cursor_keybindings: Option<PluginConfig>,
+    pub cursor_extensions: Option<PluginConfig>,
+
+    /// NPM plugin configurations
+    pub npm_global_packages: Option<PluginConfig>,
+    pub npm_config: Option<PluginConfig>,
+
+    /// Static files plugin configuration
+    #[serde(rename = "static")]
+    pub static_files: Option<StaticPluginConfig>,
+}
+
+/// Generic plugin configuration
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct PluginConfig {
+    /// Custom target path in snapshot (relative to snapshot root)
+    pub target_path: Option<String>,
+}
+
+/// Static files plugin configuration with additional options
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct StaticPluginConfig {
+    /// Custom target path in snapshot (relative to snapshot root)
+    pub target_path: Option<String>,
+    /// List of file paths to include in snapshots
+    pub files: Option<Vec<String>>,
+    /// Glob patterns to ignore when copying files/directories
+    pub ignore: Option<Vec<String>>,
+}
+
+/// Static files plugin configuration (legacy)
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct StaticFilesConfig {
     /// List of file paths to include in snapshots
@@ -46,6 +92,7 @@ impl Default for Config {
             include_plugins: None,
             logging: None,
             static_files: None,
+            plugins: None,
         }
     }
 }
@@ -151,9 +198,28 @@ impl Config {
             .unwrap_or_else(|| "[year]-[month]-[day] [hour]:[minute]:[second]".to_string())
     }
 
-    /// Get static files configuration
+    /// Get static files configuration (legacy)
     pub fn get_static_files(&self) -> Option<&StaticFilesConfig> {
         self.static_files.as_ref()
+    }
+
+    /// Get plugin target path for a specific plugin
+    pub fn get_plugin_target_path(&self, plugin_name: &str) -> Option<String> {
+        let plugins = self.plugins.as_ref()?;
+
+        match plugin_name {
+            "homebrew_brewfile" => plugins.homebrew_brewfile.as_ref()?.target_path.clone(),
+            "vscode_settings" => plugins.vscode_settings.as_ref()?.target_path.clone(),
+            "vscode_keybindings" => plugins.vscode_keybindings.as_ref()?.target_path.clone(),
+            "vscode_extensions" => plugins.vscode_extensions.as_ref()?.target_path.clone(),
+            "cursor_settings" => plugins.cursor_settings.as_ref()?.target_path.clone(),
+            "cursor_keybindings" => plugins.cursor_keybindings.as_ref()?.target_path.clone(),
+            "cursor_extensions" => plugins.cursor_extensions.as_ref()?.target_path.clone(),
+            "npm_global_packages" => plugins.npm_global_packages.as_ref()?.target_path.clone(),
+            "npm_config" => plugins.npm_config.as_ref()?.target_path.clone(),
+            "static" => plugins.static_files.as_ref()?.target_path.clone(),
+            _ => None,
+        }
     }
 
     /// Save configuration to file
@@ -205,6 +271,7 @@ mod tests {
                 files: Some(vec!["~/.gitconfig".to_string(), "/etc/hosts".to_string()]),
                 ignore: None,
             }),
+            plugins: None,
         };
 
         // Save config
