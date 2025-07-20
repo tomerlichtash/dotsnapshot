@@ -251,6 +251,20 @@ Each plugin focuses on a single concern and can be executed independently.
 cargo test
 ```
 
+### Code Formatting
+
+This project uses `rustfmt` for consistent code formatting. Run `cargo fmt --all` to format your code before committing. The CI will check formatting and fail if code is not properly formatted.
+
+#### Optional: Pre-commit Hook
+
+To automatically format code before each commit, you can install a pre-commit hook:
+
+```bash
+./scripts/install-hooks.sh
+```
+
+This will prevent you from committing unformatted code and automatically run `cargo fmt --all` before each commit.
+
 ### Adding New Plugins
 
 1. Create a new vendor directory in `src/plugins/` (e.g., `src/plugins/git/`)
