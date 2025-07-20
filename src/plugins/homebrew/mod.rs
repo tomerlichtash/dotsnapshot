@@ -1,3 +1,4 @@
 pub mod brewfile;
 
-pub use brewfile::HomebrewBrewfilePlugin;
+
+pub use    brewfile::HomebrewBrewfilePlugin;
