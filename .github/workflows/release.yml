@@ -196,26 +196,29 @@ jobs:
           # Create directory for release assets
           mkdir -p release-assets
           
-          # Debug: List all downloaded artifacts
-          echo "📋 Downloaded artifacts:"
-          find artifacts -type f -ls || echo "No artifacts directory found"
+          # Debug: Show what we have
+          echo "📋 Current directory contents:"
+          ls -la
           
-          # Copy all binary archives and checksums to release-assets/
-          # This flattens the artifact directory structure
-          FOUND_FILES=$(find artifacts -name "*.tar.gz" -o -name "*.zip" -o -name "*.sha256" 2>/dev/null || true)
+          echo "📋 Artifacts directory (if exists):"
+          ls -la artifacts/ 2>/dev/null || echo "No artifacts directory found"
           
-          if [ -n "$FOUND_FILES" ]; then
-            echo "📦 Copying release assets:"
-            echo "$FOUND_FILES" | while read file; do
-              echo "  - $file"
-              cp "$file" release-assets/
-            done
-            echo "✅ Release assets prepared successfully"
-            ls -la release-assets/
+          # Simplified approach: copy all files we can find
+          echo "📦 Searching for release assets..."
+          
+          # Use a more robust approach without pipes
+          if [ -d "artifacts" ]; then
+            # Find and copy all tar.gz files
+            find artifacts -name "*.tar.gz" -exec cp {} release-assets/ \; 2>/dev/null || true
+            # Find and copy all zip files  
+            find artifacts -name "*.zip" -exec cp {} release-assets/ \; 2>/dev/null || true
+            # Find and copy all sha256 files
+            find artifacts -name "*.sha256" -exec cp {} release-assets/ \; 2>/dev/null || true
+            
+            echo "✅ Release assets prepared:"
+            ls -la release-assets/ 2>/dev/null || echo "No files copied"
           else
-            echo "⚠️  No binary artifacts found to prepare for release"
-            echo "This might indicate a build failure or artifact naming issue"
-            # Don't fail here, let semantic-release handle it
+            echo "⚠️  No artifacts directory found - continuing without binaries"
           fi
 
       - name: Run semantic-release
