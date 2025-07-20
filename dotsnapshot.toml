@@ -8,7 +8,41 @@ output_dir = "./.snapshots"
 # Available plugins: homebrew, vscode, cursor, npm, static
 # include_plugins = ["homebrew", "vscode", "static"]
 
-# Static plugin configuration
+# Custom plugin target paths - allows plugins to write to custom directories in snapshots
+[plugins]
+# VSCode plugins can share the same directory
+vscode_settings = { target_path = "vscode" }
+vscode_keybindings = { target_path = "vscode" }
+vscode_extensions = { target_path = "vscode" }
+
+# Cursor plugins can share the same directory
+cursor_settings = { target_path = "cursor" }
+cursor_keybindings = { target_path = "cursor" }
+cursor_extensions = { target_path = "cursor" }
+
+# Homebrew plugin
+homebrew_brewfile = { target_path = "homebrew" }
+
+# NPM plugins
+npm_global_packages = { target_path = "npm" }
+npm_config = { target_path = "npm" }
+
+# Static files plugin with custom path and additional configuration
+# [plugins.static]
+# target_path = "my-dotfiles"
+# files = [
+#   "~/.zshrc",
+#   "~/.gitconfig",
+#   "~/dotfiles",
+# ]
+# ignore = [
+#   ".git",
+#   "*.key",
+#   "*_rsa",
+#   "known_hosts*",
+# ]
+
+# Legacy static plugin configuration (still supported for backward compatibility)
 [static]
 # files = [
 #   "~/.zshrc",
