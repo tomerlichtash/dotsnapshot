@@ -1,54 +1,48 @@
+# Semantic Release Workflow
+# 
+# This workflow automatically creates releases using semantic-release based on conventional commit messages.
+# It runs on every push to main branch and can be manually triggered via workflow_dispatch.
+#
+# Flow: test → build → release
+# - Tests: Run Rust tests to ensure code quality
+# - Build: Create binaries for all supported platforms
+# - Release: Use semantic-release to analyze commits and create releases
+#
+# Semantic-release will:
+# 1. Analyze commit messages since last release
+# 2. Determine version bump (patch/minor/major) based on commit types
+# 3. Update Cargo.toml version and generate CHANGELOG.md
+# 4. Create GitHub release with generated binaries
+# 5. Commit changes back to main with [skip ci]
+
 name: Release
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    branches: [main]  # Triggers on every push to main (via merged PRs)
+  workflow_dispatch:  # Allows manual triggering from GitHub UI
 
+# Required permissions for semantic-release to work
 permissions:
-  contents: write
-  issues: write
-  pull-requests: write
+  contents: write        # Create releases, push commits, create tags
+  issues: write         # Update issues (for release notes)
+  pull-requests: write  # Update PRs (for release notes)
 
 jobs:
-  get-next-version:
-    name: Get next version
-    runs-on: ubuntu-latest
-    outputs:
-      new-release-published: ${{ steps.get-next-version.outputs.new-release-published }}
-      new-release-version: ${{ steps.get-next-version.outputs.new-release-version }}
-      new-release-notes: ${{ steps.get-next-version.outputs.new-release-notes }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Get next version
-        id: get-next-version
-        run: npx -p semantic-release -p @semantic-release/changelog -p @semantic-release/git -p @semantic-release/github -p @semantic-release/exec semantic-release --dry-run
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # JOB 1: TEST
+  # Run Rust tests to ensure code quality before building
   test:
     name: Test
     runs-on: ubuntu-latest
-    needs: get-next-version
-    if: needs.get-next-version.outputs.new-release-published == 'true'
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         id: rust-toolchain
 
-      - name: Cache cargo
+      - name: Cache Cargo dependencies
         uses: actions/cache@v4
         with:
           path: |
@@ -62,31 +56,35 @@ jobs:
       - name: Run tests
         run: cargo test
 
+  # JOB 2: BUILD
+  # Build binaries for all supported platforms
+  # Runs in parallel for each target platform after tests pass
   build:
     name: Build
     runs-on: ${{ matrix.job.os }}
-    needs: [get-next-version, test]
-    if: needs.get-next-version.outputs.new-release-published == 'true'
+    needs: test  # Only run if tests pass
     strategy:
       matrix:
         job:
-          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, use-cross: false }
-          - { os: ubuntu-latest, target: aarch64-unknown-linux-gnu, use-cross: true }
-          - { os: macos-latest, target: x86_64-apple-darwin, use-cross: false }
-          - { os: macos-latest, target: aarch64-apple-darwin, use-cross: false }
-          # Temporarily disabled Windows builds during semantic-release implementation
-          # - { os: windows-latest, target: x86_64-pc-windows-msvc, use-cross: false }
+          # Linux builds
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, use-cross: false }   # Linux x86_64 (native)
+          - { os: ubuntu-latest, target: aarch64-unknown-linux-gnu, use-cross: true }   # Linux ARM64 (cross-compile)
+          # macOS builds  
+          - { os: macos-latest, target: x86_64-apple-darwin, use-cross: false }         # macOS Intel (native)
+          - { os: macos-latest, target: aarch64-apple-darwin, use-cross: false }        # macOS Apple Silicon (native)
+          # Windows builds (temporarily disabled for semantic-release testing)
+          # - { os: windows-latest, target: x86_64-pc-windows-msvc, use-cross: false }  # Windows x86_64 (native)
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
+      - name: Install Rust toolchain with target
         uses: dtolnay/rust-toolchain@stable
         id: rust-toolchain
         with:
-          targets: ${{ matrix.job.target }}
+          targets: ${{ matrix.job.target }}  # Install target for cross-compilation
 
-      - name: Cache cargo
+      - name: Cache Cargo dependencies (per target)
         uses: actions/cache@v4
         with:
           path: |
@@ -97,47 +95,52 @@ jobs:
             target/
           key: ${{ runner.os }}-${{ matrix.job.target }}-cargo-${{ steps.rust-toolchain.outputs.cachekey }}-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Install cross
+      - name: Install cross-compilation tool
         if: matrix.job.use-cross
         run: cargo install cross
 
-      - name: Update version in Cargo.toml
-        run: |
-          awk -v ver="${{ needs.get-next-version.outputs.new-release-version }}" '/^version = / { sub(/= "[^"]*"/, "= \"" ver "\""); print; next } {print}' Cargo.toml > Cargo.toml.new && mv Cargo.toml.new Cargo.toml
-          cargo update --package dotsnapshot --precise "${{ needs.get-next-version.outputs.new-release-version }}"
-
-      - name: Build binary
+      - name: Build binary for target
         run: |
           if [[ "${{ matrix.job.use-cross }}" == "true" ]]; then
+            # Use cross for cross-compilation (e.g., Linux ARM64)
             cross build --release --target ${{ matrix.job.target }}
           else
+            # Use native cargo for same-architecture builds
             cargo build --release --target ${{ matrix.job.target }}
           fi
 
-      - name: Package binary
+      - name: Package binary into archive
         id: package
         run: |
-          PKG_BASENAME="dotsnapshot-v${{ needs.get-next-version.outputs.new-release-version }}-${{ matrix.job.target }}"
+          PKG_BASENAME="dotsnapshot-${{ matrix.job.target }}"
           case ${{ matrix.job.target }} in
             *-pc-windows-*) 
+              # Windows: Create ZIP with .exe
               PKG_NAME="$PKG_BASENAME.zip"
               7z a "$PKG_NAME" ./target/${{ matrix.job.target }}/release/dotsnapshot.exe
               ;;
             *)
+              # Unix: Create tar.gz with binary
               PKG_NAME="$PKG_BASENAME.tar.gz"
               tar -czf "$PKG_NAME" -C ./target/${{ matrix.job.target }}/release dotsnapshot
               ;;
           esac
           echo "pkg-name=$PKG_NAME" >> $GITHUB_OUTPUT
 
-      - name: Generate checksum
+      - name: Generate SHA256 checksum
         run: |
           case ${{ runner.os }} in
-            Windows) certutil -hashfile "${{ steps.package.outputs.pkg-name }}" SHA256 > "${{ steps.package.outputs.pkg-name }}.sha256" ;;
-            *) shasum -a 256 "${{ steps.package.outputs.pkg-name }}" > "${{ steps.package.outputs.pkg-name }}.sha256" ;;
+            Windows) 
+              # Windows: Use certutil
+              certutil -hashfile "${{ steps.package.outputs.pkg-name }}" SHA256 > "${{ steps.package.outputs.pkg-name }}.sha256"
+              ;;
+            *) 
+              # Unix: Use shasum
+              shasum -a 256 "${{ steps.package.outputs.pkg-name }}" > "${{ steps.package.outputs.pkg-name }}.sha256"
+              ;;
           esac
 
-      - name: Upload artifacts
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.package.outputs.pkg-name }}
@@ -145,36 +148,49 @@ jobs:
             ${{ steps.package.outputs.pkg-name }}
             ${{ steps.package.outputs.pkg-name }}.sha256
 
+  # JOB 3: RELEASE  
+  # Use semantic-release to analyze commits and create releases
+  # Only runs if both test and build jobs succeed
   release:
     name: Release
     runs-on: ubuntu-latest
-    needs: [get-next-version, test, build]
-    if: needs.get-next-version.outputs.new-release-published == 'true'
+    needs: [test, build]  # Wait for both test and build to complete successfully
     steps:
-      - name: Checkout
+      - name: Checkout repository with full history
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Required for semantic-release to analyze commit history
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download all artifacts
+      - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          path: artifacts  # Downloads all artifacts from build jobs
 
-      - name: Setup Node.js
+      - name: Setup Node.js for semantic-release
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '20'  # Required for running semantic-release
 
-      - name: Prepare release assets
+      - name: Prepare release assets for GitHub release
         run: |
+          # Create directory for release assets
           mkdir -p release-assets
+          # Copy all binary archives and checksums to release-assets/
+          # This flattens the artifact directory structure
           find artifacts -name "*.tar.gz" -o -name "*.zip" -o -name "*.sha256" | while read file; do
             cp "$file" release-assets/
           done
 
-      - name: Release
+      - name: Run semantic-release
+        # This is the main step that handles everything:
+        # 1. Analyzes commits since last release using conventional commit format
+        # 2. Determines if a release should be created (feat/fix/BREAKING CHANGE)
+        # 3. Calculates next version number (patch/minor/major)
+        # 4. Updates Cargo.toml version using @semantic-release/exec
+        # 5. Generates CHANGELOG.md using @semantic-release/changelog  
+        # 6. Creates GitHub release with binaries using @semantic-release/github
+        # 7. Commits updated files back to main using @semantic-release/git
         run: npx -p semantic-release -p @semantic-release/changelog -p @semantic-release/git -p @semantic-release/github -p @semantic-release/exec semantic-release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Required for GitHub API access
