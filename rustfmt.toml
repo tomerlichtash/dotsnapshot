@@ -1,0 +1,19 @@
+# Rust formatting configuration for dotsnapshot
+# See https://rust-lang.github.io/rustfmt/ for all options
+# Only using stable rustfmt features
+
+# Basic formatting
+max_width = 100
+hard_tabs = false
+tab_spaces = 4
+newline_style = "Unix"
+use_small_heuristics = "Default"
+
+# Imports (stable subset)
+reorder_imports = true
+
+# Functions and control flow
+force_explicit_abi = true
+
+# Edition
+edition = "2021"
