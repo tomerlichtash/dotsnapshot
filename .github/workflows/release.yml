@@ -42,11 +42,11 @@ jobs:
         # This catches configuration issues early and saves CI resources
         run: |
           echo "🧪 Testing semantic-release configuration..."
-          chmod +x test-version-update.sh test-releaserc-command.sh
+          chmod +x test/test-version-update.sh test/test-releaserc-command.sh
           echo "📋 Running basic version update tests..."
-          ./test-version-update.sh
+          ./test/test-version-update.sh
           echo "📋 Running .releaserc.json command tests..."
-          ./test-releaserc-command.sh
+          ./test/test-releaserc-command.sh
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -117,8 +117,9 @@ jobs:
           fi
 
       - name: Build binary for target
+        shell: bash
         run: |
-          if [[ "${{ matrix.job.use-cross }}" == "true" ]]; then
+          if [ "${{ matrix.job.use-cross }}" = "true" ]; then
             # Use cross for cross-compilation (e.g., Linux ARM64)
             cross build --release --target ${{ matrix.job.target }}
           else
