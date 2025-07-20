@@ -117,8 +117,9 @@ jobs:
           fi
 
       - name: Build binary for target
+        shell: bash
         run: |
-          if [[ "${{ matrix.job.use-cross }}" == "true" ]]; then
+          if [ "${{ matrix.job.use-cross }}" = "true" ]; then
             # Use cross for cross-compilation (e.g., Linux ARM64)
             cross build --release --target ${{ matrix.job.target }}
           else
