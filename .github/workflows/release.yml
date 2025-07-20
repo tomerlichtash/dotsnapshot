@@ -128,13 +128,14 @@ jobs:
 
       - name: Package binary into archive
         id: package
+        shell: bash
         run: |
           PKG_BASENAME="dotsnapshot-${{ matrix.job.target }}"
           case ${{ matrix.job.target }} in
             *-pc-windows-*) 
-              # Windows: Create ZIP with .exe
+              # Windows: Create ZIP with .exe using PowerShell
               PKG_NAME="$PKG_BASENAME.zip"
-              7z a "$PKG_NAME" ./target/${{ matrix.job.target }}/release/dotsnapshot.exe
+              powershell "Compress-Archive -Path './target/${{ matrix.job.target }}/release/dotsnapshot.exe' -DestinationPath '$PKG_NAME'"
               ;;
             *)
               # Unix: Create tar.gz with binary
