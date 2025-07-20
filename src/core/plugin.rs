@@ -1,9 +1,9 @@
+use crate::config::Config;
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use crate::config::Config;
 
 /// Represents the result of a plugin execution
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,7 +46,7 @@ pub trait Plugin: Send + Sync {
                 return base_path.join(custom_path).join(self.filename());
             }
         }
-        
+
         // Fall back to default behavior if no custom path is configured
         self.output_path(base_path)
     }

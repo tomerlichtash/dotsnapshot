@@ -17,6 +17,7 @@ pub struct SnapshotExecutor {
 }
 
 impl SnapshotExecutor {
+    #[allow(dead_code)]
     pub fn new(registry: Arc<PluginRegistry>, base_path: PathBuf) -> Self {
         Self {
             registry,
@@ -25,7 +26,11 @@ impl SnapshotExecutor {
         }
     }
 
-    pub fn with_config(registry: Arc<PluginRegistry>, base_path: PathBuf, config: Arc<Config>) -> Self {
+    pub fn with_config(
+        registry: Arc<PluginRegistry>,
+        base_path: PathBuf,
+        config: Arc<Config>,
+    ) -> Self {
         Self {
             registry,
             snapshot_manager: SnapshotManager::new(base_path),
@@ -55,8 +60,13 @@ impl SnapshotExecutor {
             let config_clone = self.config.clone();
 
             let task = tokio::spawn(async move {
-                Self::execute_plugin(plugin_clone, &snapshot_dir_clone, &snapshot_manager_clone, config_clone.as_deref())
-                    .await
+                Self::execute_plugin(
+                    plugin_clone,
+                    &snapshot_dir_clone,
+                    &snapshot_manager_clone,
+                    config_clone.as_deref(),
+                )
+                .await
             });
 
             plugin_tasks.push(task);
@@ -275,8 +285,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_execute_snapshot_with_custom_plugin_paths() -> Result<()> {
-        use crate::config::{Config, PluginsConfig, PluginConfig};
-        
+        use crate::config::{Config, PluginConfig, PluginsConfig};
+
         let temp_dir = TempDir::new()?;
         let base_path = temp_dir.path().to_path_buf();
 
@@ -314,11 +324,12 @@ mod tests {
             content: "vscode extensions content".to_string(),
         }));
 
-        let executor = SnapshotExecutor::with_config(Arc::new(registry), base_path, Arc::new(config));
+        let executor =
+            SnapshotExecutor::with_config(Arc::new(registry), base_path, Arc::new(config));
         let snapshot_dir = executor.execute_snapshot().await?;
 
         assert!(snapshot_dir.exists());
-        
+
         // Both plugins should be in the vscode directory due to shared target_path
         assert!(snapshot_dir.join("vscode").join("test.txt").exists());
         assert!(snapshot_dir

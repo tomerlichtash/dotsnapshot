@@ -38,21 +38,21 @@ pub struct LoggingConfig {
 pub struct PluginsConfig {
     /// Homebrew plugin configurations
     pub homebrew_brewfile: Option<PluginConfig>,
-    
+
     /// VSCode plugin configurations
     pub vscode_settings: Option<PluginConfig>,
-    pub vscode_keybindings: Option<PluginConfig>, 
+    pub vscode_keybindings: Option<PluginConfig>,
     pub vscode_extensions: Option<PluginConfig>,
-    
+
     /// Cursor plugin configurations
     pub cursor_settings: Option<PluginConfig>,
     pub cursor_keybindings: Option<PluginConfig>,
     pub cursor_extensions: Option<PluginConfig>,
-    
+
     /// NPM plugin configurations
     pub npm_global_packages: Option<PluginConfig>,
     pub npm_config: Option<PluginConfig>,
-    
+
     /// Static files plugin configuration
     #[serde(rename = "static")]
     pub static_files: Option<StaticPluginConfig>,
@@ -206,7 +206,7 @@ impl Config {
     /// Get plugin target path for a specific plugin
     pub fn get_plugin_target_path(&self, plugin_name: &str) -> Option<String> {
         let plugins = self.plugins.as_ref()?;
-        
+
         match plugin_name {
             "homebrew_brewfile" => plugins.homebrew_brewfile.as_ref()?.target_path.clone(),
             "vscode_settings" => plugins.vscode_settings.as_ref()?.target_path.clone(),
@@ -220,11 +220,6 @@ impl Config {
             "static" => plugins.static_files.as_ref()?.target_path.clone(),
             _ => None,
         }
-    }
-
-    /// Get new static files configuration
-    pub fn get_static_plugin_config(&self) -> Option<&StaticPluginConfig> {
-        self.plugins.as_ref()?.static_files.as_ref()
     }
 
     /// Save configuration to file
