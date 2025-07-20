@@ -13,7 +13,6 @@
 # 2. Determine version bump (patch/minor/major) based on commit types
 # 3. Update Cargo.toml version and generate CHANGELOG.md
 # 4. Create GitHub release with generated binaries
-# 5. Commit changes back to main with [skip ci]
 
 name: Release
 
@@ -229,7 +228,6 @@ jobs:
         # 4. Updates Cargo.toml version using @semantic-release/exec
         # 5. Generates CHANGELOG.md using @semantic-release/changelog  
         # 6. Creates GitHub release with binaries using @semantic-release/github
-        # 7. Commits updated files back to main using @semantic-release/git
-        run: npx -p semantic-release -p @semantic-release/changelog -p @semantic-release/git -p @semantic-release/github -p @semantic-release/exec semantic-release
+        run: npx -p semantic-release -p @semantic-release/changelog -p @semantic-release/github -p @semantic-release/exec semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Required for GitHub API access
