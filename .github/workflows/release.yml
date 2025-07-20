@@ -30,13 +30,24 @@ permissions:
 
 jobs:
   # JOB 1: TEST
-  # Run Rust tests to ensure code quality before building
+  # Run all tests to ensure code quality and semantic-release config before building
   test:
     name: Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Test semantic-release configuration
+        # Test the version update logic from .releaserc.json before expensive builds
+        # This catches configuration issues early and saves CI resources
+        run: |
+          echo "🧪 Testing semantic-release configuration..."
+          chmod +x test-version-update.sh test-releaserc-command.sh
+          echo "📋 Running basic version update tests..."
+          ./test-version-update.sh
+          echo "📋 Running .releaserc.json command tests..."
+          ./test-releaserc-command.sh
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -53,7 +64,7 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.cachekey }}-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Run tests
+      - name: Run Rust tests
         run: cargo test
 
   # JOB 2: BUILD
