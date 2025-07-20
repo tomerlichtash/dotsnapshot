@@ -253,7 +253,7 @@ cargo test
 
 ### Code Formatting
 
-This project uses `rustfmt` for consistent code formatting. A pre-commit hook is available to automatically format code before commits.
+This project uses `rustfmt` for consistent code formatting. Run `cargo fmt --all` to format your code before committing. The CI will check formatting and fail if code is not properly formatted.
 
 ### Adding New Plugins
 
