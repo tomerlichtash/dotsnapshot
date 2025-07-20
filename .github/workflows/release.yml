@@ -30,20 +30,11 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install semantic-release
-        run: |
-          npm install --save-dev semantic-release
-          npm install --save-dev @semantic-release/changelog
-          npm install --save-dev @semantic-release/git
-          npm install --save-dev @semantic-release/github
-          npm install --save-dev @semantic-release/exec
-
       - name: Get next version
         id: get-next-version
-        run: npx semantic-release --dry-run
+        run: npx -p semantic-release -p @semantic-release/changelog -p @semantic-release/git -p @semantic-release/github -p @semantic-release/exec semantic-release --dry-run
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -175,44 +166,6 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install semantic-release
-        run: |
-          npm install --save-dev semantic-release
-          npm install --save-dev @semantic-release/changelog
-          npm install --save-dev @semantic-release/git
-          npm install --save-dev @semantic-release/github
-          npm install --save-dev @semantic-release/exec
-
-      - name: Update version in Cargo.toml
-        run: |
-          awk -v ver="${{ needs.get-next-version.outputs.new-release-version }}" '/^version = / { sub(/= "[^"]*"/, "= \"" ver "\""); print; next } {print}' Cargo.toml > Cargo.toml.new && mv Cargo.toml.new Cargo.toml
-
-      - name: Update CHANGELOG.md
-        run: |
-          if [ ! -f "CHANGELOG.md" ]; then
-            echo "# Changelog" > CHANGELOG.md
-            echo "" >> CHANGELOG.md
-            echo "All notable changes to this project will be documented in this file." >> CHANGELOG.md
-            echo "" >> CHANGELOG.md
-          fi
-          
-          # Get changes since last tag
-          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          if [ -n "$LAST_TAG" ]; then
-            CHANGES=$(git log --oneline "${LAST_TAG}..HEAD" --pretty=format:"- %s")
-          else
-            CHANGES="- Initial release"
-          fi
-          
-          # Prepend new version to CHANGELOG.md
-          {
-            echo "## [${{ needs.get-next-version.outputs.new-release-version }}] - $(date +%Y-%m-%d)"
-            echo ""
-            echo "$CHANGES"
-            echo ""
-            cat CHANGELOG.md
-          } > CHANGELOG_TEMP.md && mv CHANGELOG_TEMP.md CHANGELOG.md
-
       - name: Prepare release assets
         run: |
           mkdir -p release-assets
@@ -221,6 +174,6 @@ jobs:
           done
 
       - name: Release
-        run: npx semantic-release
+        run: npx -p semantic-release -p @semantic-release/changelog -p @semantic-release/git -p @semantic-release/github -p @semantic-release/exec semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
