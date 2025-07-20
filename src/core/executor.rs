@@ -4,6 +4,7 @@ use std::sync::Arc;
 use tokio::fs as async_fs;
 use tracing::{error, info, warn};
 
+use crate::config::Config;
 use crate::core::checksum::calculate_checksum;
 use crate::core::plugin::{Plugin, PluginRegistry, PluginResult};
 use crate::core::snapshot::SnapshotManager;
@@ -12,6 +13,7 @@ use crate::core::snapshot::SnapshotManager;
 pub struct SnapshotExecutor {
     registry: Arc<PluginRegistry>,
     snapshot_manager: SnapshotManager,
+    config: Option<Arc<Config>>,
 }
 
 impl SnapshotExecutor {
@@ -19,6 +21,15 @@ impl SnapshotExecutor {
         Self {
             registry,
             snapshot_manager: SnapshotManager::new(base_path),
+            config: None,
+        }
+    }
+
+    pub fn with_config(registry: Arc<PluginRegistry>, base_path: PathBuf, config: Arc<Config>) -> Self {
+        Self {
+            registry,
+            snapshot_manager: SnapshotManager::new(base_path),
+            config: Some(config),
         }
     }
 
@@ -41,9 +52,10 @@ impl SnapshotExecutor {
             let plugin_clone = Arc::clone(plugin);
             let snapshot_dir_clone = snapshot_dir.clone();
             let snapshot_manager_clone = self.snapshot_manager.clone();
+            let config_clone = self.config.clone();
 
             let task = tokio::spawn(async move {
-                Self::execute_plugin(plugin_clone, &snapshot_dir_clone, &snapshot_manager_clone)
+                Self::execute_plugin(plugin_clone, &snapshot_dir_clone, &snapshot_manager_clone, config_clone.as_deref())
                     .await
             });
 
@@ -106,6 +118,7 @@ impl SnapshotExecutor {
         plugin: Arc<dyn Plugin>,
         snapshot_dir: &Path,
         snapshot_manager: &SnapshotManager,
+        config: Option<&Config>,
     ) -> Result<PluginResult> {
         let plugin_name = plugin.name().to_string();
         info!("Executing plugin: {}", plugin_name);
@@ -170,7 +183,7 @@ impl SnapshotExecutor {
         }
 
         // Save new content to file
-        let output_path = plugin.output_path(snapshot_dir);
+        let output_path = plugin.output_path_with_config(snapshot_dir, config);
 
         // Create parent directory if it doesn't exist
         if let Some(parent) = output_path.parent() {
@@ -252,6 +265,62 @@ mod tests {
 
         assert!(snapshot_dir.exists());
         assert!(snapshot_dir.join("test.txt").exists());
+        assert!(snapshot_dir
+            .join(".snapshot")
+            .join("checksum.json")
+            .exists());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_execute_snapshot_with_custom_plugin_paths() -> Result<()> {
+        use crate::config::{Config, PluginsConfig, PluginConfig};
+        
+        let temp_dir = TempDir::new()?;
+        let base_path = temp_dir.path().to_path_buf();
+
+        // Create a config with custom plugin paths
+        let config = Config {
+            output_dir: None,
+            include_plugins: None,
+            logging: None,
+            static_files: None,
+            plugins: Some(PluginsConfig {
+                homebrew_brewfile: None,
+                vscode_settings: Some(PluginConfig {
+                    target_path: Some("vscode".to_string()),
+                }),
+                vscode_keybindings: None,
+                vscode_extensions: Some(PluginConfig {
+                    target_path: Some("vscode".to_string()),
+                }),
+                cursor_settings: None,
+                cursor_keybindings: None,
+                cursor_extensions: None,
+                npm_global_packages: None,
+                npm_config: None,
+                static_files: None,
+            }),
+        };
+
+        let mut registry = PluginRegistry::new();
+        registry.register(Arc::new(TestPlugin {
+            name: "vscode_settings".to_string(),
+            content: "vscode settings content".to_string(),
+        }));
+        registry.register(Arc::new(TestPlugin {
+            name: "vscode_extensions".to_string(),
+            content: "vscode extensions content".to_string(),
+        }));
+
+        let executor = SnapshotExecutor::with_config(Arc::new(registry), base_path, Arc::new(config));
+        let snapshot_dir = executor.execute_snapshot().await?;
+
+        assert!(snapshot_dir.exists());
+        
+        // Both plugins should be in the vscode directory due to shared target_path
+        assert!(snapshot_dir.join("vscode").join("test.txt").exists());
         assert!(snapshot_dir
             .join(".snapshot")
             .join("checksum.json")

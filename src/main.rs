@@ -349,7 +349,7 @@ async fn main() -> Result<()> {
     }
 
     // Create executor and run snapshot
-    let executor = SnapshotExecutor::new(Arc::new(registry), output_dir);
+    let executor = SnapshotExecutor::with_config(Arc::new(registry), output_dir, Arc::new(config));
 
     match executor.execute_snapshot().await {
         Ok(snapshot_path) => {

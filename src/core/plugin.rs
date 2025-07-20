@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use crate::config::Config;
 
 /// Represents the result of a plugin execution
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,6 +36,19 @@ pub trait Plugin: Send + Sync {
     /// Returns the expected output file path for this plugin
     fn output_path(&self, base_path: &Path) -> PathBuf {
         base_path.join(self.filename())
+    }
+
+    /// Returns the expected output file path with custom configuration support
+    fn output_path_with_config(&self, base_path: &Path, config: Option<&Config>) -> PathBuf {
+        // Check if there's a custom target path configured for this plugin
+        if let Some(config) = config {
+            if let Some(custom_path) = config.get_plugin_target_path(self.name()) {
+                return base_path.join(custom_path).join(self.filename());
+            }
+        }
+        
+        // Fall back to default behavior if no custom path is configured
+        self.output_path(base_path)
     }
 }
 
