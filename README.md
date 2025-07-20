@@ -251,6 +251,10 @@ Each plugin focuses on a single concern and can be executed independently.
 cargo test
 ```
 
+### Code Formatting
+
+This project uses `rustfmt` for consistent code formatting. A pre-commit hook is available to automatically format code before commits.
+
 ### Adding New Plugins
 
 1. Create a new vendor directory in `src/plugins/` (e.g., `src/plugins/git/`)
