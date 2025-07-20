@@ -28,6 +28,7 @@
    - **Max 72 characters**
    - **Must start with semantic prefix**
    - **First word after colon must be capitalized**
+   - **Auto-merge:** Every new PR should be set to auto-merge
    - **Examples:**
      - ✅ `feat: Add GitHub Pages documentation site`
      - ✅ `fix: Resolve Cargo.lock version conflicts`
@@ -55,35 +56,36 @@
 
 ## Release Process
 
-**Simplified Branch-Based Release Workflow:**
+**Semantic Release Workflow:**
 
-1. **Use Release Script (Recommended)**
-   ```bash
-   ./scripts/release.sh 1.3.0
-   ```
-   
-   This script automatically:
-   - Creates `release/v1.3.0` branch
-   - Updates version in Cargo.toml
-   - Builds and tests the release
-   - Creates PR with release notes
-   - When PR is merged → automatic release
+Releases are fully automated using semantic-release based on conventional commit messages:
 
-2. **Manual Process (Alternative)**
-   ```bash
-   # 1. Create release branch
-   git checkout main && git pull origin main
-   git checkout -b release/v1.3.0
-   
-   # 2. Update version and create PR
-   # (Release workflow triggers when release/v* branch is merged to main)
-   ```
+1. **Development Commits**
+   - Use semantic commit prefixes: `feat:`, `fix:`, `docs:`, etc.
+   - Each commit type determines version bump:
+     - `feat:` → Minor version bump (1.2.0 → 1.3.0)
+     - `fix:` → Patch version bump (1.2.0 → 1.2.1)
+     - `BREAKING CHANGE:` → Major version bump (1.2.0 → 2.0.0)
 
-**Key Changes:**
-- ✅ **No "[RELEASE]" keyword required**
-- ✅ **Branch name triggers release**: `release/v1.3.0` → version 1.3.0
-- ✅ **Automatic version verification** in CI
-- ✅ **Clean, predictable process**
+2. **Automatic Release Trigger**
+   - When PRs are merged to `main` branch
+   - Semantic-release analyzes commit messages from the merged PR
+   - Automatically determines next version
+   - Updates Cargo.toml and Cargo.lock
+   - Creates GitHub release with changelog
+   - Builds and attaches binaries for all platforms
+
+3. **Manual Release (Emergency)**
+   - Use workflow_dispatch trigger in GitHub Actions
+   - Go to Actions → Release → "Run workflow"
+   - Forces release even without qualifying commits
+
+**Key Features:**
+- ✅ **Fully automated** - no manual version management
+- ✅ **Consistent versioning** - follows semantic versioning
+- ✅ **Automatic changelog** - generated from commit messages
+- ✅ **Multi-platform binaries** - built and attached automatically
+- ✅ **Version alignment** - Cargo.toml, git tags, and binaries stay in sync
 
 ## Repository Structure
 
