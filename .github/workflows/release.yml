@@ -147,6 +147,7 @@ jobs:
           echo "pkg-name=$PKG_NAME" >> $GITHUB_OUTPUT
 
       - name: Generate SHA256 checksum
+        shell: bash
         run: |
           case ${{ runner.os }} in
             Windows) 
