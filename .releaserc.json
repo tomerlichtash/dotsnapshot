@@ -17,7 +17,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "sed -i.bak 's/^version = \"[^\"]*\"/version = \"${nextRelease.version}\"/' Cargo.toml && cargo update --package dotsnapshot --precise \"${nextRelease.version}\""
+        "prepareCmd": "sed -i.bak '/^\\[package\\]/,/^\\[/{s/^version = \".*\"/version = \"${nextRelease.version}\"/;}' Cargo.toml && cargo update --package dotsnapshot --precise \"${nextRelease.version}\""
       }
     ],
     [

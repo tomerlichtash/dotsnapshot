@@ -37,7 +37,7 @@ echo "🔄 Testing with nextRelease.version = $nextRelease_version"
 
 # Test the exact command from .releaserc.json (without cargo update to avoid dependency issues)
 # Using environment variable substitution like semantic-release does
-PREPARE_CMD="sed -i.bak 's/^version = \"[^\"]*\"/version = \"${nextRelease_version}\"/' test-Cargo.toml"
+PREPARE_CMD="sed -i.bak '/^\[package\]/,/^\[/{s/^version = \".*\"/version = \"${nextRelease_version}\"/;}' test-Cargo.toml"
 
 echo "📋 Executing: $PREPARE_CMD"
 eval "$PREPARE_CMD"
