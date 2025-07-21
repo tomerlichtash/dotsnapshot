@@ -5,6 +5,7 @@ A fast, extensible Rust CLI utility that creates snapshots of dotfiles and confi
 ## Features
 
 - **Plugin Architecture**: Extensible plugin system for different tools and configurations
+- **Plugin Hooks System**: Execute custom scripts and actions at specific points during snapshot creation
 - **Async Execution**: All plugins run concurrently for better performance
 - **Checksum Optimization**: Reuses existing files when content hasn't changed
 - **Cross-Platform**: Works on macOS, Linux, and Windows
@@ -127,6 +128,114 @@ dotsnapshot --man | sudo tee /usr/local/share/man/man1/dotsnapshot.1
 - `-c, --config <PATH>`: Path to config file
 - `-h, --help`: Show help information
 
+## Plugin Hooks System
+
+Dotsnapshot supports a comprehensive hooks system that allows you to execute custom scripts and actions at specific points during the snapshot creation process.
+
+### Hook Types
+
+- **pre-snapshot**: Execute before any plugins run (global setup, validation)
+- **post-snapshot**: Execute after all plugins complete (cleanup, notifications)
+- **pre-plugin**: Execute before a specific plugin runs (plugin-specific setup)
+- **post-plugin**: Execute after a specific plugin completes (plugin-specific cleanup)
+
+### Hook Actions
+
+#### Script Actions
+Execute custom scripts with configurable arguments and timeouts:
+```bash
+# Add a script hook
+dotsnapshot hooks add --pre-plugin homebrew_brewfile --script "brew-update.sh" --timeout 60
+
+# Script with arguments
+dotsnapshot hooks add --post-plugin homebrew_brewfile --script "validate.sh" --args "--verbose,--check"
+```
+
+#### Built-in Actions
+```bash
+# Logging
+dotsnapshot hooks add --pre-plugin homebrew_brewfile --log "Starting Homebrew backup" --level info
+
+# Notifications
+dotsnapshot hooks add --post-snapshot --notify "Backup completed successfully" --title "dotsnapshot"
+
+# File backup
+dotsnapshot hooks add --pre-snapshot --backup --path "~/.config" --destination "/tmp/backup"
+
+# Cleanup
+dotsnapshot hooks add --post-snapshot --cleanup --temp-files --patterns "*.tmp,*.log"
+```
+
+### Hook Management Commands
+
+#### Adding Hooks
+```bash
+# Plugin-specific hooks
+dotsnapshot hooks add --pre-plugin homebrew_brewfile --script "setup.sh"
+dotsnapshot hooks add --post-plugin vscode_settings --notify "VSCode backup complete"
+
+# Global hooks (apply to all plugins)
+dotsnapshot hooks add --pre-snapshot --script "global-setup.sh"
+dotsnapshot hooks add --post-snapshot --cleanup --temp-files
+```
+
+#### Listing Hooks
+```bash
+# List all hooks
+dotsnapshot hooks list
+
+# List hooks for specific plugin
+dotsnapshot hooks list --plugin homebrew_brewfile
+
+# List by hook type
+dotsnapshot hooks list --pre-plugin --verbose
+```
+
+#### Removing Hooks
+```bash
+# Remove by index
+dotsnapshot hooks remove --pre-plugin homebrew_brewfile --index 0
+
+# Remove by script name
+dotsnapshot hooks remove --post-plugin homebrew_brewfile --script "setup.sh"
+
+# Remove all hooks for a plugin
+dotsnapshot hooks remove --plugin homebrew_brewfile --all
+```
+
+#### Hook Validation
+```bash
+# Validate all hooks
+dotsnapshot hooks validate
+
+# Validate specific plugin hooks
+dotsnapshot hooks validate --plugin homebrew_brewfile
+```
+
+#### Scripts Directory Management
+```bash
+# Show current scripts directory
+dotsnapshot hooks scripts-dir
+
+# Set custom scripts directory
+dotsnapshot hooks scripts-dir --set "~/my-scripts" --create
+```
+
+### Template Variables
+
+Hooks support template variables that are dynamically replaced during execution:
+
+- `{snapshot_name}` - Name of the current snapshot
+- `{plugin_name}` - Name of the current plugin
+- `{file_count}` - Number of files processed
+- `{output_path}` - Path to the output file
+- `{snapshot_dir}` - Directory of the current snapshot
+
+Example:
+```bash
+dotsnapshot hooks add --post-plugin homebrew_brewfile --log "Completed {plugin_name}: {file_count} files"
+```
+
 ## Configuration File
 
 The tool supports TOML configuration files for default settings. Configuration files are searched in the following order:
@@ -146,6 +255,35 @@ output_dir = "/path/to/snapshots"
 # Specific plugins to include (if not specified, all plugins run)
 include_plugins = ["homebrew", "vscode"]
 
+# Hooks configuration
+[hooks]
+scripts_dir = "~/.config/dotsnapshot/scripts"
+
+# Global hooks (applied to all plugins)
+[global.hooks]
+[[global.hooks.pre-snapshot]]
+action = "script"
+command = "pre-snapshot-setup.sh"
+timeout = 30
+
+[[global.hooks.post-snapshot]]
+action = "notify"
+message = "Snapshot {snapshot_name} completed successfully"
+title = "dotsnapshot"
+
+# Plugin-specific hooks
+[plugins.homebrew_brewfile.hooks]
+[[plugins.homebrew_brewfile.hooks.pre-plugin]]
+action = "script"
+command = "brew-update.sh"
+args = ["--update"]
+timeout = 60
+
+[[plugins.homebrew_brewfile.hooks.post-plugin]]
+action = "log"
+message = "Homebrew backup completed: {file_count} files"
+level = "info"
+
 [logging]
 # Enable verbose logging by default
 verbose = true
@@ -160,6 +298,20 @@ time_format = "[year]-[month]-[day] [hour]:[minute]:[second]"
 # Dotsnapshot Configuration
 output_dir = "/Users/username/backups/snapshots"
 include_plugins = ["homebrew", "vscode", "npm"]
+
+# Configure hooks
+[hooks]
+scripts_dir = "~/scripts/dotsnapshot"
+
+# Add a simple notification when snapshots complete
+[[global.hooks.post-snapshot]]
+action = "notify"
+message = "Backup completed at {snapshot_dir}"
+
+# Pre-validate Homebrew before backup
+[[plugins.homebrew_brewfile.hooks.pre-plugin]]
+action = "script"
+command = "homebrew/pre-check.sh"
 
 [logging]
 verbose = false
