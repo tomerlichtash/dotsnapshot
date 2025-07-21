@@ -854,7 +854,7 @@ fn validate_hook_list(
     let mut errors = 0;
 
     for (index, hook) in hooks.iter().enumerate() {
-        let results = hook_manager.validate_hooks(&[hook.clone()], context);
+        let results = hook_manager.validate_hooks(std::slice::from_ref(hook), context);
         match &results[0] {
             Ok(_) => {
                 valid += 1;
