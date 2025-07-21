@@ -477,10 +477,7 @@ async fn handle_clean_command(
     if let Some(snapshot_name) = name {
         // Clean specific snapshot by name
         if interactive && !dry_run {
-            println!(
-                "Are you sure you want to delete snapshot '{}'? (y/N)",
-                snapshot_name
-            );
+            println!("Are you sure you want to delete snapshot '{snapshot_name}'? (y/N)");
             let mut input = String::new();
             std::io::stdin().read_line(&mut input)?;
             if !matches!(input.trim().to_lowercase().as_str(), "y" | "yes") {
@@ -492,19 +489,18 @@ async fn handle_clean_command(
         let success = cleaner.clean_by_name(&snapshot_name, dry_run).await?;
         if success {
             if dry_run {
-                println!("✅ Would delete snapshot: {}", snapshot_name);
+                println!("✅ Would delete snapshot: {snapshot_name}");
             } else {
-                println!("✅ Deleted snapshot: {}", snapshot_name);
+                println!("✅ Deleted snapshot: {snapshot_name}");
             }
         } else {
-            println!("❌ Snapshot '{}' not found", snapshot_name);
+            println!("❌ Snapshot '{snapshot_name}' not found");
         }
     } else if let Some(retention_days) = days {
         // Clean by retention period
         if interactive && !dry_run {
             println!(
-                "Are you sure you want to delete snapshots older than {} days? (y/N)",
-                retention_days
+                "Are you sure you want to delete snapshots older than {retention_days} days? (y/N)"
             );
             let mut input = String::new();
             std::io::stdin().read_line(&mut input)?;
@@ -516,7 +512,7 @@ async fn handle_clean_command(
 
         let cleaned = cleaner.clean_by_retention(retention_days, dry_run).await?;
         if cleaned.is_empty() {
-            println!("No snapshots found older than {} days", retention_days);
+            println!("No snapshots found older than {retention_days} days");
         } else {
             if dry_run {
                 println!(
@@ -532,7 +528,7 @@ async fn handle_clean_command(
                 );
             }
             for snapshot_name in cleaned {
-                println!("  • {}", snapshot_name);
+                println!("  • {snapshot_name}");
             }
         }
     } else {

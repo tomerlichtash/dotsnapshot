@@ -141,7 +141,7 @@ impl SnapshotCleaner {
         if let Ok(naive_dt) = NaiveDateTime::parse_from_str(timestamp, "%Y%m%d_%H%M%S") {
             return Ok(DateTime::from_naive_utc_and_offset(
                 naive_dt,
-                Local::now().offset().clone(),
+                *Local::now().offset(),
             ));
         }
 
@@ -211,7 +211,7 @@ impl SnapshotCleaner {
         info!("Deleting snapshot: {}", name);
         tokio::fs::remove_dir_all(&snapshot_path)
             .await
-            .with_context(|| format!("Failed to delete snapshot: {}", name))?;
+            .with_context(|| format!("Failed to delete snapshot: {name}"))?;
 
         Ok(true)
     }
