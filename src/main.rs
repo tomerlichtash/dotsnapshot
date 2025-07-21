@@ -13,6 +13,7 @@ mod core;
 mod plugins;
 
 use config::Config;
+use core::cleaner::SnapshotCleaner;
 use core::executor::SnapshotExecutor;
 use core::plugin::PluginRegistry;
 use plugins::{
@@ -28,29 +29,13 @@ use plugins::{
 #[command(about = "A CLI utility to create snapshots of dotfiles and configuration")]
 #[command(version = env!("CARGO_PKG_VERSION"))]
 struct Args {
-    /// Output directory for snapshots (overrides config file)
-    #[arg(short, long)]
-    output: Option<PathBuf>,
-
-    /// Enable verbose logging (overrides config file)
-    #[arg(short, long)]
-    verbose: bool,
-
-    /// Specify which plugins to run (comma-separated)
-    #[arg(short, long)]
-    plugins: Option<String>,
-
     /// Path to config file
-    #[arg(short, long)]
+    #[arg(short, long, global = true)]
     config: Option<PathBuf>,
 
-    /// List available plugins
-    #[arg(short, long)]
-    list: bool,
-
-    /// Show detailed information about the tool
-    #[arg(long)]
-    info: bool,
+    /// Enable verbose logging (overrides config file)
+    #[arg(short, long, global = true)]
+    verbose: bool,
 
     /// Generate shell completions for the specified shell
     #[arg(long, value_enum)]
@@ -59,6 +44,57 @@ struct Args {
     /// Generate man page
     #[arg(long)]
     man: bool,
+
+    /// Show detailed information about the tool
+    #[arg(long)]
+    info: bool,
+
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Parser)]
+enum Commands {
+    /// Create a snapshot of dotfiles and configuration
+    Snapshot {
+        /// Output directory for snapshots (overrides config file)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+
+        /// Specify which plugins to run (comma-separated)
+        #[arg(short, long)]
+        plugins: Option<String>,
+
+        /// List available plugins
+        #[arg(short, long)]
+        list: bool,
+    },
+    /// Clean snapshots from the snapshots directory
+    Clean {
+        /// Output directory containing snapshots (uses config if not specified)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+
+        /// List all snapshots without cleaning
+        #[arg(short, long)]
+        list: bool,
+
+        /// Clean specific snapshot by name
+        #[arg(short, long)]
+        name: Option<String>,
+
+        /// Clean snapshots older than specified days
+        #[arg(short, long)]
+        days: Option<u32>,
+
+        /// Show what would be cleaned without actually deleting
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Ask for confirmation before deleting
+        #[arg(short, long)]
+        interactive: bool,
+    },
 }
 
 fn create_subscriber(
@@ -247,7 +283,9 @@ async fn main() -> Result<()> {
         println!("  • Cursor settings, keybindings, and extensions");
         println!("  • NPM global packages and configuration");
         println!();
-        println!("🚀 Usage: dotsnapshot [OPTIONS]");
+        println!("🚀 Usage:");
+        println!("   dotsnapshot snapshot [OPTIONS]  # Create snapshots");
+        println!("   dotsnapshot clean [OPTIONS]     # Clean snapshots");
         println!("   Use --help for detailed options");
         println!();
         println!("🔧 Shell Completions:");
@@ -262,12 +300,6 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
-    // Handle --list flag early
-    if args.list {
-        list_plugins().await;
-        return Ok(());
-    }
-
     // Load configuration
     let config = if let Some(config_path) = &args.config {
         Config::load_from_file(config_path).await?
@@ -278,22 +310,58 @@ async fn main() -> Result<()> {
     // Store config path for later logging (after logging is initialized)
     let custom_config_path = args.config.clone();
 
-    // Determine final settings (CLI args override config file)
-    let output_dir = args.output.unwrap_or_else(|| config.get_output_dir());
+    // Determine verbose setting
     let verbose = args.verbose || config.is_verbose_default();
     let time_format = config.get_time_format();
 
     // Initialize logging
     let subscriber = create_subscriber(verbose, time_format);
-
     tracing::subscriber::set_global_default(subscriber).expect("Failed to set default subscriber");
-
-    info!("Starting dotsnapshot v{}", env!("CARGO_PKG_VERSION"));
 
     // Log custom config usage if applicable
     if let Some(config_path) = custom_config_path {
         info!("📋 Using custom config file: {}", config_path.display());
     }
+
+    // Handle commands
+    match args.command {
+        Some(Commands::Snapshot {
+            output,
+            plugins,
+            list,
+        }) => handle_snapshot_command(output, plugins, list, config, start_time).await,
+        Some(Commands::Clean {
+            output,
+            list,
+            name,
+            days,
+            dry_run,
+            interactive,
+        }) => handle_clean_command(output, list, name, days, dry_run, interactive, config).await,
+        None => {
+            // Default behavior: create snapshot for backward compatibility
+            handle_snapshot_command(None, None, false, config, start_time).await
+        }
+    }
+}
+
+async fn handle_snapshot_command(
+    output: Option<PathBuf>,
+    plugins: Option<String>,
+    list: bool,
+    config: Config,
+    start_time: Instant,
+) -> Result<()> {
+    info!("Starting dotsnapshot v{}", env!("CARGO_PKG_VERSION"));
+
+    // Handle --list flag
+    if list {
+        list_plugins().await;
+        return Ok(());
+    }
+
+    // Determine final settings (CLI args override config file)
+    let output_dir = output.unwrap_or_else(|| config.get_output_dir());
 
     // Create output directory if it doesn't exist
     tokio::fs::create_dir_all(&output_dir).await?;
@@ -302,7 +370,7 @@ async fn main() -> Result<()> {
     let mut registry = PluginRegistry::new();
 
     // Determine which plugins to run
-    let selected_plugins = if let Some(cli_plugins) = args.plugins.as_deref() {
+    let selected_plugins = if let Some(cli_plugins) = plugins.as_deref() {
         // CLI argument takes precedence
         cli_plugins
     } else if let Some(config_plugins) = config.get_include_plugins() {
@@ -369,6 +437,111 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+async fn handle_clean_command(
+    output: Option<PathBuf>,
+    list: bool,
+    name: Option<String>,
+    days: Option<u32>,
+    dry_run: bool,
+    interactive: bool,
+    config: Config,
+) -> Result<()> {
+    info!("Starting dotsnapshot clean v{}", env!("CARGO_PKG_VERSION"));
+
+    // Determine snapshots directory
+    let snapshots_dir = output.unwrap_or_else(|| config.get_output_dir());
+    let cleaner = SnapshotCleaner::new(snapshots_dir.clone());
+
+    if list {
+        // List snapshots
+        let snapshots = cleaner.list_snapshots().await?;
+        if snapshots.is_empty() {
+            println!("No snapshots found in: {}", snapshots_dir.display());
+            return Ok(());
+        }
+
+        println!("📸 Snapshots in: {}", snapshots_dir.display());
+        println!();
+        for snapshot in snapshots {
+            println!(
+                "  {} | {} | {} | {} plugins",
+                snapshot.name,
+                snapshot.created_at.format("%Y-%m-%d %H:%M:%S"),
+                SnapshotCleaner::format_size(snapshot.size_bytes),
+                snapshot.plugin_count
+            );
+        }
+        return Ok(());
+    }
+
+    if let Some(snapshot_name) = name {
+        // Clean specific snapshot by name
+        if interactive && !dry_run {
+            println!("Are you sure you want to delete snapshot '{snapshot_name}'? (y/N)");
+            let mut input = String::new();
+            std::io::stdin().read_line(&mut input)?;
+            if !matches!(input.trim().to_lowercase().as_str(), "y" | "yes") {
+                println!("Operation cancelled.");
+                return Ok(());
+            }
+        }
+
+        let success = cleaner.clean_by_name(&snapshot_name, dry_run).await?;
+        if success {
+            if dry_run {
+                println!("✅ Would delete snapshot: {snapshot_name}");
+            } else {
+                println!("✅ Deleted snapshot: {snapshot_name}");
+            }
+        } else {
+            println!("❌ Snapshot '{snapshot_name}' not found");
+        }
+    } else if let Some(retention_days) = days {
+        // Clean by retention period
+        if interactive && !dry_run {
+            println!(
+                "Are you sure you want to delete snapshots older than {retention_days} days? (y/N)"
+            );
+            let mut input = String::new();
+            std::io::stdin().read_line(&mut input)?;
+            if !matches!(input.trim().to_lowercase().as_str(), "y" | "yes") {
+                println!("Operation cancelled.");
+                return Ok(());
+            }
+        }
+
+        let cleaned = cleaner.clean_by_retention(retention_days, dry_run).await?;
+        if cleaned.is_empty() {
+            println!("No snapshots found older than {retention_days} days");
+        } else {
+            if dry_run {
+                println!(
+                    "✅ Would delete {} snapshots older than {} days:",
+                    cleaned.len(),
+                    retention_days
+                );
+            } else {
+                println!(
+                    "✅ Deleted {} snapshots older than {} days:",
+                    cleaned.len(),
+                    retention_days
+                );
+            }
+            for snapshot_name in cleaned {
+                println!("  • {snapshot_name}");
+            }
+        }
+    } else {
+        println!(
+            "❌ Please specify either --name <snapshot> or --days <number> to clean snapshots"
+        );
+        println!("Use --list to see available snapshots");
+        std::process::exit(1);
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -377,31 +550,51 @@ mod tests {
     fn test_args_parsing() {
         // Test default values
         let args = Args::parse_from(["dotsnapshot"]);
-        assert!(args.output.is_none());
-        assert!(!args.verbose);
-        assert!(args.plugins.is_none());
         assert!(args.config.is_none());
-        assert!(!args.list);
+        assert!(!args.verbose);
+        assert!(args.command.is_none());
 
-        // Test custom values
+        // Test snapshot subcommand
         let args = Args::parse_from([
             "dotsnapshot",
+            "snapshot",
             "--output",
             "/tmp/test",
-            "--verbose",
             "--plugins",
             "homebrew,npm",
-            "--config",
-            "/path/to/config.toml",
         ]);
-        assert_eq!(args.output.unwrap(), PathBuf::from("/tmp/test"));
-        assert!(args.verbose);
-        assert_eq!(args.plugins.unwrap(), "homebrew,npm");
-        assert_eq!(args.config.unwrap(), PathBuf::from("/path/to/config.toml"));
-        assert!(!args.list);
+        assert!(!args.verbose);
+        match args.command {
+            Some(Commands::Snapshot {
+                output,
+                plugins,
+                list,
+            }) => {
+                assert_eq!(output.unwrap(), PathBuf::from("/tmp/test"));
+                assert_eq!(plugins.unwrap(), "homebrew,npm");
+                assert!(!list);
+            }
+            _ => panic!("Expected Snapshot command"),
+        }
 
-        // Test --list flag
-        let args = Args::parse_from(["dotsnapshot", "--list"]);
-        assert!(args.list);
+        // Test clean subcommand
+        let args = Args::parse_from(["dotsnapshot", "clean", "--days", "30", "--dry-run"]);
+        match args.command {
+            Some(Commands::Clean { days, dry_run, .. }) => {
+                assert_eq!(days.unwrap(), 30);
+                assert!(dry_run);
+            }
+            _ => panic!("Expected Clean command"),
+        }
+
+        // Test global verbose flag
+        let args = Args::parse_from(["dotsnapshot", "--verbose", "snapshot", "--list"]);
+        assert!(args.verbose);
+        match args.command {
+            Some(Commands::Snapshot { list, .. }) => {
+                assert!(list);
+            }
+            _ => panic!("Expected Snapshot command"),
+        }
     }
 }
