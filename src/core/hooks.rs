@@ -1046,8 +1046,19 @@ mod tests {
         assert_eq!(relative_path, temp_dir.path().join("test-script.sh"));
 
         // Test absolute path (should be unchanged)
-        let absolute_path = hooks_config.resolve_script_path("/usr/bin/test");
-        assert_eq!(absolute_path, PathBuf::from("/usr/bin/test"));
+        #[cfg(unix)]
+        {
+            let absolute_path = hooks_config.resolve_script_path("/usr/bin/test");
+            assert_eq!(absolute_path, PathBuf::from("/usr/bin/test"));
+        }
+        #[cfg(windows)]
+        {
+            let absolute_path = hooks_config.resolve_script_path("C:\\Windows\\System32\\cmd.exe");
+            assert_eq!(
+                absolute_path,
+                PathBuf::from("C:\\Windows\\System32\\cmd.exe")
+            );
+        }
 
         // Test subdirectory path
         let subdir_path = hooks_config.resolve_script_path("hooks/test.sh");
