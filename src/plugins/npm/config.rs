@@ -9,6 +9,7 @@ use crate::core::plugin::Plugin;
 pub struct NpmConfigPlugin;
 
 impl NpmConfigPlugin {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self
     }

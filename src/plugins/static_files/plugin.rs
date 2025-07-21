@@ -17,6 +17,7 @@ pub struct StaticFilesPlugin {
 }
 
 impl StaticFilesPlugin {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             config: None,
@@ -470,6 +471,8 @@ mod tests {
             output_dir: None,
             include_plugins: None,
             logging: None,
+            hooks: None,
+            global: None,
             static_files: Some(StaticFilesConfig {
                 files: Some(vec!["/etc/hosts".to_string()]),
                 ignore: None,

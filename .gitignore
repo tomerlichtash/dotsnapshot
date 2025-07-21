@@ -6,4 +6,7 @@
 *.sha256
 *.zip
 dotsnapshot-*
+
+# Snapshot directories
 .snapshots
+test-snapshots
