@@ -8,6 +8,7 @@ use std::sync::Arc;
 use std::time::Instant;
 use tracing::{error, info};
 
+mod cli;
 mod config;
 mod core;
 mod plugins;
@@ -28,37 +29,223 @@ use plugins::{
 #[command(about = "A CLI utility to create snapshots of dotfiles and configuration")]
 #[command(version = env!("CARGO_PKG_VERSION"))]
 struct Args {
-    /// Output directory for snapshots (overrides config file)
+    /// Enable verbose logging (overrides config file)
+    #[arg(short, long, global = true)]
+    verbose: bool,
+
+    /// Path to config file
+    #[arg(short, long, global = true)]
+    config: Option<PathBuf>,
+
+    #[command(subcommand)]
+    command: Option<Commands>,
+
+    /// Output directory for snapshots (overrides config file) - used when no subcommand
     #[arg(short, long)]
     output: Option<PathBuf>,
 
-    /// Enable verbose logging (overrides config file)
-    #[arg(short, long)]
-    verbose: bool,
-
-    /// Specify which plugins to run (comma-separated)
+    /// Specify which plugins to run (comma-separated) - used when no subcommand
     #[arg(short, long)]
     plugins: Option<String>,
 
-    /// Path to config file
-    #[arg(short, long)]
-    config: Option<PathBuf>,
-
-    /// List available plugins
+    /// List available plugins - used when no subcommand
     #[arg(short, long)]
     list: bool,
 
-    /// Show detailed information about the tool
+    /// Show detailed information about the tool - used when no subcommand
     #[arg(long)]
     info: bool,
 
-    /// Generate shell completions for the specified shell
+    /// Generate shell completions for the specified shell - used when no subcommand
     #[arg(long, value_enum)]
     completions: Option<Shell>,
 
-    /// Generate man page
+    /// Generate man page - used when no subcommand
     #[arg(long)]
     man: bool,
+}
+
+#[derive(Parser)]
+enum Commands {
+    /// Manage plugin hooks
+    Hooks {
+        #[command(subcommand)]
+        command: HooksCommands,
+    },
+}
+
+#[derive(Parser)]
+// Allow large enum variant because HookActionArgs contains many optional CLI arguments
+// Boxing would complicate the clap derive macro usage without significant memory benefits
+// since this enum is used transiently for command parsing only
+#[allow(clippy::large_enum_variant)]
+enum HooksCommands {
+    /// Add a new hook to a plugin or globally
+    Add {
+        /// Hook type and target
+        #[command(flatten)]
+        target: HookTarget,
+
+        /// Action type
+        #[command(flatten)]
+        action: HookActionArgs,
+    },
+    /// Remove existing hooks
+    Remove {
+        /// Hook type and target
+        #[command(flatten)]
+        target: HookTarget,
+
+        /// Remove by index
+        #[arg(long)]
+        index: Option<usize>,
+
+        /// Remove all hooks of this type
+        #[arg(long)]
+        all: bool,
+
+        /// Remove by matching script name
+        #[arg(long)]
+        script: Option<String>,
+    },
+    /// List configured hooks
+    List {
+        /// Show hooks for specific plugin
+        #[arg(long)]
+        plugin: Option<String>,
+
+        /// Show only pre-plugin hooks
+        #[arg(long, conflicts_with_all = ["post_plugin", "pre_snapshot", "post_snapshot"])]
+        pre_plugin: bool,
+
+        /// Show only post-plugin hooks
+        #[arg(long, conflicts_with_all = ["pre_plugin", "pre_snapshot", "post_snapshot"])]
+        post_plugin: bool,
+
+        /// Show only pre-snapshot hooks
+        #[arg(long, conflicts_with_all = ["pre_plugin", "post_plugin", "post_snapshot"])]
+        pre_snapshot: bool,
+
+        /// Show only post-snapshot hooks
+        #[arg(long, conflicts_with_all = ["pre_plugin", "post_plugin", "pre_snapshot"])]
+        post_snapshot: bool,
+
+        /// Show verbose details
+        #[arg(long)]
+        verbose: bool,
+    },
+    /// Validate hook configuration
+    Validate {
+        /// Validate hooks for specific plugin
+        #[arg(long)]
+        plugin: Option<String>,
+
+        /// Validate only pre-plugin hooks
+        #[arg(long)]
+        pre_plugin: bool,
+
+        /// Validate only post-plugin hooks
+        #[arg(long)]
+        post_plugin: bool,
+
+        /// Validate only pre-snapshot hooks
+        #[arg(long)]
+        pre_snapshot: bool,
+
+        /// Validate only post-snapshot hooks
+        #[arg(long)]
+        post_snapshot: bool,
+    },
+    /// Manage scripts directory
+    ScriptsDir {
+        /// Set new scripts directory
+        #[arg(long)]
+        set: Option<PathBuf>,
+
+        /// Create scripts directory if it doesn't exist
+        #[arg(long)]
+        create: bool,
+    },
+}
+
+#[derive(Parser)]
+#[group(required = true, multiple = false)]
+struct HookTarget {
+    /// Pre-snapshot hook (global)
+    #[arg(long)]
+    pre_snapshot: bool,
+
+    /// Post-snapshot hook (global)
+    #[arg(long)]
+    post_snapshot: bool,
+
+    /// Pre-plugin hook for specific plugin
+    #[arg(long)]
+    pre_plugin: Option<String>,
+
+    /// Post-plugin hook for specific plugin
+    #[arg(long)]
+    post_plugin: Option<String>,
+}
+
+#[derive(Parser)]
+#[group(id = "action", required = true, multiple = false)]
+struct HookActionArgs {
+    /// Script to execute
+    #[arg(long, group = "action")]
+    script: Option<String>,
+
+    /// Log message
+    #[arg(long, group = "action")]
+    log: Option<String>,
+
+    /// Notification message
+    #[arg(long, group = "action")]
+    notify: Option<String>,
+
+    /// Backup action
+    #[arg(long, group = "action")]
+    backup: bool,
+
+    /// Cleanup action
+    #[arg(long, group = "action")]
+    cleanup: bool,
+
+    /// Script arguments (comma-separated, only with --script)
+    #[arg(long, requires = "script")]
+    args: Option<String>,
+
+    /// Script timeout in seconds (only with --script)
+    #[arg(long, requires = "script")]
+    timeout: Option<u64>,
+
+    /// Log level (only with --log)
+    #[arg(long, requires = "log", value_parser = ["trace", "debug", "info", "warn", "error"])]
+    level: Option<String>,
+
+    /// Notification title (only with --notify)
+    #[arg(long, requires = "notify")]
+    title: Option<String>,
+
+    /// Backup source path (only with --backup)
+    #[arg(long, requires = "backup")]
+    path: Option<PathBuf>,
+
+    /// Backup destination path (only with --backup)
+    #[arg(long, requires = "backup")]
+    destination: Option<PathBuf>,
+
+    /// Cleanup patterns (comma-separated, only with --cleanup)
+    #[arg(long, requires = "cleanup")]
+    patterns: Option<String>,
+
+    /// Cleanup directories (comma-separated, only with --cleanup)
+    #[arg(long, requires = "cleanup")]
+    directories: Option<String>,
+
+    /// Clean temp files (only with --cleanup)
+    #[arg(long, requires = "cleanup")]
+    temp_files: bool,
 }
 
 fn create_subscriber(
@@ -218,6 +405,33 @@ async fn main() -> Result<()> {
     let start_time = Instant::now();
     let args = Args::parse();
 
+    // Initialize logging early for subcommands that need it
+    let config = if let Some(config_path) = &args.config {
+        if config_path.exists() {
+            Config::load_from_file(config_path).await?
+        } else {
+            Config::default()
+        }
+    } else {
+        Config::load().await.unwrap_or_default()
+    };
+
+    let verbose = args.verbose || config.is_verbose_default();
+    let time_format = config.get_time_format();
+    let subscriber = create_subscriber(verbose, time_format);
+    tracing::subscriber::set_global_default(subscriber).expect("Failed to set default subscriber");
+
+    // Handle subcommands
+    if let Some(command) = args.command {
+        match command {
+            Commands::Hooks { command } => {
+                return cli::hooks::handle_hooks_command(command, args.config).await;
+            }
+        }
+    }
+
+    // Handle legacy flags when no subcommand is provided
+
     // Handle --completions flag early
     if let Some(shell) = args.completions {
         let mut app = Args::command();
@@ -247,7 +461,9 @@ async fn main() -> Result<()> {
         println!("  • Cursor settings, keybindings, and extensions");
         println!("  • NPM global packages and configuration");
         println!();
-        println!("🚀 Usage: dotsnapshot [OPTIONS]");
+        println!("🚀 Usage:");
+        println!("   dotsnapshot [OPTIONS]              Create a snapshot (default)");
+        println!("   dotsnapshot hooks <SUBCOMMAND>     Manage plugin hooks");
         println!("   Use --help for detailed options");
         println!();
         println!("🔧 Shell Completions:");
@@ -268,32 +484,16 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
-    // Load configuration
-    let config = if let Some(config_path) = &args.config {
-        Config::load_from_file(config_path).await?
-    } else {
-        Config::load().await?
-    };
-
-    // Store config path for later logging (after logging is initialized)
-    let custom_config_path = args.config.clone();
-
-    // Determine final settings (CLI args override config file)
-    let output_dir = args.output.unwrap_or_else(|| config.get_output_dir());
-    let verbose = args.verbose || config.is_verbose_default();
-    let time_format = config.get_time_format();
-
-    // Initialize logging
-    let subscriber = create_subscriber(verbose, time_format);
-
-    tracing::subscriber::set_global_default(subscriber).expect("Failed to set default subscriber");
-
+    // Default behavior: create snapshot
     info!("Starting dotsnapshot v{}", env!("CARGO_PKG_VERSION"));
 
     // Log custom config usage if applicable
-    if let Some(config_path) = custom_config_path {
+    if let Some(config_path) = &args.config {
         info!("📋 Using custom config file: {}", config_path.display());
     }
+
+    // Determine final settings (CLI args override config file)
+    let output_dir = args.output.unwrap_or_else(|| config.get_output_dir());
 
     // Create output directory if it doesn't exist
     tokio::fs::create_dir_all(&output_dir).await?;

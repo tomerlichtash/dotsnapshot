@@ -6,6 +6,7 @@ use tracing::{error, info, warn};
 
 use crate::config::Config;
 use crate::core::checksum::calculate_checksum;
+use crate::core::hooks::{HookContext, HookManager, HookType};
 use crate::core::plugin::{Plugin, PluginRegistry, PluginResult};
 use crate::core::snapshot::SnapshotManager;
 
@@ -44,7 +45,33 @@ impl SnapshotExecutor {
 
         // Create snapshot directory
         let snapshot_dir = self.snapshot_manager.create_snapshot_dir().await?;
+        let snapshot_name = snapshot_dir
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("unknown")
+            .to_string();
+
         info!("Created snapshot directory: {}", snapshot_dir.display());
+
+        // Set up hooks manager and context
+        let hooks_config = self
+            .config
+            .as_ref()
+            .map(|c| c.get_hooks_config())
+            .unwrap_or_default();
+        let hook_manager = HookManager::new(hooks_config.clone());
+        let hook_context =
+            HookContext::new(snapshot_name, snapshot_dir.clone(), hooks_config.clone());
+
+        // Execute pre-snapshot hooks (global)
+        if let Some(config) = &self.config {
+            let pre_snapshot_hooks = config.get_global_pre_snapshot_hooks();
+            if !pre_snapshot_hooks.is_empty() {
+                hook_manager
+                    .execute_hooks(&pre_snapshot_hooks, &HookType::PreSnapshot, &hook_context)
+                    .await;
+            }
+        }
 
         // Create initial metadata
         let mut metadata = self.snapshot_manager.create_metadata();
@@ -58,13 +85,17 @@ impl SnapshotExecutor {
             let snapshot_dir_clone = snapshot_dir.clone();
             let snapshot_manager_clone = self.snapshot_manager.clone();
             let config_clone = self.config.clone();
+            let hook_manager_clone = HookManager::new(hooks_config.clone());
+            let hook_context_clone = hook_context.clone();
 
             let task = tokio::spawn(async move {
-                Self::execute_plugin(
+                Self::execute_plugin_with_hooks(
                     plugin_clone,
                     &snapshot_dir_clone,
                     &snapshot_manager_clone,
                     config_clone.as_deref(),
+                    hook_manager_clone,
+                    hook_context_clone,
                 )
                 .await
             });
@@ -119,19 +150,53 @@ impl SnapshotExecutor {
             .finalize_snapshot(&snapshot_dir)
             .await?;
 
+        // Execute post-snapshot hooks (global)
+        if let Some(config) = &self.config {
+            let post_snapshot_hooks = config.get_global_post_snapshot_hooks();
+            if !post_snapshot_hooks.is_empty() {
+                let final_context = hook_context.with_file_count(results.len());
+                hook_manager
+                    .execute_hooks(
+                        &post_snapshot_hooks,
+                        &HookType::PostSnapshot,
+                        &final_context,
+                    )
+                    .await;
+            }
+        }
+
         info!("Snapshot execution completed: {}", snapshot_dir.display());
         Ok(snapshot_dir)
     }
 
-    /// Executes a single plugin with checksum optimization
-    async fn execute_plugin(
+    /// Executes a single plugin with hooks and checksum optimization
+    async fn execute_plugin_with_hooks(
         plugin: Arc<dyn Plugin>,
         snapshot_dir: &Path,
         snapshot_manager: &SnapshotManager,
         config: Option<&Config>,
+        hook_manager: HookManager,
+        hook_context: HookContext,
     ) -> Result<PluginResult> {
         let plugin_name = plugin.name().to_string();
-        info!("Executing plugin: {}", plugin_name);
+        info!("📦 Executing plugin: {}", plugin_name);
+
+        // Create plugin-specific hook context
+        let plugin_hook_context = hook_context.with_plugin(plugin_name.clone());
+
+        // Execute pre-plugin hooks
+        if let Some(config) = config {
+            let pre_plugin_hooks = config.get_plugin_pre_hooks(&plugin_name);
+            if !pre_plugin_hooks.is_empty() {
+                hook_manager
+                    .execute_hooks(
+                        &pre_plugin_hooks,
+                        &HookType::PrePlugin,
+                        &plugin_hook_context,
+                    )
+                    .await;
+            }
+        }
 
         // Validate plugin can run
         if let Err(e) = plugin.validate().await {
@@ -153,6 +218,23 @@ impl SnapshotExecutor {
             Ok(content) => content,
             Err(e) => {
                 error!("Plugin execution failed for {}: {}", plugin_name, e);
+
+                // Execute post-plugin hooks even on failure
+                if let Some(config) = config {
+                    let post_plugin_hooks = config.get_plugin_post_hooks(&plugin_name);
+                    if !post_plugin_hooks.is_empty() {
+                        let error_context =
+                            plugin_hook_context.with_variable("error".to_string(), e.to_string());
+                        hook_manager
+                            .execute_hooks(
+                                &post_plugin_hooks,
+                                &HookType::PostPlugin,
+                                &error_context,
+                            )
+                            .await;
+                    }
+                }
+
                 return Ok(PluginResult {
                     plugin_name: plugin_name.clone(),
                     content: String::new(),
@@ -182,13 +264,32 @@ impl SnapshotExecutor {
                 .copy_from_latest(&plugin_name, filename, snapshot_dir)
                 .await?
             {
-                return Ok(PluginResult {
+                let result = PluginResult {
                     plugin_name: plugin_name.clone(),
                     content,
                     checksum,
                     success: true,
                     error_message: None,
-                });
+                };
+
+                // Execute post-plugin hooks for successful reuse
+                if let Some(config) = config {
+                    let post_plugin_hooks = config.get_plugin_post_hooks(&plugin_name);
+                    if !post_plugin_hooks.is_empty() {
+                        let success_context = plugin_hook_context
+                            .with_file_count(1)
+                            .with_variable("reused".to_string(), "true".to_string());
+                        hook_manager
+                            .execute_hooks(
+                                &post_plugin_hooks,
+                                &HookType::PostPlugin,
+                                &success_context,
+                            )
+                            .await;
+                    }
+                }
+
+                return Ok(result);
             }
         }
 
@@ -206,15 +307,31 @@ impl SnapshotExecutor {
             .await
             .context(format!("Failed to write output for plugin {plugin_name}"))?;
 
-        info!("Plugin {} completed successfully", plugin_name);
+        info!("✅ Plugin {} completed successfully", plugin_name);
 
-        Ok(PluginResult {
+        let result = PluginResult {
             plugin_name: plugin_name.clone(),
             content,
             checksum,
             success: true,
             error_message: None,
-        })
+        };
+
+        // Execute post-plugin hooks for successful completion
+        if let Some(config) = config {
+            let post_plugin_hooks = config.get_plugin_post_hooks(&plugin_name);
+            if !post_plugin_hooks.is_empty() {
+                let success_context = plugin_hook_context.with_file_count(1).with_variable(
+                    "output_path".to_string(),
+                    output_path.to_string_lossy().to_string(),
+                );
+                hook_manager
+                    .execute_hooks(&post_plugin_hooks, &HookType::PostPlugin, &success_context)
+                    .await;
+            }
+        }
+
+        Ok(result)
     }
 }
 
@@ -295,15 +412,19 @@ mod tests {
             output_dir: None,
             include_plugins: None,
             logging: None,
+            hooks: None,
+            global: None,
             static_files: None,
             plugins: Some(PluginsConfig {
                 homebrew_brewfile: None,
                 vscode_settings: Some(PluginConfig {
                     target_path: Some("vscode".to_string()),
+                    hooks: None,
                 }),
                 vscode_keybindings: None,
                 vscode_extensions: Some(PluginConfig {
                     target_path: Some("vscode".to_string()),
+                    hooks: None,
                 }),
                 cursor_settings: None,
                 cursor_keybindings: None,

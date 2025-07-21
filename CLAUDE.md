@@ -10,6 +10,8 @@
    - Include implementation details and acceptance criteria
 
 2. **Create Feature Branch**
+   - Ensure you're on `main` branch: `git checkout main`
+   - Pull latest changes: `git pull origin main`
    - Use descriptive branch names: `feature/description`, `fix/description`
    - Always branch from `main` unless otherwise specified
 
