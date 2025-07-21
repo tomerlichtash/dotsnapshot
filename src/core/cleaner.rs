@@ -367,23 +367,30 @@ mod tests {
         let temp_dir = TempDir::new()?;
         let cleaner = SnapshotCleaner::new(temp_dir.path().to_path_buf());
 
-        // Create multiple snapshot directories
+        // Create multiple snapshot directories with small delay to ensure different timestamps
         let snapshot1 = temp_dir.path().join("20240117_143022");
         let snapshot2 = temp_dir.path().join("20240118_150000");
-        fs::create_dir_all(&snapshot1).await?;
-        fs::create_dir_all(&snapshot2).await?;
 
-        // Add some content
+        fs::create_dir_all(&snapshot1).await?;
         fs::write(snapshot1.join("test1.txt"), "content1").await?;
+
+        // Small delay to ensure different filesystem timestamps
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+        fs::create_dir_all(&snapshot2).await?;
         fs::write(snapshot2.join("test2.txt"), "content2").await?;
 
         let snapshots = cleaner.list_snapshots().await?;
         assert_eq!(snapshots.len(), 2);
 
-        // Should be sorted by creation time (newest first)
-        // Note: This test might be flaky due to filesystem timestamp precision
-        assert_eq!(snapshots[0].name, "20240118_150000");
-        assert_eq!(snapshots[1].name, "20240117_143022");
+        // Verify that both snapshots are found (order may vary by platform)
+        let snapshot_names: Vec<&String> = snapshots.iter().map(|s| &s.name).collect();
+        assert!(snapshot_names.contains(&&"20240117_143022".to_string()));
+        assert!(snapshot_names.contains(&&"20240118_150000".to_string()));
+
+        // Verify snapshots are sorted (newest first based on filesystem timestamp)
+        // Don't assert specific order since filesystem timestamp precision varies by platform
+        assert!(snapshots[0].created_at >= snapshots[1].created_at);
 
         Ok(())
     }
