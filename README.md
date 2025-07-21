@@ -106,24 +106,62 @@ dotsnapshot --man | sudo tee /usr/local/share/man/man1/dotsnapshot.1
 ### Basic Usage
 
 ```bash
-# Create snapshot with all plugins
+# Create snapshot with all plugins (default behavior)
 ./target/release/dotsnapshot
+./target/release/dotsnapshot snapshot
 
 # Create snapshot in custom directory
-./target/release/dotsnapshot --output /path/to/snapshots
+./target/release/dotsnapshot snapshot --output /path/to/snapshots
 
 # Run specific plugins only
-./target/release/dotsnapshot --plugins homebrew,npm
+./target/release/dotsnapshot snapshot --plugins homebrew,npm
+
+# List available plugins
+./target/release/dotsnapshot snapshot --list
 
 # Enable verbose logging
-./target/release/dotsnapshot --verbose
+./target/release/dotsnapshot --verbose snapshot
 ```
 
-### Options
+### Cleaning Snapshots
 
+```bash
+# List all snapshots
+./target/release/dotsnapshot clean --list
+
+# Clean specific snapshot by name
+./target/release/dotsnapshot clean --name 20240117_143022
+
+# Clean snapshots older than 30 days
+./target/release/dotsnapshot clean --days 30
+
+# Dry run to see what would be cleaned
+./target/release/dotsnapshot clean --days 30 --dry-run
+
+# Interactive mode with confirmation
+./target/release/dotsnapshot clean --days 30 --interactive
+
+# Clean from custom directory
+./target/release/dotsnapshot clean --output /path/to/snapshots --days 7
+```
+
+### Command Reference
+
+#### Snapshot Command
 - `-o, --output <PATH>`: Output directory for snapshots (overrides config file)
-- `-v, --verbose`: Enable verbose logging (overrides config file)
 - `-p, --plugins <PLUGINS>`: Comma-separated list of plugins to run
+- `-l, --list`: List available plugins
+
+#### Clean Command
+- `-o, --output <PATH>`: Output directory containing snapshots (uses config if not specified)
+- `-l, --list`: List all snapshots without cleaning
+- `-n, --name <NAME>`: Clean specific snapshot by name
+- `-d, --days <DAYS>`: Clean snapshots older than specified days
+- `--dry-run`: Show what would be cleaned without actually deleting
+- `-i, --interactive`: Ask for confirmation before deleting
+
+#### Global Options
+- `-v, --verbose`: Enable verbose logging (overrides config file)
 - `-c, --config <PATH>`: Path to config file
 - `-h, --help`: Show help information
 
