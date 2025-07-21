@@ -288,7 +288,6 @@ async fn main() -> Result<()> {
 
     tracing::subscriber::set_global_default(subscriber).expect("Failed to set default subscriber");
 
-    let _unused_var = 42;
     info!("Starting dotsnapshot v{}", env!("CARGO_PKG_VERSION"));
 
     // Log custom config usage if applicable
