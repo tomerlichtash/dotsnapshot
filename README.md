@@ -409,13 +409,17 @@ This project uses `rustfmt` for consistent code formatting. Run `cargo fmt --all
 
 #### Optional: Pre-commit Hook
 
-To automatically format code before each commit, you can install a pre-commit hook:
+To automatically format and lint code before each commit, you can install a pre-commit hook:
 
 ```bash
 ./scripts/install-hooks.sh
 ```
 
-This will prevent you from committing unformatted code and automatically run `cargo fmt --all` before each commit.
+This will prevent you from committing unformatted or problematic code by automatically running:
+- `cargo fmt --all` - Format code according to Rust standards
+- `cargo clippy` - Check for common mistakes and style issues
+
+The hook will block commits if either check fails and provide clear guidance on fixing issues.
 
 ### Adding New Plugins
 

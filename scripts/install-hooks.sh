@@ -2,8 +2,8 @@
 #
 # Install pre-commit hooks for dotsnapshot development
 #
-# This script installs a pre-commit hook that automatically runs cargo fmt
-# and prevents commits if the code is not properly formatted.
+# This script installs a pre-commit hook that automatically runs cargo fmt and clippy
+# and prevents commits if the code is not properly formatted or has linting issues.
 #
 
 set -e
@@ -35,7 +35,7 @@ mkdir -p .git/hooks
 cat > .git/hooks/pre-commit << 'EOF'
 #!/bin/sh
 #
-# Pre-commit hook that runs cargo fmt and fails if code is not formatted
+# Pre-commit hook that runs cargo fmt and clippy, failing if issues are found
 #
 
 # Colors for output
@@ -44,12 +44,13 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo "${YELLOW}Running cargo fmt...${NC}"
+echo "${YELLOW}Running pre-commit checks...${NC}"
 
-# Run cargo fmt
+# Step 1: Run cargo fmt
+echo "${YELLOW}  → Running cargo fmt...${NC}"
 cargo fmt --all
 
-# Check if there are any changes after formatting (check working directory changes)
+# Check if there are any changes after formatting
 if ! git diff --quiet; then
     echo "${RED}❌ Code was not properly formatted!${NC}"
     echo "${YELLOW}The following files have been formatted:${NC}"
@@ -61,7 +62,23 @@ if ! git diff --quiet; then
     exit 1
 fi
 
-echo "${GREEN}✅ Code is properly formatted${NC}"
+echo "${GREEN}  ✅ Code is properly formatted${NC}"
+
+# Step 2: Run clippy
+echo "${YELLOW}  → Running cargo clippy...${NC}"
+if ! cargo clippy --all-targets --all-features -- -D warnings; then
+    echo "${RED}❌ Clippy found issues!${NC}"
+    echo "${YELLOW}Please fix the clippy warnings above and commit again.${NC}"
+    echo ""
+    echo "${YELLOW}Common fixes:${NC}"
+    echo "  • Use suggested improvements from clippy output"
+    echo "  • Run 'cargo clippy --fix' to auto-fix some issues"
+    echo "  • Check the clippy book: https://doc.rust-lang.org/clippy/"
+    exit 1
+fi
+
+echo "${GREEN}  ✅ No clippy warnings found${NC}"
+echo "${GREEN}✅ All pre-commit checks passed!${NC}"
 exit 0
 EOF
 
@@ -72,7 +89,8 @@ echo -e "${GREEN}✅ Pre-commit hook installed successfully!${NC}"
 echo ""
 echo "The hook will:"
 echo "  • Run 'cargo fmt --all' before each commit"
-echo "  • Block commits if code is not properly formatted"
-echo "  • Show which files were formatted and provide clear instructions"
+echo "  • Run 'cargo clippy' to check for linting issues"
+echo "  • Block commits if code is not properly formatted or has warnings"
+echo "  • Show clear instructions for fixing any issues"
 echo ""
 echo -e "${YELLOW}To uninstall the hook, simply delete:${NC} .git/hooks/pre-commit"
