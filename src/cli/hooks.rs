@@ -5,6 +5,7 @@ use tracing::{error, info, warn};
 
 use crate::config::{Config, GlobalConfig, GlobalHooks, PluginConfig, PluginHooks};
 use crate::core::hooks::{HookAction, HookContext, HookManager, HooksConfig};
+use crate::symbols::*;
 use crate::{HookActionArgs, HookTarget, HooksCommands};
 
 /// Handle hooks subcommands
@@ -135,8 +136,11 @@ async fn handle_add_hook(
         " (global)".to_string()
     };
 
-    info!("✅ Added {hook_type} hook{plugin_context}:");
-    info!("   📝 {hook_action}");
+    info!(
+        "{} Added {hook_type} hook{plugin_context}:",
+        INDICATOR_SUCCESS
+    );
+    info!("   {} {hook_action}", DOC_NOTE);
 
     // Check if script exists
     if let HookAction::Script { command, .. } = &hook_action {
@@ -146,11 +150,15 @@ async fn handle_add_hook(
 
         if !expanded_path.exists() {
             warn!(
-                "   ⚠️  Script file not found: {} → {}",
+                "   {}  Script file not found: {} → {}",
+                INDICATOR_WARNING,
                 command,
                 expanded_path.display()
             );
-            warn!("   💡 Create the script file to complete setup");
+            warn!(
+                "   {} Create the script file to complete setup",
+                EXPERIENCE_IDEA
+            );
         }
     }
 
@@ -233,19 +241,26 @@ async fn handle_remove_hook(
         let plugin_context = plugin_name
             .map(|p| format!(" from {p}"))
             .unwrap_or_else(|| " (global)".to_string());
-        info!("✅ Removed all {hook_type} hooks{plugin_context}:");
-        info!("   🗑️  {} hooks removed", original_count);
+        info!(
+            "{} Removed all {hook_type} hooks{plugin_context}:",
+            INDICATOR_SUCCESS
+        );
+        info!("   {}  {} hooks removed", CONTENT_TRASH, original_count);
     } else if let Some(idx) = index {
         if idx < hooks.len() {
             let removed_hook = hooks.remove(idx);
             let plugin_context = plugin_name
                 .map(|p| format!(" from {p}"))
                 .unwrap_or_else(|| " (global)".to_string());
-            info!("✅ Removed {hook_type} hook{plugin_context}:");
-            info!("   📝 {removed_hook}");
+            info!(
+                "{} Removed {hook_type} hook{plugin_context}:",
+                INDICATOR_SUCCESS
+            );
+            info!("   {} {removed_hook}", DOC_NOTE);
         } else {
             error!(
-                "❌ Index {idx} is out of range (max: {})",
+                "{} Index {idx} is out of range (max: {})",
+                INDICATOR_ERROR,
                 hooks.len().saturating_sub(1)
             );
             return Ok(());
@@ -269,13 +284,16 @@ async fn handle_remove_hook(
             let plugin_context = plugin_name
                 .map(|p| format!(" from {p}"))
                 .unwrap_or_else(|| " (global)".to_string());
-            info!("✅ Removed {removed_count} {hook_type} hook(s){plugin_context} matching script '{script_name}'");
+            info!("{} Removed {removed_count} {hook_type} hook(s){plugin_context} matching script '{script_name}'", INDICATOR_SUCCESS);
         } else {
             info!("No {hook_type} hooks found matching script '{script_name}'");
             return Ok(());
         }
     } else {
-        error!("❌ Must specify --index, --all, or --script to remove hooks");
+        error!(
+            "{} Must specify --index, --all, or --script to remove hooks",
+            INDICATOR_ERROR
+        );
         return Ok(());
     }
 
@@ -298,9 +316,10 @@ async fn handle_list_hooks(
     let config = load_or_create_config(config_path).await?;
     let hooks_config = config.get_hooks_config();
 
-    info!("🪝 Plugin Hooks Configuration:");
+    info!("{} Plugin Hooks Configuration:", ACTION_HOOK);
     info!(
-        "📁 Scripts Directory: {}",
+        "{} Scripts Directory: {}",
+        CONTENT_FOLDER,
         hooks_config.scripts_dir.display()
     );
     info!("");
@@ -351,14 +370,15 @@ async fn handle_validate_hooks(
     );
     let hook_manager = HookManager::new(hooks_config.clone());
 
-    info!("🔍 Validating hook configuration...");
+    info!("{} Validating hook configuration...", ACTION_SEARCH);
     info!(
-        "📁 Scripts Directory: {} (exists: {})",
+        "{} Scripts Directory: {} (exists: {})",
+        CONTENT_FOLDER,
         hooks_config.scripts_dir.display(),
         if hooks_config.scripts_dir.exists() {
-            "✅"
+            INDICATOR_SUCCESS
         } else {
-            "❌"
+            INDICATOR_ERROR
         }
     );
     info!("");
@@ -435,15 +455,24 @@ async fn handle_validate_hooks(
     );
 
     if total_errors == 0 && total_warnings == 0 {
-        info!("✅ All hooks are valid!");
+        info!("{} All hooks are valid!", INDICATOR_SUCCESS);
     } else if total_errors == 0 {
-        warn!("⚠️  Configuration is valid but has warnings");
+        warn!(
+            "{} Configuration is valid but has warnings",
+            INDICATOR_WARNING
+        );
     } else {
-        error!("❌ Configuration has errors that need to be fixed");
+        error!(
+            "{} Configuration has errors that need to be fixed",
+            INDICATOR_ERROR
+        );
     }
 
     if !hooks_config.scripts_dir.exists() {
-        info!("💡 Run 'dotsnapshot hooks scripts-dir --create' to create the scripts directory");
+        info!(
+            "{} Run 'dotsnapshot hooks scripts-dir --create' to create the scripts directory",
+            EXPERIENCE_IDEA
+        );
     }
 
     Ok(())
@@ -469,19 +498,29 @@ async fn handle_scripts_dir(
         let config_file_path = get_config_file_path(config_path);
         config.save_to_file(&config_file_path).await?;
 
-        info!("📁 Scripts directory updated: {}", expanded_path.display());
+        info!(
+            "{} Scripts directory updated: {}",
+            CONTENT_FOLDER,
+            expanded_path.display()
+        );
         if !expanded_path.exists() {
-            warn!("   ⚠️  Directory does not exist - run with --create to create it");
-            warn!("   💡 Existing scripts will need to be moved manually");
+            warn!(
+                "   {}  Directory does not exist - run with --create to create it",
+                INDICATOR_WARNING
+            );
+            warn!(
+                "   {} Existing scripts will need to be moved manually",
+                EXPERIENCE_IDEA
+            );
         } else {
-            info!("   ✅ Directory exists");
+            info!("   {} Directory exists", INDICATOR_SUCCESS);
         }
 
         if create && !expanded_path.exists() {
             tokio::fs::create_dir_all(&expanded_path)
                 .await
                 .context("Failed to create scripts directory")?;
-            info!("   📁 Created scripts directory");
+            info!("   {} Created scripts directory", CONTENT_FOLDER);
         }
     } else {
         // Show current scripts directory
@@ -489,13 +528,17 @@ async fn handle_scripts_dir(
         let scripts_dir = &hooks_config.scripts_dir;
         let expanded_dir = HooksConfig::expand_tilde(scripts_dir);
 
-        info!("📁 Current scripts directory: {}", scripts_dir.display());
+        info!(
+            "{} Current scripts directory: {}",
+            CONTENT_FOLDER,
+            scripts_dir.display()
+        );
         info!(
             "   Status: {} {}",
             if expanded_dir.exists() {
-                "✅ exists"
+                "exists"
             } else {
-                "❌ does not exist"
+                "does not exist"
             },
             if expanded_dir.exists() {
                 let script_count = count_scripts_in_directory(&expanded_dir).await.unwrap_or(0);
@@ -510,9 +553,16 @@ async fn handle_scripts_dir(
             tokio::fs::create_dir_all(&expanded_dir)
                 .await
                 .context("Failed to create scripts directory")?;
-            info!("📁 Created scripts directory: {}", expanded_dir.display());
-            info!("   ✅ Directory created successfully");
-            info!("   💡 You can now add your hook scripts to this directory");
+            info!(
+                "{} Created scripts directory: {}",
+                CONTENT_FOLDER,
+                expanded_dir.display()
+            );
+            info!("   {} Directory created successfully", INDICATOR_SUCCESS);
+            info!(
+                "   {} You can now add your hook scripts to this directory",
+                EXPERIENCE_IDEA
+            );
         }
     }
 
@@ -700,7 +750,7 @@ fn show_global_hooks(
     let show_post = !pre_snapshot || post_snapshot;
 
     if show_pre || show_post {
-        info!("🌍 Global Hooks:");
+        info!("{} Global Hooks:", SCOPE_WORLD);
 
         if show_pre {
             let hooks = config.get_global_pre_snapshot_hooks();
@@ -728,11 +778,11 @@ fn show_plugin_hooks(
     let show_post = !pre_plugin || post_plugin;
 
     let icon = match plugin_name {
-        "homebrew_brewfile" => "🍺",
-        name if name.starts_with("vscode") => "💻",
-        name if name.starts_with("cursor") => "✏️",
-        name if name.starts_with("npm") => "📦",
-        _ => "🔌",
+        "homebrew_brewfile" => TOOL_PACKAGE_MANAGER,
+        name if name.starts_with("vscode") => TOOL_COMPUTER,
+        name if name.starts_with("cursor") => TOOL_EDITOR,
+        name if name.starts_with("npm") => CONTENT_PACKAGE,
+        _ => TOOL_PLUGIN,
     };
 
     info!("{icon} {plugin_name}:");
@@ -799,7 +849,11 @@ fn show_hook_list(
         if let HookAction::Script { command, .. } = hook {
             let script_path = hooks_config.resolve_script_path(command);
             let expanded_path = HooksConfig::expand_tilde(&script_path);
-            let exists = if expanded_path.exists() { "✅" } else { "❌" };
+            let exists = if expanded_path.exists() {
+                INDICATOR_SUCCESS
+            } else {
+                INDICATOR_ERROR
+            };
 
             if verbose {
                 info!(
@@ -847,7 +901,7 @@ fn validate_hook_list(
     let plugin_label = plugin_name
         .map(|p| format!(" {p}"))
         .unwrap_or_else(|| " (global)".to_string());
-    info!("🔍{plugin_label} {hook_type} hooks:");
+    info!("{}{plugin_label} {hook_type} hooks:", ACTION_SEARCH);
 
     let mut valid = 0;
     let mut warnings = 0;
@@ -860,14 +914,17 @@ fn validate_hook_list(
                 valid += 1;
                 if let HookAction::Notify { .. } = hook {
                     warnings += 1;
-                    warn!("  ⚠️  [{index}] {hook} (system notifications may not be available)");
+                    warn!(
+                        "  {}  [{index}] {hook} (system notifications may not be available)",
+                        INDICATOR_WARNING
+                    );
                 } else {
-                    info!("  ✅ [{index}] {hook}");
+                    info!("  {} [{index}] {hook}", INDICATOR_SUCCESS);
                 }
             }
             Err(e) => {
                 errors += 1;
-                error!("  ❌ [{index}] {hook}");
+                error!("  {} [{index}] {hook}", INDICATOR_ERROR);
                 error!("      Error: {e}");
             }
         }

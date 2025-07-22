@@ -9,6 +9,7 @@ use tracing::info;
 use crate::config::Config;
 use crate::core::checksum::calculate_directory_checksum;
 use crate::core::plugin::Plugin;
+use crate::symbols::*;
 
 /// Plugin for copying static files to snapshots based on configuration
 pub struct StaticFilesPlugin {
@@ -163,7 +164,8 @@ impl StaticFilesPlugin {
             // Check if this path should be ignored
             if self.should_ignore(&file_path, &ignore_patterns) {
                 info!(
-                    "🚫 Ignoring static item: {} (matches ignore pattern)",
+                    "{} Ignoring static item: {} (matches ignore pattern)",
+                    ACTION_BLOCK,
                     file_path.display()
                 );
                 ignored_files.push(file_path.display().to_string());
@@ -181,7 +183,8 @@ impl StaticFilesPlugin {
                         "file"
                     };
                     info!(
-                        "📄 Copied static {}: {} -> {}",
+                        "{} Copied static {}: {} -> {}",
+                        CONTENT_FILE,
                         item_type,
                         file_path.display(),
                         dest_path.display()
@@ -190,7 +193,10 @@ impl StaticFilesPlugin {
                 }
                 Err(e) => {
                     let error_msg = format!("{}: {}", file_path.display(), e);
-                    info!("❌ Failed to copy static item: {}", error_msg);
+                    info!(
+                        "{} Failed to copy static item: {}",
+                        INDICATOR_ERROR, error_msg
+                    );
                     failed_files.push(error_msg);
                 }
             }
@@ -294,7 +300,8 @@ impl StaticFilesPlugin {
                 // Check if this item should be ignored
                 if self.should_ignore(&src_path, ignore_patterns) {
                     info!(
-                        "🚫 Ignoring static item: {} (matches ignore pattern)",
+                        "{} Ignoring static item: {} (matches ignore pattern)",
+                        ACTION_BLOCK,
                         src_path.display()
                     );
                     continue;

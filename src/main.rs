@@ -12,6 +12,7 @@ mod cli;
 mod config;
 mod core;
 mod plugins;
+mod symbols;
 
 use config::Config;
 use core::executor::SnapshotExecutor;
@@ -23,6 +24,7 @@ use plugins::{
     static_files::StaticFilesPlugin,
     vscode::{VSCodeExtensionsPlugin, VSCodeKeybindingsPlugin, VSCodeSettingsPlugin},
 };
+use symbols::*;
 
 #[derive(Parser)]
 #[command(name = "dotsnapshot")]
@@ -355,7 +357,7 @@ async fn list_plugins() {
 
     // Display grouped plugins
     if !homebrew_plugins.is_empty() {
-        println!("🍺 Homebrew:");
+        println!("{TOOL_PACKAGE_MANAGER} Homebrew:");
         for (name, filename, description) in homebrew_plugins {
             println!("  {name:<20} -> {filename:<20} {description}");
         }
@@ -363,7 +365,7 @@ async fn list_plugins() {
     }
 
     if !vscode_plugins.is_empty() {
-        println!("💻 VSCode:");
+        println!("{TOOL_COMPUTER} VSCode:");
         for (name, filename, description) in vscode_plugins {
             println!("  {name:<20} -> {filename:<20} {description}");
         }
@@ -371,7 +373,7 @@ async fn list_plugins() {
     }
 
     if !cursor_plugins.is_empty() {
-        println!("✏️  Cursor:");
+        println!("{TOOL_EDITOR}  Cursor:");
         for (name, filename, description) in cursor_plugins {
             println!("  {name:<20} -> {filename:<20} {description}");
         }
@@ -379,7 +381,7 @@ async fn list_plugins() {
     }
 
     if !npm_plugins.is_empty() {
-        println!("📦 NPM:");
+        println!("{CONTENT_PACKAGE} NPM:");
         for (name, filename, description) in npm_plugins {
             println!("  {name:<20} -> {filename:<20} {description}");
         }
@@ -387,7 +389,7 @@ async fn list_plugins() {
     }
 
     if !static_plugins.is_empty() {
-        println!("📄 Static:");
+        println!("{CONTENT_FILE} Static:");
         for (name, filename, description) in static_plugins {
             println!("  {name:<20} -> {filename:<20} {description}");
         }
@@ -449,31 +451,34 @@ async fn main() -> Result<()> {
 
     // Handle --info flag early
     if args.info {
-        println!("🔧 dotsnapshot v{}", env!("CARGO_PKG_VERSION"));
-        println!("📝 {}", env!("CARGO_PKG_DESCRIPTION"));
-        println!("🌐 Repository: {}", env!("CARGO_PKG_REPOSITORY"));
-        println!("📄 License: {}", env!("CARGO_PKG_LICENSE"));
-        println!("🏷️  Keywords: dotfiles, backup, configuration, snapshots, cli");
+        println!("{TOOL_CONFIG} dotsnapshot v{}", env!("CARGO_PKG_VERSION"));
+        println!("{DOC_NOTE} {}", env!("CARGO_PKG_DESCRIPTION"));
+        println!(
+            "{SCOPE_GLOBAL} Repository: {}",
+            env!("CARGO_PKG_REPOSITORY")
+        );
+        println!("{CONTENT_FILE} License: {}", env!("CARGO_PKG_LICENSE"));
+        println!("{DOC_TAG}  Keywords: dotfiles, backup, configuration, snapshots, cli");
         println!();
-        println!("📦 Supported Plugins:");
+        println!("{CONTENT_PACKAGE} Supported Plugins:");
         println!("  • Homebrew Brewfile generation");
         println!("  • VSCode settings, keybindings, and extensions");
         println!("  • Cursor settings, keybindings, and extensions");
         println!("  • NPM global packages and configuration");
         println!();
-        println!("🚀 Usage:");
+        println!("{ACTION_LAUNCH} Usage:");
         println!("   dotsnapshot [OPTIONS]              Create a snapshot (default)");
         println!("   dotsnapshot hooks <SUBCOMMAND>     Manage plugin hooks");
         println!("   Use --help for detailed options");
         println!();
-        println!("🔧 Shell Completions:");
+        println!("{TOOL_CONFIG} Shell Completions:");
         println!(
             "   dotsnapshot --completions bash > /usr/local/etc/bash_completion.d/dotsnapshot"
         );
         println!("   dotsnapshot --completions zsh > ~/.zfunc/_dotsnapshot");
         println!("   dotsnapshot --completions fish > ~/.config/fish/completions/dotsnapshot.fish");
         println!();
-        println!("📖 Man Page:");
+        println!("{DOC_BOOK} Man Page:");
         println!("   dotsnapshot --man > /usr/local/share/man/man1/dotsnapshot.1");
         return Ok(());
     }
@@ -489,7 +494,11 @@ async fn main() -> Result<()> {
 
     // Log custom config usage if applicable
     if let Some(config_path) = &args.config {
-        info!("📋 Using custom config file: {}", config_path.display());
+        info!(
+            "{} Using custom config file: {}",
+            INDICATOR_INFO,
+            config_path.display()
+        );
     }
 
     // Determine final settings (CLI args override config file)
@@ -555,13 +564,14 @@ async fn main() -> Result<()> {
         Ok(snapshot_path) => {
             let duration = start_time.elapsed();
             info!(
-                "✅ Snapshot created successfully at: {}",
+                "{} Snapshot created successfully at: {}",
+                INDICATOR_SUCCESS,
                 snapshot_path.display()
             );
-            info!("⏱️  Execution time: {:.2?}", duration);
+            info!("{}  Execution time: {:.2?}", EXPERIENCE_TIME, duration);
         }
         Err(e) => {
-            error!("❌ Snapshot creation failed: {}", e);
+            error!("{} Snapshot creation failed: {}", INDICATOR_ERROR, e);
             std::process::exit(1);
         }
     }
