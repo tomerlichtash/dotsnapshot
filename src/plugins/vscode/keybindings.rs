@@ -60,6 +60,14 @@ impl Plugin for VSCodeKeybindingsPlugin {
         "Captures VSCode custom keybindings configuration"
     }
 
+    fn display_name(&self) -> &str {
+        "VSCode"
+    }
+
+    fn icon(&self) -> &str {
+        "💻"
+    }
+
     async fn execute(&self) -> Result<String> {
         self.get_keybindings().await
     }

@@ -60,6 +60,14 @@ impl Plugin for CursorSettingsPlugin {
         "Captures Cursor editor user settings configuration"
     }
 
+    fn display_name(&self) -> &str {
+        "Cursor"
+    }
+
+    fn icon(&self) -> &str {
+        "✏️"
+    }
+
     async fn execute(&self) -> Result<String> {
         self.get_settings().await
     }

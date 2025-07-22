@@ -60,6 +60,14 @@ impl Plugin for CursorKeybindingsPlugin {
         "Captures Cursor editor custom keybindings configuration"
     }
 
+    fn display_name(&self) -> &str {
+        "Cursor"
+    }
+
+    fn icon(&self) -> &str {
+        "✏️"
+    }
+
     async fn execute(&self) -> Result<String> {
         self.get_keybindings().await
     }

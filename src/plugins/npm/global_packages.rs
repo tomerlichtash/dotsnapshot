@@ -49,6 +49,14 @@ impl Plugin for NpmGlobalPackagesPlugin {
         "Lists globally installed NPM packages with versions"
     }
 
+    fn display_name(&self) -> &str {
+        "NPM"
+    }
+
+    fn icon(&self) -> &str {
+        "📦"
+    }
+
     async fn execute(&self) -> Result<String> {
         self.get_global_packages().await
     }

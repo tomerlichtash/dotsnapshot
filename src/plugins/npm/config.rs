@@ -58,6 +58,14 @@ impl Plugin for NpmConfigPlugin {
         "Captures NPM configuration settings"
     }
 
+    fn display_name(&self) -> &str {
+        "NPM"
+    }
+
+    fn icon(&self) -> &str {
+        "📦"
+    }
+
     async fn execute(&self) -> Result<String> {
         self.get_npm_config().await
     }

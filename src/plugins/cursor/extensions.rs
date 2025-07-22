@@ -51,6 +51,14 @@ impl Plugin for CursorExtensionsPlugin {
         "Lists installed Cursor editor extensions with versions"
     }
 
+    fn display_name(&self) -> &str {
+        "Cursor"
+    }
+
+    fn icon(&self) -> &str {
+        "✏️"
+    }
+
     async fn execute(&self) -> Result<String> {
         self.get_extensions().await
     }

@@ -371,6 +371,14 @@ mod tests {
             "Test plugin for unit tests"
         }
 
+        fn display_name(&self) -> &str {
+            "Test"
+        }
+
+        fn icon(&self) -> &str {
+            "🧪"
+        }
+
         async fn execute(&self) -> Result<String> {
             Ok(self.content.clone())
         }

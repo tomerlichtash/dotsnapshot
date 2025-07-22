@@ -27,6 +27,12 @@ pub trait Plugin: Send + Sync {
     /// Returns a description of what the plugin does
     fn description(&self) -> &str;
 
+    /// Returns the display name for the plugin (e.g., "Homebrew", "VSCode")
+    fn display_name(&self) -> &str;
+
+    /// Returns the icon/emoji to display with this plugin
+    fn icon(&self) -> &str;
+
     /// Executes the plugin and returns the content to be saved
     async fn execute(&self) -> Result<String>;
 
@@ -81,8 +87,8 @@ impl PluginRegistry {
         self.plugins.iter().find(|p| p.name() == name)
     }
 
-    /// Lists all available plugins with their descriptions
-    pub fn list_plugins(&self) -> Vec<(String, String, String)> {
+    /// Lists all available plugins with detailed information including display names and icons
+    pub fn list_plugins_detailed(&self) -> Vec<(String, String, String, String, String)> {
         self.plugins
             .iter()
             .map(|p| {
@@ -90,6 +96,8 @@ impl PluginRegistry {
                     p.name().to_string(),
                     p.filename().to_string(),
                     p.description().to_string(),
+                    p.display_name().to_string(),
+                    p.icon().to_string(),
                 )
             })
             .collect()

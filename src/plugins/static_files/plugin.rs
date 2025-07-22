@@ -343,6 +343,14 @@ impl Plugin for StaticFilesPlugin {
         "Copies arbitrary static files and directories based on configuration"
     }
 
+    fn display_name(&self) -> &str {
+        "Static Files"
+    }
+
+    fn icon(&self) -> &str {
+        "📄"
+    }
+
     /// Override output path to place static.json in .snapshot directory
     fn output_path(&self, base_path: &Path) -> PathBuf {
         base_path.join(".snapshot").join(self.filename())

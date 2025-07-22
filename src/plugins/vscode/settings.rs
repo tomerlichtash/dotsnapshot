@@ -60,6 +60,14 @@ impl Plugin for VSCodeSettingsPlugin {
         "Captures VSCode user settings configuration"
     }
 
+    fn display_name(&self) -> &str {
+        "VSCode"
+    }
+
+    fn icon(&self) -> &str {
+        "💻"
+    }
+
     async fn execute(&self) -> Result<String> {
         self.get_settings().await
     }

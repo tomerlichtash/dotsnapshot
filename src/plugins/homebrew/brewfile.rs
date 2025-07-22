@@ -65,6 +65,14 @@ impl Plugin for HomebrewBrewfilePlugin {
         "Generates a Homebrew Brewfile with all installed packages"
     }
 
+    fn display_name(&self) -> &str {
+        "Homebrew"
+    }
+
+    fn icon(&self) -> &str {
+        "🍺"
+    }
+
     async fn execute(&self) -> Result<String> {
         // Generate clean Brewfile content that can be used for installation
         match self.generate_brewfile().await {

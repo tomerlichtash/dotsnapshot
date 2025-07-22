@@ -49,6 +49,14 @@ impl Plugin for VSCodeExtensionsPlugin {
         "Lists installed VSCode extensions with versions"
     }
 
+    fn display_name(&self) -> &str {
+        "VSCode"
+    }
+
+    fn icon(&self) -> &str {
+        "💻"
+    }
+
     async fn execute(&self) -> Result<String> {
         self.get_extensions().await
     }
