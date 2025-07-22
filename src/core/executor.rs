@@ -191,7 +191,7 @@ impl SnapshotExecutor {
                 hook_manager
                     .execute_hooks(
                         &pre_plugin_hooks,
-                        &HookType::PrePlugin,
+                        &HookType::PrePluginSnapshot,
                         &plugin_hook_context,
                     )
                     .await;
@@ -228,7 +228,7 @@ impl SnapshotExecutor {
                         hook_manager
                             .execute_hooks(
                                 &post_plugin_hooks,
-                                &HookType::PostPlugin,
+                                &HookType::PostPluginSnapshot,
                                 &error_context,
                             )
                             .await;
@@ -282,7 +282,7 @@ impl SnapshotExecutor {
                         hook_manager
                             .execute_hooks(
                                 &post_plugin_hooks,
-                                &HookType::PostPlugin,
+                                &HookType::PostPluginSnapshot,
                                 &success_context,
                             )
                             .await;
@@ -326,7 +326,11 @@ impl SnapshotExecutor {
                     output_path.to_string_lossy().to_string(),
                 );
                 hook_manager
-                    .execute_hooks(&post_plugin_hooks, &HookType::PostPlugin, &success_context)
+                    .execute_hooks(
+                        &post_plugin_hooks,
+                        &HookType::PostPluginSnapshot,
+                        &success_context,
+                    )
                     .await;
             }
         }

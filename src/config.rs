@@ -106,13 +106,13 @@ pub struct PluginConfig {
 /// Plugin-specific hooks
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct PluginHooks {
-    /// Hooks to run before this plugin executes
-    #[serde(rename = "pre-plugin", default)]
-    pub pre_plugin: Vec<HookAction>,
+    /// Hooks to run before this plugin executes during snapshot
+    #[serde(rename = "pre-plugin-snapshot", default)]
+    pub pre_plugin_snapshot: Vec<HookAction>,
 
-    /// Hooks to run after this plugin completes
-    #[serde(rename = "post-plugin", default)]
-    pub post_plugin: Vec<HookAction>,
+    /// Hooks to run after this plugin completes during snapshot
+    #[serde(rename = "post-plugin-snapshot", default)]
+    pub post_plugin_snapshot: Vec<HookAction>,
 
     /// Hooks to run before this plugin is restored
     #[serde(rename = "pre-plugin-restore", default)]
@@ -308,14 +308,14 @@ impl Config {
     /// Get plugin-specific pre-plugin hooks
     pub fn get_plugin_pre_hooks(&self, plugin_name: &str) -> Vec<HookAction> {
         self.get_plugin_hooks(plugin_name)
-            .map(|h| h.pre_plugin.clone())
+            .map(|h| h.pre_plugin_snapshot.clone())
             .unwrap_or_default()
     }
 
     /// Get plugin-specific post-plugin hooks
     pub fn get_plugin_post_hooks(&self, plugin_name: &str) -> Vec<HookAction> {
         self.get_plugin_hooks(plugin_name)
-            .map(|h| h.post_plugin.clone())
+            .map(|h| h.post_plugin_snapshot.clone())
             .unwrap_or_default()
     }
 

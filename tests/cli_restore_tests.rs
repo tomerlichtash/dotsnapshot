@@ -86,8 +86,8 @@ async fn create_test_config_with_restore_hooks(config_path: &PathBuf) -> Result<
             homebrew_brewfile: Some(PluginConfig {
                 target_path: None,
                 hooks: Some(PluginHooks {
-                    pre_plugin: vec![],
-                    post_plugin: vec![],
+                    pre_plugin_snapshot: vec![],
+                    post_plugin_snapshot: vec![],
                     pre_plugin_restore: vec![HookAction::Log {
                         message: "Preparing homebrew restore".to_string(),
                         level: "debug".to_string(),
@@ -101,8 +101,8 @@ async fn create_test_config_with_restore_hooks(config_path: &PathBuf) -> Result<
             vscode_settings: Some(PluginConfig {
                 target_path: None,
                 hooks: Some(PluginHooks {
-                    pre_plugin: vec![],
-                    post_plugin: vec![],
+                    pre_plugin_snapshot: vec![],
+                    post_plugin_snapshot: vec![],
                     pre_plugin_restore: vec![],
                     post_plugin_restore: vec![HookAction::Backup {
                         path: PathBuf::from("~/.config/Code/User/settings.json"),

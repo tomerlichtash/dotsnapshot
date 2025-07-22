@@ -56,7 +56,7 @@ async fn test_config_with_hooks_serialization() -> Result<()> {
             homebrew_brewfile: Some(PluginConfig {
                 target_path: Some("homebrew".to_string()),
                 hooks: Some(PluginHooks {
-                    pre_plugin: vec![
+                    pre_plugin_snapshot: vec![
                         HookAction::Script {
                             command: "homebrew/pre-backup.sh".to_string(),
                             args: vec!["--update".to_string()],
@@ -72,7 +72,7 @@ async fn test_config_with_hooks_serialization() -> Result<()> {
                             level: "info".to_string(),
                         },
                     ],
-                    post_plugin: vec![
+                    post_plugin_snapshot: vec![
                         HookAction::Script {
                             command: "homebrew/validate-brewfile.sh".to_string(),
                             args: vec![],
@@ -92,14 +92,14 @@ async fn test_config_with_hooks_serialization() -> Result<()> {
             vscode_settings: Some(PluginConfig {
                 target_path: Some("vscode".to_string()),
                 hooks: Some(PluginHooks {
-                    pre_plugin: vec![HookAction::Script {
+                    pre_plugin_snapshot: vec![HookAction::Script {
                         command: "vscode/backup-extensions.sh".to_string(),
                         args: vec![],
                         timeout: 30,
                         working_dir: None,
                         env_vars: HashMap::new(),
                     }],
-                    post_plugin: vec![HookAction::Log {
+                    post_plugin_snapshot: vec![HookAction::Log {
                         message: "VSCode settings backed up: {file_count} files".to_string(),
                         level: "info".to_string(),
                     }],
@@ -130,8 +130,8 @@ async fn test_config_with_hooks_serialization() -> Result<()> {
     assert!(toml_content.contains("[[global.hooks.pre-snapshot]]"));
     assert!(toml_content.contains("[[global.hooks.post-snapshot]]"));
     assert!(toml_content.contains("[plugins.homebrew_brewfile]"));
-    assert!(toml_content.contains("[[plugins.homebrew_brewfile.hooks.pre-plugin]]"));
-    assert!(toml_content.contains("[[plugins.homebrew_brewfile.hooks.post-plugin]]"));
+    assert!(toml_content.contains("[[plugins.homebrew_brewfile.hooks.pre-plugin-snapshot]]"));
+    assert!(toml_content.contains("[[plugins.homebrew_brewfile.hooks.post-plugin-snapshot]]"));
 
     // Load config and verify it matches
     let loaded_config = Config::load_from_file(&config_path).await?;
@@ -185,8 +185,8 @@ async fn test_config_with_hooks_serialization() -> Result<()> {
     assert!(homebrew_config.hooks.is_some());
     let homebrew_hooks = homebrew_config.hooks.unwrap();
 
-    assert_eq!(homebrew_hooks.pre_plugin.len(), 2);
-    assert_eq!(homebrew_hooks.post_plugin.len(), 2);
+    assert_eq!(homebrew_hooks.pre_plugin_snapshot.len(), 2);
+    assert_eq!(homebrew_hooks.post_plugin_snapshot.len(), 2);
 
     // Verify homebrew pre-plugin script hook
     if let HookAction::Script {
@@ -195,11 +195,11 @@ async fn test_config_with_hooks_serialization() -> Result<()> {
         timeout,
         env_vars,
         ..
-    } = &homebrew_hooks.pre_plugin[0]
+    } = &homebrew_hooks.pre_plugin_snapshot[0]
     {
         assert_eq!(command, "homebrew/pre-backup.sh");
         assert_eq!(args, &vec!["--update".to_string()]);
-        assert_eq!(*timeout, 60);
+        assert_eq!(timeout, &60);
         assert_eq!(
             env_vars.get("HOMEBREW_NO_AUTO_UPDATE"),
             Some(&"1".to_string())
@@ -243,14 +243,14 @@ async fn test_config_hooks_helper_methods() -> Result<()> {
             homebrew_brewfile: Some(PluginConfig {
                 target_path: None,
                 hooks: Some(PluginHooks {
-                    pre_plugin: vec![HookAction::Script {
+                    pre_plugin_snapshot: vec![HookAction::Script {
                         command: "homebrew-pre.sh".to_string(),
                         args: vec![],
                         timeout: 30,
                         working_dir: None,
                         env_vars: HashMap::new(),
                     }],
-                    post_plugin: vec![HookAction::Script {
+                    post_plugin_snapshot: vec![HookAction::Script {
                         command: "homebrew-post.sh".to_string(),
                         args: vec![],
                         timeout: 30,
@@ -264,11 +264,11 @@ async fn test_config_hooks_helper_methods() -> Result<()> {
             vscode_settings: Some(PluginConfig {
                 target_path: None,
                 hooks: Some(PluginHooks {
-                    pre_plugin: vec![HookAction::Log {
+                    pre_plugin_snapshot: vec![HookAction::Log {
                         message: "VSCode pre-plugin".to_string(),
                         level: "debug".to_string(),
                     }],
-                    post_plugin: vec![],
+                    post_plugin_snapshot: vec![],
                     pre_plugin_restore: vec![],
                     post_plugin_restore: vec![],
                 }),
@@ -430,7 +430,7 @@ message = "Snapshot completed"
 title = "dotsnapshot"
 
 [plugins.vscode_settings]
-[[plugins.vscode_settings.hooks.pre-plugin]]
+[[plugins.vscode_settings.hooks.pre-plugin-snapshot]]
 action = "script"
 command = "vscode-prep.sh"
 timeout = 45

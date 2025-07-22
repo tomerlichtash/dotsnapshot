@@ -17,10 +17,10 @@ pub enum HookType {
     PreSnapshot,
     /// Executed after all plugins complete (cleanup, notifications)
     PostSnapshot,
-    /// Executed before a specific plugin runs (plugin-specific setup)
-    PrePlugin,
-    /// Executed after a specific plugin completes (plugin-specific cleanup)
-    PostPlugin,
+    /// Executed before a specific plugin runs during snapshot (plugin-specific setup)
+    PrePluginSnapshot,
+    /// Executed after a specific plugin completes during snapshot (plugin-specific cleanup)
+    PostPluginSnapshot,
     /// Executed before any plugins are restored (global restore setup)
     PreRestore,
     /// Executed after all plugins are restored (global restore cleanup)
@@ -36,8 +36,8 @@ impl std::fmt::Display for HookType {
         match self {
             HookType::PreSnapshot => write!(f, "pre-snapshot"),
             HookType::PostSnapshot => write!(f, "post-snapshot"),
-            HookType::PrePlugin => write!(f, "pre-plugin"),
-            HookType::PostPlugin => write!(f, "post-plugin"),
+            HookType::PrePluginSnapshot => write!(f, "pre-plugin-snapshot"),
+            HookType::PostPluginSnapshot => write!(f, "post-plugin-snapshot"),
             HookType::PreRestore => write!(f, "pre-restore"),
             HookType::PostRestore => write!(f, "post-restore"),
             HookType::PrePluginRestore => write!(f, "pre-plugin-restore"),
@@ -1015,8 +1015,14 @@ mod tests {
     fn test_hook_type_display() {
         assert_eq!(HookType::PreSnapshot.to_string(), "pre-snapshot");
         assert_eq!(HookType::PostSnapshot.to_string(), "post-snapshot");
-        assert_eq!(HookType::PrePlugin.to_string(), "pre-plugin");
-        assert_eq!(HookType::PostPlugin.to_string(), "post-plugin");
+        assert_eq!(
+            HookType::PrePluginSnapshot.to_string(),
+            "pre-plugin-snapshot"
+        );
+        assert_eq!(
+            HookType::PostPluginSnapshot.to_string(),
+            "post-plugin-snapshot"
+        );
     }
 
     #[test]
@@ -1290,7 +1296,7 @@ mod tests {
         }];
 
         let results = hook_manager
-            .execute_hooks(&hooks, &HookType::PrePlugin, &context)
+            .execute_hooks(&hooks, &HookType::PrePluginSnapshot, &context)
             .await;
 
         assert_eq!(results.len(), 1);
@@ -1335,7 +1341,7 @@ mod tests {
         }];
 
         let results = hook_manager
-            .execute_hooks(&script_hooks, &HookType::PrePlugin, &context)
+            .execute_hooks(&script_hooks, &HookType::PrePluginSnapshot, &context)
             .await;
 
         assert_eq!(results.len(), 1);

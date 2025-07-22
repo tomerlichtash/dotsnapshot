@@ -99,7 +99,7 @@ async fn handle_add_hook(
                 .post_snapshot
                 .push(hook_action.clone());
         }
-        "pre-plugin" => {
+        "pre-plugin-snapshot" => {
             let plugin_name = plugin_name.as_ref().unwrap();
             ensure_plugin_config(&mut config, plugin_name);
             let plugin_config = get_plugin_config_mut(&mut config, plugin_name).unwrap();
@@ -107,10 +107,10 @@ async fn handle_add_hook(
                 .hooks
                 .as_mut()
                 .unwrap()
-                .pre_plugin
+                .pre_plugin_snapshot
                 .push(hook_action.clone());
         }
-        "post-plugin" => {
+        "post-plugin-snapshot" => {
             let plugin_name = plugin_name.as_ref().unwrap();
             ensure_plugin_config(&mut config, plugin_name);
             let plugin_config = get_plugin_config_mut(&mut config, plugin_name).unwrap();
@@ -118,7 +118,7 @@ async fn handle_add_hook(
                 .hooks
                 .as_mut()
                 .unwrap()
-                .post_plugin
+                .post_plugin_snapshot
                 .push(hook_action.clone());
         }
         _ => unreachable!(),
@@ -195,11 +195,11 @@ async fn handle_remove_hook(
                 return Ok(());
             }
         }
-        "pre-plugin" => {
+        "pre-plugin-snapshot" => {
             let plugin_name = plugin_name.as_ref().unwrap();
             if let Some(plugin_config) = get_plugin_config_mut(&mut config, plugin_name) {
                 if let Some(hooks) = plugin_config.hooks.as_mut() {
-                    &mut hooks.pre_plugin
+                    &mut hooks.pre_plugin_snapshot
                 } else {
                     info!("No pre-plugin hooks configured for {plugin_name}");
                     return Ok(());
@@ -209,11 +209,11 @@ async fn handle_remove_hook(
                 return Ok(());
             }
         }
-        "post-plugin" => {
+        "post-plugin-snapshot" => {
             let plugin_name = plugin_name.as_ref().unwrap();
             if let Some(plugin_config) = get_plugin_config_mut(&mut config, plugin_name) {
                 if let Some(hooks) = plugin_config.hooks.as_mut() {
-                    &mut hooks.post_plugin
+                    &mut hooks.post_plugin_snapshot
                 } else {
                     info!("No post-plugin hooks configured for {plugin_name}");
                     return Ok(());
@@ -402,7 +402,7 @@ async fn handle_validate_hooks(
             let (valid, warnings, errors) = validate_hook_list(
                 &hook_manager,
                 &hooks,
-                "pre-plugin",
+                "pre-plugin-snapshot",
                 Some(&plugin_name),
                 &plugin_context,
             );
@@ -417,7 +417,7 @@ async fn handle_validate_hooks(
             let (valid, warnings, errors) = validate_hook_list(
                 &hook_manager,
                 &hooks,
-                "post-plugin",
+                "post-plugin-snapshot",
                 Some(&plugin_name),
                 &plugin_context,
             );
@@ -582,9 +582,9 @@ fn determine_hook_target(target: &HookTarget) -> Result<(String, Option<String>)
     } else if target.post_snapshot {
         Ok(("post-snapshot".to_string(), None))
     } else if let Some(plugin) = &target.pre_plugin {
-        Ok(("pre-plugin".to_string(), Some(plugin.clone())))
+        Ok(("pre-plugin-snapshot".to_string(), Some(plugin.clone())))
     } else if let Some(plugin) = &target.post_plugin {
-        Ok(("post-plugin".to_string(), Some(plugin.clone())))
+        Ok(("post-plugin-snapshot".to_string(), Some(plugin.clone())))
     } else {
         Err(anyhow::anyhow!("No hook target specified"))
     }
@@ -666,8 +666,8 @@ fn ensure_plugin_config(config: &mut Config, plugin_name: &str) {
 
     if plugin_config.as_ref().unwrap().hooks.is_none() {
         plugin_config.as_mut().unwrap().hooks = Some(PluginHooks {
-            pre_plugin: Vec::new(),
-            post_plugin: Vec::new(),
+            pre_plugin_snapshot: Vec::new(),
+            post_plugin_snapshot: Vec::new(),
             pre_plugin_restore: Vec::new(),
             post_plugin_restore: Vec::new(),
         });
@@ -745,7 +745,7 @@ fn show_plugin_hooks(
         let hooks = config.get_plugin_pre_hooks(plugin_name);
         show_hook_list(
             &hooks,
-            "pre-plugin",
+            "pre-plugin-snapshot",
             Some(plugin_name),
             verbose,
             hooks_config,
@@ -756,7 +756,7 @@ fn show_plugin_hooks(
         let hooks = config.get_plugin_post_hooks(plugin_name);
         show_hook_list(
             &hooks,
-            "post-plugin",
+            "post-plugin-snapshot",
             Some(plugin_name),
             verbose,
             hooks_config,
