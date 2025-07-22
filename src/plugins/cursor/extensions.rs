@@ -9,6 +9,9 @@ use crate::core::plugin::Plugin;
 pub struct CursorExtensionsPlugin;
 
 impl CursorExtensionsPlugin {
+    // Allow new_without_default because plugins intentionally use new() instead of Default
+    // to maintain consistent plugin instantiation patterns across the codebase
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self
     }

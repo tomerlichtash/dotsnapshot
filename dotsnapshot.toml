@@ -1,67 +1,84 @@
-# dotsnapshot configuration file
-# This file configures the behavior of the dotsnapshot tool
-
-# Output directory for snapshots (default: ./snapshots)
 output_dir = "./.snapshots"
 
-# Specific plugins to include (if not specified, all plugins run)
-# Available plugins: homebrew, vscode, cursor, npm, static
-# include_plugins = ["homebrew", "vscode", "static"]
-
-# Custom plugin target paths - allows plugins to write to custom directories in snapshots
-[plugins]
-# VSCode plugins can share the same directory
-vscode_settings = { target_path = "vscode" }
-vscode_keybindings = { target_path = "vscode" }
-vscode_extensions = { target_path = "vscode" }
-
-# Cursor plugins can share the same directory
-cursor_settings = { target_path = "cursor" }
-cursor_keybindings = { target_path = "cursor" }
-cursor_extensions = { target_path = "cursor" }
-
-# Homebrew plugin
-homebrew_brewfile = { target_path = "homebrew" }
-
-# NPM plugins
-npm_global_packages = { target_path = "npm" }
-npm_config = { target_path = "npm" }
-
-# Static files plugin with custom path and additional configuration
-# [plugins.static]
-# target_path = "my-dotfiles"
-# files = [
-#   "~/.zshrc",
-#   "~/.gitconfig",
-#   "~/dotfiles",
-# ]
-# ignore = [
-#   ".git",
-#   "*.key",
-#   "*_rsa",
-#   "known_hosts*",
-# ]
-
-# Legacy static plugin configuration (still supported for backward compatibility)
-[static]
-# files = [
-#   "~/.zshrc",
-# ]
-# Glob patterns to ignore when copying files/directories
-# ignore = [
-#   ".git",           # Ignore all .git directories
-#   "target",         # Ignore Rust build directories
-#   "node_modules",   # Ignore Node.js dependencies
-#   "*.key",          # Ignore private key files
-#   "*_rsa",          # Ignore RSA private keys
-#   "known_hosts*",   # Ignore SSH known hosts files
-#   ".DS_Store",      # Ignore macOS metadata files
-# ]
-
-# Logging configuration
 [logging]
-# Enable verbose logging by default
 verbose = true
-
-# Time format for log timestamps (uses time crate format syntax)
 time_format = "[year]-[month]-[day] [hour]:[minute]:[second]"
+
+[hooks]
+scripts_dir = "/Users/tomerlichtash/dev/projects/file-snapshots/tests/test-scripts"
+
+[[global.hooks.pre-snapshot]]
+action = "script"
+command = "pre-snapshot-setup.sh"
+args = []
+timeout = 30
+
+[global.hooks.pre-snapshot.env_vars]
+
+[[global.hooks.pre-snapshot]]
+action = "log"
+message = "Starting dotsnapshot backup process at {timestamp}"
+level = "info"
+
+[[global.hooks.post-snapshot]]
+action = "script"
+command = "post-snapshot-cleanup.sh"
+args = []
+timeout = 30
+
+[global.hooks.post-snapshot.env_vars]
+
+[[global.hooks.post-snapshot]]
+action = "notify"
+message = "Backup completed successfully! 🎉"
+
+[static]
+
+[plugins.homebrew_brewfile]
+target_path = "homebrew"
+
+[plugins.homebrew_brewfile.hooks]
+post-plugin = []
+
+[[plugins.homebrew_brewfile.hooks.pre-plugin]]
+action = "script"
+command = "homebrew-pre-backup.sh"
+args = []
+timeout = 30
+
+[plugins.homebrew_brewfile.hooks.pre-plugin.env_vars]
+
+[plugins.vscode_settings]
+target_path = "vscode"
+
+[plugins.vscode_settings.hooks]
+pre-plugin = []
+
+[[plugins.vscode_settings.hooks.post-plugin]]
+action = "script"
+command = "vscode-post-backup.sh"
+args = []
+timeout = 30
+
+[plugins.vscode_settings.hooks.post-plugin.env_vars]
+
+[plugins.vscode_keybindings]
+target_path = "vscode"
+
+[plugins.vscode_extensions]
+target_path = "vscode"
+
+[plugins.cursor_settings]
+target_path = "cursor"
+
+[plugins.cursor_keybindings]
+target_path = "cursor"
+
+[plugins.cursor_extensions]
+target_path = "cursor"
+
+[plugins.npm_global_packages]
+target_path = "npm"
+
+[plugins.npm_config]
+target_path = "npm"

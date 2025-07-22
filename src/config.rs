@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use tokio::fs;
 
+use crate::core::hooks::{HookAction, HooksConfig};
+
 /// Configuration for file-snapshots
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Config {
@@ -14,6 +16,12 @@ pub struct Config {
 
     /// Logging configuration
     pub logging: Option<LoggingConfig>,
+
+    /// Hooks configuration
+    pub hooks: Option<HooksConfig>,
+
+    /// Global hooks configuration
+    pub global: Option<GlobalConfig>,
 
     /// Static plugin configuration (legacy)
     #[serde(rename = "static")]
@@ -31,6 +39,25 @@ pub struct LoggingConfig {
 
     /// Time format for log timestamps (uses time crate format syntax)
     pub time_format: Option<String>,
+}
+
+/// Global hooks configuration
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct GlobalConfig {
+    /// Global hooks that apply to all plugins
+    pub hooks: Option<GlobalHooks>,
+}
+
+/// Global hooks that apply to all snapshots
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct GlobalHooks {
+    /// Hooks to run before any plugins execute
+    #[serde(rename = "pre-snapshot", default)]
+    pub pre_snapshot: Vec<HookAction>,
+
+    /// Hooks to run after all plugins complete
+    #[serde(rename = "post-snapshot", default)]
+    pub post_snapshot: Vec<HookAction>,
 }
 
 /// Plugin-specific configurations
@@ -63,6 +90,21 @@ pub struct PluginsConfig {
 pub struct PluginConfig {
     /// Custom target path in snapshot (relative to snapshot root)
     pub target_path: Option<String>,
+
+    /// Plugin-specific hooks
+    pub hooks: Option<PluginHooks>,
+}
+
+/// Plugin-specific hooks
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct PluginHooks {
+    /// Hooks to run before this plugin executes
+    #[serde(rename = "pre-plugin", default)]
+    pub pre_plugin: Vec<HookAction>,
+
+    /// Hooks to run after this plugin completes
+    #[serde(rename = "post-plugin", default)]
+    pub post_plugin: Vec<HookAction>,
 }
 
 /// Static files plugin configuration with additional options
@@ -91,6 +133,8 @@ impl Default for Config {
             output_dir: Some(PathBuf::from("./snapshots")),
             include_plugins: None,
             logging: None,
+            hooks: None,
+            global: None,
             static_files: None,
             plugins: None,
         }
@@ -222,6 +266,61 @@ impl Config {
         }
     }
 
+    /// Get hooks configuration
+    pub fn get_hooks_config(&self) -> HooksConfig {
+        self.hooks.clone().unwrap_or_default()
+    }
+
+    /// Get global pre-snapshot hooks
+    pub fn get_global_pre_snapshot_hooks(&self) -> Vec<HookAction> {
+        self.global
+            .as_ref()
+            .and_then(|g| g.hooks.as_ref())
+            .map(|h| h.pre_snapshot.clone())
+            .unwrap_or_default()
+    }
+
+    /// Get global post-snapshot hooks
+    pub fn get_global_post_snapshot_hooks(&self) -> Vec<HookAction> {
+        self.global
+            .as_ref()
+            .and_then(|g| g.hooks.as_ref())
+            .map(|h| h.post_snapshot.clone())
+            .unwrap_or_default()
+    }
+
+    /// Get plugin-specific pre-plugin hooks
+    pub fn get_plugin_pre_hooks(&self, plugin_name: &str) -> Vec<HookAction> {
+        self.get_plugin_hooks(plugin_name)
+            .map(|h| h.pre_plugin.clone())
+            .unwrap_or_default()
+    }
+
+    /// Get plugin-specific post-plugin hooks
+    pub fn get_plugin_post_hooks(&self, plugin_name: &str) -> Vec<HookAction> {
+        self.get_plugin_hooks(plugin_name)
+            .map(|h| h.post_plugin.clone())
+            .unwrap_or_default()
+    }
+
+    /// Get plugin hooks configuration
+    fn get_plugin_hooks(&self, plugin_name: &str) -> Option<&PluginHooks> {
+        let plugins = self.plugins.as_ref()?;
+        let plugin_config = match plugin_name {
+            "homebrew_brewfile" => plugins.homebrew_brewfile.as_ref(),
+            "vscode_settings" => plugins.vscode_settings.as_ref(),
+            "vscode_keybindings" => plugins.vscode_keybindings.as_ref(),
+            "vscode_extensions" => plugins.vscode_extensions.as_ref(),
+            "cursor_settings" => plugins.cursor_settings.as_ref(),
+            "cursor_keybindings" => plugins.cursor_keybindings.as_ref(),
+            "cursor_extensions" => plugins.cursor_extensions.as_ref(),
+            "npm_global_packages" => plugins.npm_global_packages.as_ref(),
+            "npm_config" => plugins.npm_config.as_ref(),
+            _ => None,
+        }?;
+        plugin_config.hooks.as_ref()
+    }
+
     /// Save configuration to file
     #[allow(dead_code)]
     pub async fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
@@ -267,6 +366,8 @@ mod tests {
                 verbose: Some(true),
                 time_format: Some("[year]-[month]-[day] [hour]:[minute]:[second]".to_string()),
             }),
+            hooks: None,
+            global: None,
             static_files: Some(StaticFilesConfig {
                 files: Some(vec!["~/.gitconfig".to_string(), "/etc/hosts".to_string()]),
                 ignore: None,
