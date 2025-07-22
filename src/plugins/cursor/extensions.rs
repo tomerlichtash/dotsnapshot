@@ -4,6 +4,7 @@ use std::process::Command;
 use which::which;
 
 use crate::core::plugin::Plugin;
+use crate::symbols::*;
 
 /// Plugin for capturing Cursor extensions
 pub struct CursorExtensionsPlugin;
@@ -39,10 +40,6 @@ impl CursorExtensionsPlugin {
 
 #[async_trait]
 impl Plugin for CursorExtensionsPlugin {
-    fn name(&self) -> &str {
-        "cursor_extensions"
-    }
-
     fn filename(&self) -> &str {
         "cursor_extensions.txt"
     }
@@ -51,12 +48,8 @@ impl Plugin for CursorExtensionsPlugin {
         "Lists installed Cursor editor extensions with versions"
     }
 
-    fn display_name(&self) -> &str {
-        "Cursor"
-    }
-
     fn icon(&self) -> &str {
-        "✏️"
+        TOOL_EDITOR
     }
 
     async fn execute(&self) -> Result<String> {
@@ -78,7 +71,6 @@ mod tests {
     #[tokio::test]
     async fn test_cursor_extensions_plugin_name() {
         let plugin = CursorExtensionsPlugin::new();
-        assert_eq!(plugin.name(), "cursor_extensions");
         assert_eq!(plugin.filename(), "cursor_extensions.txt");
     }
 

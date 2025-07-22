@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use tokio::fs;
 
 use crate::core::plugin::Plugin;
+use crate::symbols::*;
 
 /// Plugin for capturing VSCode keybindings
 pub struct VSCodeKeybindingsPlugin;
@@ -48,10 +49,6 @@ impl VSCodeKeybindingsPlugin {
 
 #[async_trait]
 impl Plugin for VSCodeKeybindingsPlugin {
-    fn name(&self) -> &str {
-        "vscode_keybindings"
-    }
-
     fn filename(&self) -> &str {
         "vscode_keybindings.json"
     }
@@ -60,12 +57,8 @@ impl Plugin for VSCodeKeybindingsPlugin {
         "Captures VSCode custom keybindings configuration"
     }
 
-    fn display_name(&self) -> &str {
-        "VSCode"
-    }
-
     fn icon(&self) -> &str {
-        "💻"
+        TOOL_COMPUTER
     }
 
     async fn execute(&self) -> Result<String> {
@@ -93,7 +86,6 @@ mod tests {
     #[tokio::test]
     async fn test_vscode_keybindings_plugin_name() {
         let plugin = VSCodeKeybindingsPlugin::new();
-        assert_eq!(plugin.name(), "vscode_keybindings");
         assert_eq!(plugin.filename(), "vscode_keybindings.json");
     }
 

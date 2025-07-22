@@ -4,6 +4,7 @@ use std::process::Command;
 use which::which;
 
 use crate::core::plugin::Plugin;
+use crate::symbols::*;
 
 /// Plugin for capturing NPM global packages
 pub struct NpmGlobalPackagesPlugin;
@@ -37,10 +38,6 @@ impl NpmGlobalPackagesPlugin {
 
 #[async_trait]
 impl Plugin for NpmGlobalPackagesPlugin {
-    fn name(&self) -> &str {
-        "npm_global_packages"
-    }
-
     fn filename(&self) -> &str {
         "npm_global_packages.txt"
     }
@@ -49,12 +46,8 @@ impl Plugin for NpmGlobalPackagesPlugin {
         "Lists globally installed NPM packages with versions"
     }
 
-    fn display_name(&self) -> &str {
-        "NPM"
-    }
-
     fn icon(&self) -> &str {
-        "📦"
+        CONTENT_PACKAGE
     }
 
     async fn execute(&self) -> Result<String> {
@@ -76,7 +69,6 @@ mod tests {
     #[tokio::test]
     async fn test_npm_global_packages_plugin_name() {
         let plugin = NpmGlobalPackagesPlugin::new();
-        assert_eq!(plugin.name(), "npm_global_packages");
         assert_eq!(plugin.filename(), "npm_global_packages.txt");
     }
 

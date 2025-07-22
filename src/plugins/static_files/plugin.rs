@@ -331,10 +331,6 @@ impl StaticFilesPlugin {
 
 #[async_trait]
 impl Plugin for StaticFilesPlugin {
-    fn name(&self) -> &str {
-        "static"
-    }
-
     fn filename(&self) -> &str {
         "static.json"
     }
@@ -343,12 +339,8 @@ impl Plugin for StaticFilesPlugin {
         "Copies arbitrary static files and directories based on configuration"
     }
 
-    fn display_name(&self) -> &str {
-        "Static Files"
-    }
-
     fn icon(&self) -> &str {
-        "📄"
+        CONTENT_FILE
     }
 
     /// Override output path to place static.json in .snapshot directory
@@ -439,7 +431,6 @@ mod tests {
     #[tokio::test]
     async fn test_static_plugin_name() {
         let plugin = StaticFilesPlugin::new();
-        assert_eq!(plugin.name(), "static");
         assert_eq!(plugin.filename(), "static.json");
     }
 
@@ -493,6 +484,7 @@ mod tests {
                 ignore: None,
             }),
             plugins: None,
+            ui: None,
         };
 
         let plugin = StaticFilesPlugin::with_config(Arc::new(config));

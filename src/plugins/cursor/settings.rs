@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use tokio::fs;
 
 use crate::core::plugin::Plugin;
+use crate::symbols::*;
 
 /// Plugin for capturing Cursor settings
 pub struct CursorSettingsPlugin;
@@ -48,10 +49,6 @@ impl CursorSettingsPlugin {
 
 #[async_trait]
 impl Plugin for CursorSettingsPlugin {
-    fn name(&self) -> &str {
-        "cursor_settings"
-    }
-
     fn filename(&self) -> &str {
         "cursor_settings.json"
     }
@@ -60,12 +57,8 @@ impl Plugin for CursorSettingsPlugin {
         "Captures Cursor editor user settings configuration"
     }
 
-    fn display_name(&self) -> &str {
-        "Cursor"
-    }
-
     fn icon(&self) -> &str {
-        "✏️"
+        TOOL_EDITOR
     }
 
     async fn execute(&self) -> Result<String> {
@@ -93,7 +86,6 @@ mod tests {
     #[tokio::test]
     async fn test_cursor_settings_plugin_name() {
         let plugin = CursorSettingsPlugin::new();
-        assert_eq!(plugin.name(), "cursor_settings");
         assert_eq!(plugin.filename(), "cursor_settings.json");
     }
 

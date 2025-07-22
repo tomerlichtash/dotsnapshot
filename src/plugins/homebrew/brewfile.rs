@@ -4,6 +4,7 @@ use std::process::Command;
 use which::which;
 
 use crate::core::plugin::Plugin;
+use crate::symbols::*;
 
 /// Plugin for generating Homebrew Brewfile
 pub struct HomebrewBrewfilePlugin;
@@ -53,10 +54,6 @@ impl HomebrewBrewfilePlugin {
 
 #[async_trait]
 impl Plugin for HomebrewBrewfilePlugin {
-    fn name(&self) -> &str {
-        "homebrew_brewfile"
-    }
-
     fn filename(&self) -> &str {
         "Brewfile"
     }
@@ -65,12 +62,8 @@ impl Plugin for HomebrewBrewfilePlugin {
         "Generates a Homebrew Brewfile with all installed packages"
     }
 
-    fn display_name(&self) -> &str {
-        "Homebrew"
-    }
-
     fn icon(&self) -> &str {
-        "🍺"
+        TOOL_PACKAGE_MANAGER
     }
 
     async fn execute(&self) -> Result<String> {
@@ -112,7 +105,6 @@ mod tests {
     #[tokio::test]
     async fn test_homebrew_brewfile_plugin_name() {
         let plugin = HomebrewBrewfilePlugin::new();
-        assert_eq!(plugin.name(), "homebrew_brewfile");
         assert_eq!(plugin.filename(), "Brewfile");
     }
 

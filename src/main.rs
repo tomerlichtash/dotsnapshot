@@ -322,6 +322,9 @@ async fn list_plugins() {
     println!("Available plugins:");
     println!();
 
+    // Load config for UI customization (optional)
+    let config = Config::load().await.ok();
+
     // Create a registry and register all plugins
     let mut registry = PluginRegistry::new();
 
@@ -337,28 +340,28 @@ async fn list_plugins() {
     registry.register(Arc::new(NpmConfigPlugin::new()));
     registry.register(Arc::new(StaticFilesPlugin::new()));
 
-    // Get detailed plugin information with display names and icons
-    let plugins_detailed = registry.list_plugins_detailed();
+    // Get detailed plugin information with category names and icons
+    let plugins_detailed = registry.list_plugins_detailed(config.as_ref());
 
-    // Group plugins by display name dynamically
+    // Group plugins by category dynamically
     let mut plugin_groups: HashMap<String, PluginGroup> = HashMap::new();
 
-    for (name, filename, description, display_name, icon) in plugins_detailed {
+    for (name, filename, description, category, icon) in plugins_detailed {
         plugin_groups
-            .entry(display_name.clone())
+            .entry(category.clone())
             .or_insert_with(|| (icon.clone(), Vec::new()))
             .1
             .push((name, filename, description));
     }
 
-    // Sort groups by display name for consistent output
+    // Sort groups by category name for consistent output
     let mut sorted_groups: Vec<_> = plugin_groups.into_iter().collect();
     sorted_groups.sort_by(|a, b| a.0.cmp(&b.0));
 
     // Display grouped plugins dynamically
-    for (display_name, (icon, plugins)) in sorted_groups {
+    for (category, (icon, plugins)) in sorted_groups {
         if !plugins.is_empty() {
-            println!("{icon} {display_name}:");
+            println!("{icon} {category}:");
             for (name, filename, description) in plugins {
                 println!("  {name:<20} -> {filename:<20} {description}");
             }

@@ -81,8 +81,9 @@ impl SnapshotExecutor {
         let plugins = self.registry.plugins();
         let mut plugin_tasks = Vec::new();
 
-        for plugin in plugins {
+        for (plugin_name, plugin) in plugins {
             let plugin_clone = Arc::clone(plugin);
+            let plugin_name_clone = plugin_name.clone();
             let snapshot_dir_clone = snapshot_dir.clone();
             let snapshot_manager_clone = self.snapshot_manager.clone();
             let config_clone = self.config.clone();
@@ -91,6 +92,7 @@ impl SnapshotExecutor {
 
             let task = tokio::spawn(async move {
                 Self::execute_plugin_with_hooks(
+                    plugin_name_clone,
                     plugin_clone,
                     &snapshot_dir_clone,
                     &snapshot_manager_clone,
@@ -172,6 +174,7 @@ impl SnapshotExecutor {
 
     /// Executes a single plugin with hooks and checksum optimization
     async fn execute_plugin_with_hooks(
+        plugin_name: String,
         plugin: Arc<dyn Plugin>,
         snapshot_dir: &Path,
         snapshot_manager: &SnapshotManager,
@@ -179,7 +182,6 @@ impl SnapshotExecutor {
         hook_manager: HookManager,
         hook_context: HookContext,
     ) -> Result<PluginResult> {
-        let plugin_name = plugin.name().to_string();
         info!("{} Executing plugin: {}", CONTENT_PACKAGE, plugin_name);
 
         // Create plugin-specific hook context
@@ -295,7 +297,15 @@ impl SnapshotExecutor {
         }
 
         // Save new content to file
-        let output_path = plugin.output_path_with_config(snapshot_dir, config);
+        let output_path = if let Some(config) = config {
+            if let Some(custom_path) = config.get_plugin_target_path(&plugin_name) {
+                snapshot_dir.join(custom_path).join(plugin.filename())
+            } else {
+                plugin.output_path(snapshot_dir)
+            }
+        } else {
+            plugin.output_path(snapshot_dir)
+        };
 
         // Create parent directory if it doesn't exist
         if let Some(parent) = output_path.parent() {
@@ -352,17 +362,66 @@ mod tests {
     use async_trait::async_trait;
     use tempfile::TempDir;
 
+    struct VSCodeSettingsPlugin {
+        content: String,
+    }
+
+    struct VSCodeExtensionsPlugin {
+        content: String,
+    }
+
     struct TestPlugin {
-        name: String,
         content: String,
     }
 
     #[async_trait]
-    impl Plugin for TestPlugin {
-        fn name(&self) -> &str {
-            &self.name
+    impl Plugin for VSCodeSettingsPlugin {
+        fn filename(&self) -> &str {
+            "vscode_settings.json"
         }
 
+        fn description(&self) -> &str {
+            "Test VSCode settings plugin"
+        }
+
+        fn icon(&self) -> &str {
+            ACTION_TEST
+        }
+
+        async fn execute(&self) -> Result<String> {
+            Ok(self.content.clone())
+        }
+
+        async fn validate(&self) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    #[async_trait]
+    impl Plugin for VSCodeExtensionsPlugin {
+        fn filename(&self) -> &str {
+            "vscode_extensions.txt"
+        }
+
+        fn description(&self) -> &str {
+            "Test VSCode extensions plugin"
+        }
+
+        fn icon(&self) -> &str {
+            ACTION_TEST
+        }
+
+        async fn execute(&self) -> Result<String> {
+            Ok(self.content.clone())
+        }
+
+        async fn validate(&self) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    #[async_trait]
+    impl Plugin for TestPlugin {
         fn filename(&self) -> &str {
             "test.txt"
         }
@@ -371,12 +430,8 @@ mod tests {
             "Test plugin for unit tests"
         }
 
-        fn display_name(&self) -> &str {
-            "Test"
-        }
-
         fn icon(&self) -> &str {
-            "🧪"
+            ACTION_TEST
         }
 
         async fn execute(&self) -> Result<String> {
@@ -395,7 +450,6 @@ mod tests {
 
         let mut registry = PluginRegistry::new();
         registry.register(Arc::new(TestPlugin {
-            name: "test".to_string(),
             content: "test content".to_string(),
         }));
 
@@ -445,15 +499,14 @@ mod tests {
                 npm_config: None,
                 static_files: None,
             }),
+            ui: None,
         };
 
         let mut registry = PluginRegistry::new();
-        registry.register(Arc::new(TestPlugin {
-            name: "vscode_settings".to_string(),
+        registry.register(Arc::new(VSCodeSettingsPlugin {
             content: "vscode settings content".to_string(),
         }));
-        registry.register(Arc::new(TestPlugin {
-            name: "vscode_extensions".to_string(),
+        registry.register(Arc::new(VSCodeExtensionsPlugin {
             content: "vscode extensions content".to_string(),
         }));
 
@@ -464,7 +517,14 @@ mod tests {
         assert!(snapshot_dir.exists());
 
         // Both plugins should be in the vscode directory due to shared target_path
-        assert!(snapshot_dir.join("vscode").join("test.txt").exists());
+        assert!(snapshot_dir
+            .join("vscode")
+            .join("vscode_settings.json")
+            .exists());
+        assert!(snapshot_dir
+            .join("vscode")
+            .join("vscode_extensions.txt")
+            .exists());
         assert!(snapshot_dir
             .join(".snapshot")
             .join("checksum.json")

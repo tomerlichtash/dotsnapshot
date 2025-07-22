@@ -110,6 +110,7 @@ async fn test_config_with_hooks_serialization() -> Result<()> {
             npm_config: None,
             static_files: None,
         }),
+        ui: None,
     };
 
     // Save config
@@ -270,6 +271,7 @@ async fn test_config_hooks_helper_methods() -> Result<()> {
             npm_config: None,
             static_files: None,
         }),
+        ui: None,
     };
 
     // Save and reload config

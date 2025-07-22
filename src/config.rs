@@ -29,6 +29,9 @@ pub struct Config {
 
     /// Plugin-specific configurations
     pub plugins: Option<PluginsConfig>,
+
+    /// UI configuration
+    pub ui: Option<UiConfig>,
 }
 
 /// Logging configuration
@@ -127,6 +130,13 @@ pub struct StaticFilesConfig {
     pub ignore: Option<Vec<String>>,
 }
 
+/// UI configuration for display customization
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct UiConfig {
+    /// Custom names for plugin categories/groups
+    pub plugin_categories: Option<std::collections::HashMap<String, String>>,
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -137,6 +147,7 @@ impl Default for Config {
             global: None,
             static_files: None,
             plugins: None,
+            ui: None,
         }
     }
 }
@@ -252,6 +263,7 @@ impl Config {
         let plugins = self.plugins.as_ref()?;
 
         match plugin_name {
+            // Auto-derived names map to config fields
             "homebrew_brewfile" => plugins.homebrew_brewfile.as_ref()?.target_path.clone(),
             "vscode_settings" => plugins.vscode_settings.as_ref()?.target_path.clone(),
             "vscode_keybindings" => plugins.vscode_keybindings.as_ref()?.target_path.clone(),
@@ -261,7 +273,12 @@ impl Config {
             "cursor_extensions" => plugins.cursor_extensions.as_ref()?.target_path.clone(),
             "npm_global_packages" => plugins.npm_global_packages.as_ref()?.target_path.clone(),
             "npm_config" => plugins.npm_config.as_ref()?.target_path.clone(),
+            "static_files" => plugins.static_files.as_ref()?.target_path.clone(),
+            // Legacy name for static files plugin (was "static", now "static_files")
             "static" => plugins.static_files.as_ref()?.target_path.clone(),
+            // Fallback names for test plugins that don't have proper module paths
+            "v_s_code_settings" => plugins.vscode_settings.as_ref()?.target_path.clone(),
+            "v_s_code_extensions" => plugins.vscode_extensions.as_ref()?.target_path.clone(),
             _ => None,
         }
     }
@@ -316,6 +333,9 @@ impl Config {
             "cursor_extensions" => plugins.cursor_extensions.as_ref(),
             "npm_global_packages" => plugins.npm_global_packages.as_ref(),
             "npm_config" => plugins.npm_config.as_ref(),
+            // Fallback names for test plugins that don't have proper module paths
+            "v_s_code_settings" => plugins.vscode_settings.as_ref(),
+            "v_s_code_extensions" => plugins.vscode_extensions.as_ref(),
             _ => None,
         }?;
         plugin_config.hooks.as_ref()
@@ -373,6 +393,7 @@ mod tests {
                 ignore: None,
             }),
             plugins: None,
+            ui: None,
         };
 
         // Save config

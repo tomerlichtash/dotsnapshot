@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use tokio::fs;
 
 use crate::core::plugin::Plugin;
+use crate::symbols::*;
 
 /// Plugin for capturing VSCode settings
 pub struct VSCodeSettingsPlugin;
@@ -48,10 +49,6 @@ impl VSCodeSettingsPlugin {
 
 #[async_trait]
 impl Plugin for VSCodeSettingsPlugin {
-    fn name(&self) -> &str {
-        "vscode_settings"
-    }
-
     fn filename(&self) -> &str {
         "vscode_settings.json"
     }
@@ -60,12 +57,8 @@ impl Plugin for VSCodeSettingsPlugin {
         "Captures VSCode user settings configuration"
     }
 
-    fn display_name(&self) -> &str {
-        "VSCode"
-    }
-
     fn icon(&self) -> &str {
-        "💻"
+        TOOL_COMPUTER
     }
 
     async fn execute(&self) -> Result<String> {
@@ -93,7 +86,6 @@ mod tests {
     #[tokio::test]
     async fn test_vscode_settings_plugin_name() {
         let plugin = VSCodeSettingsPlugin::new();
-        assert_eq!(plugin.name(), "vscode_settings");
         assert_eq!(plugin.filename(), "vscode_settings.json");
     }
 

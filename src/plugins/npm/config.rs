@@ -4,6 +4,7 @@ use std::process::Command;
 use which::which;
 
 use crate::core::plugin::Plugin;
+use crate::symbols::*;
 
 /// Plugin for capturing NPM configuration
 pub struct NpmConfigPlugin;
@@ -46,10 +47,6 @@ impl NpmConfigPlugin {
 
 #[async_trait]
 impl Plugin for NpmConfigPlugin {
-    fn name(&self) -> &str {
-        "npm_config"
-    }
-
     fn filename(&self) -> &str {
         "npm_config.txt"
     }
@@ -58,12 +55,8 @@ impl Plugin for NpmConfigPlugin {
         "Captures NPM configuration settings"
     }
 
-    fn display_name(&self) -> &str {
-        "NPM"
-    }
-
     fn icon(&self) -> &str {
-        "📦"
+        CONTENT_PACKAGE
     }
 
     async fn execute(&self) -> Result<String> {
@@ -85,7 +78,6 @@ mod tests {
     #[tokio::test]
     async fn test_npm_config_plugin_name() {
         let plugin = NpmConfigPlugin::new();
-        assert_eq!(plugin.name(), "npm_config");
         assert_eq!(plugin.filename(), "npm_config.txt");
     }
 

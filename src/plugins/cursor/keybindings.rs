@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use tokio::fs;
 
 use crate::core::plugin::Plugin;
+use crate::symbols::*;
 
 /// Plugin for capturing Cursor keybindings
 pub struct CursorKeybindingsPlugin;
@@ -48,10 +49,6 @@ impl CursorKeybindingsPlugin {
 
 #[async_trait]
 impl Plugin for CursorKeybindingsPlugin {
-    fn name(&self) -> &str {
-        "cursor_keybindings"
-    }
-
     fn filename(&self) -> &str {
         "cursor_keybindings.json"
     }
@@ -60,12 +57,8 @@ impl Plugin for CursorKeybindingsPlugin {
         "Captures Cursor editor custom keybindings configuration"
     }
 
-    fn display_name(&self) -> &str {
-        "Cursor"
-    }
-
     fn icon(&self) -> &str {
-        "✏️"
+        TOOL_EDITOR
     }
 
     async fn execute(&self) -> Result<String> {
@@ -93,7 +86,6 @@ mod tests {
     #[tokio::test]
     async fn test_cursor_keybindings_plugin_name() {
         let plugin = CursorKeybindingsPlugin::new();
-        assert_eq!(plugin.name(), "cursor_keybindings");
         assert_eq!(plugin.filename(), "cursor_keybindings.json");
     }
 

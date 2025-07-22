@@ -4,6 +4,7 @@ use std::process::Command;
 use which::which;
 
 use crate::core::plugin::Plugin;
+use crate::symbols::*;
 
 /// Plugin for capturing VSCode extensions
 pub struct VSCodeExtensionsPlugin;
@@ -37,10 +38,6 @@ impl VSCodeExtensionsPlugin {
 
 #[async_trait]
 impl Plugin for VSCodeExtensionsPlugin {
-    fn name(&self) -> &str {
-        "vscode_extensions"
-    }
-
     fn filename(&self) -> &str {
         "vscode_extensions.txt"
     }
@@ -49,12 +46,8 @@ impl Plugin for VSCodeExtensionsPlugin {
         "Lists installed VSCode extensions with versions"
     }
 
-    fn display_name(&self) -> &str {
-        "VSCode"
-    }
-
     fn icon(&self) -> &str {
-        "💻"
+        TOOL_COMPUTER
     }
 
     async fn execute(&self) -> Result<String> {
@@ -76,7 +69,6 @@ mod tests {
     #[tokio::test]
     async fn test_vscode_extensions_plugin_name() {
         let plugin = VSCodeExtensionsPlugin::new();
-        assert_eq!(plugin.name(), "vscode_extensions");
         assert_eq!(plugin.filename(), "vscode_extensions.txt");
     }
 

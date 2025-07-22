@@ -1,5 +1,8 @@
 output_dir = "./.snapshots"
 
+[ui]
+plugin_categories = { vscode = "VSCode", npm = "NPM", static = "Static Files" }
+
 [logging]
 verbose = true
 time_format = "[year]-[month]-[day] [hour]:[minute]:[second]"
