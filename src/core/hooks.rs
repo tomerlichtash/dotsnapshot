@@ -9,6 +9,8 @@ use tokio::process::Command;
 use tokio::time::timeout;
 use tracing::{debug, error, info, warn};
 
+use crate::symbols::*;
+
 /// Types of hooks that can be executed
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -311,7 +313,8 @@ impl HookManager {
         };
 
         info!(
-            "🪝 Executing {} hooks{} ({} hooks)",
+            "{} Executing {} hooks{} ({} hooks)",
+            ACTION_HOOK,
             hook_type,
             plugin_context,
             hooks.len()
@@ -324,7 +327,8 @@ impl HookManager {
 
             // Log hook start with clear identification
             info!(
-                "  🪝 [{}/{}] Starting {hook_type} hook: {hook}",
+                "  {} [{}/{}] Starting {hook_type} hook: {hook}",
+                ACTION_HOOK,
                 index + 1,
                 hooks.len()
             );
@@ -339,7 +343,8 @@ impl HookManager {
 
                     if hook_result.success {
                         info!(
-                            "  ✅ [{}/{}] {hook_type} hook completed: {hook} ({}ms)",
+                            "  {} [{}/{}] {hook_type} hook completed: {hook} ({}ms)",
+                            INDICATOR_SUCCESS,
                             index + 1,
                             hooks.len(),
                             hook_result.execution_time_ms
@@ -353,7 +358,8 @@ impl HookManager {
                         }
                     } else {
                         error!(
-                            "  ❌ [{}/{}] {hook_type} hook failed: {hook} ({}ms)",
+                            "  {} [{}/{}] {hook_type} hook failed: {hook} ({}ms)",
+                            INDICATOR_ERROR,
                             index + 1,
                             hooks.len(),
                             hook_result.execution_time_ms
@@ -369,7 +375,8 @@ impl HookManager {
                 Err(e) => {
                     let execution_time = start_time.elapsed().as_millis() as u64;
                     error!(
-                        "  ❌ [{}/{}] {hook_type} hook execution failed: {hook} ({}ms)",
+                        "  {} [{}/{}] {hook_type} hook execution failed: {hook} ({}ms)",
+                        INDICATOR_ERROR,
                         index + 1,
                         hooks.len(),
                         execution_time
@@ -393,14 +400,18 @@ impl HookManager {
 
         if successful == results.len() {
             info!(
-                "🪝 ✅ All {} {hook_type} hooks{} completed successfully (total: {}ms)",
+                "{} {} All {} {hook_type} hooks{} completed successfully (total: {}ms)",
+                ACTION_HOOK,
+                INDICATOR_SUCCESS,
                 results.len(),
                 plugin_context,
                 total_time
             );
         } else {
             warn!(
-                "🪝 ⚠️  {}/{} {hook_type} hooks{} completed successfully (total: {}ms)",
+                "{} {} {}/{} {hook_type} hooks{} completed successfully (total: {}ms)",
+                ACTION_HOOK,
+                INDICATOR_WARNING,
                 successful,
                 results.len(),
                 plugin_context,
@@ -697,7 +708,8 @@ impl DefaultHookExecutor {
 
         // For now, just log the notification. In the future, this could integrate with system notifications
         info!(
-            "     📢 {}: {}",
+            "     {} {}: {}",
+            DOC_ANNOUNCEMENT,
             interpolated_title.unwrap_or_else(|| "dotsnapshot".to_string()),
             interpolated_message
         );

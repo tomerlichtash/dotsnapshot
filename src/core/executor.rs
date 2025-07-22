@@ -9,6 +9,7 @@ use crate::core::checksum::calculate_checksum;
 use crate::core::hooks::{HookContext, HookManager, HookType};
 use crate::core::plugin::{Plugin, PluginRegistry, PluginResult};
 use crate::core::snapshot::SnapshotManager;
+use crate::symbols::*;
 
 /// Executes all plugins asynchronously and creates a snapshot
 pub struct SnapshotExecutor {
@@ -179,7 +180,7 @@ impl SnapshotExecutor {
         hook_context: HookContext,
     ) -> Result<PluginResult> {
         let plugin_name = plugin.name().to_string();
-        info!("📦 Executing plugin: {}", plugin_name);
+        info!("{} Executing plugin: {}", CONTENT_PACKAGE, plugin_name);
 
         // Create plugin-specific hook context
         let plugin_hook_context = hook_context.with_plugin(plugin_name.clone());
@@ -307,7 +308,10 @@ impl SnapshotExecutor {
             .await
             .context(format!("Failed to write output for plugin {plugin_name}"))?;
 
-        info!("✅ Plugin {} completed successfully", plugin_name);
+        info!(
+            "{} Plugin {} completed successfully",
+            INDICATOR_SUCCESS, plugin_name
+        );
 
         let result = PluginResult {
             plugin_name: plugin_name.clone(),

@@ -3,6 +3,7 @@ pub mod cli;
 pub mod config;
 pub mod core;
 pub mod plugins;
+pub mod symbols;
 
 // Re-export commonly used types
 pub use crate::config::Config;
