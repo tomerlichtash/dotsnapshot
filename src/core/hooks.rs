@@ -21,6 +21,14 @@ pub enum HookType {
     PrePlugin,
     /// Executed after a specific plugin completes (plugin-specific cleanup)
     PostPlugin,
+    /// Executed before any plugins are restored (global restore setup)
+    PreRestore,
+    /// Executed after all plugins are restored (global restore cleanup)
+    PostRestore,
+    /// Executed before a specific plugin is restored (plugin-specific restore setup)
+    PrePluginRestore,
+    /// Executed after a specific plugin is restored (plugin-specific restore cleanup)
+    PostPluginRestore,
 }
 
 impl std::fmt::Display for HookType {
@@ -30,6 +38,10 @@ impl std::fmt::Display for HookType {
             HookType::PostSnapshot => write!(f, "post-snapshot"),
             HookType::PrePlugin => write!(f, "pre-plugin"),
             HookType::PostPlugin => write!(f, "post-plugin"),
+            HookType::PreRestore => write!(f, "pre-restore"),
+            HookType::PostRestore => write!(f, "post-restore"),
+            HookType::PrePluginRestore => write!(f, "pre-plugin-restore"),
+            HookType::PostPluginRestore => write!(f, "post-plugin-restore"),
         }
     }
 }

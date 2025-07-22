@@ -66,11 +66,17 @@ struct Args {
 }
 
 #[derive(Parser)]
+#[allow(clippy::large_enum_variant)]
 enum Commands {
     /// Manage plugin hooks
     Hooks {
         #[command(subcommand)]
         command: HooksCommands,
+    },
+    /// Restore configurations from snapshots
+    Restore {
+        #[command(subcommand)]
+        command: cli::restore::RestoreCommands,
     },
 }
 
@@ -427,6 +433,9 @@ async fn main() -> Result<()> {
             Commands::Hooks { command } => {
                 return cli::hooks::handle_hooks_command(command, args.config).await;
             }
+            Commands::Restore { command } => {
+                return cli::restore::handle_restore_command(command, args.config).await;
+            }
         }
     }
 
@@ -464,6 +473,7 @@ async fn main() -> Result<()> {
         println!("🚀 Usage:");
         println!("   dotsnapshot [OPTIONS]              Create a snapshot (default)");
         println!("   dotsnapshot hooks <SUBCOMMAND>     Manage plugin hooks");
+        println!("   dotsnapshot restore <SUBCOMMAND>   Restore from snapshots");
         println!("   Use --help for detailed options");
         println!();
         println!("🔧 Shell Completions:");

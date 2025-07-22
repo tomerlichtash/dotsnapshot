@@ -48,7 +48,7 @@ pub struct GlobalConfig {
     pub hooks: Option<GlobalHooks>,
 }
 
-/// Global hooks that apply to all snapshots
+/// Global hooks that apply to all snapshots and restores
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GlobalHooks {
     /// Hooks to run before any plugins execute
@@ -58,6 +58,14 @@ pub struct GlobalHooks {
     /// Hooks to run after all plugins complete
     #[serde(rename = "post-snapshot", default)]
     pub post_snapshot: Vec<HookAction>,
+
+    /// Hooks to run before any plugins are restored
+    #[serde(rename = "pre-restore", default)]
+    pub pre_restore: Vec<HookAction>,
+
+    /// Hooks to run after all plugins are restored
+    #[serde(rename = "post-restore", default)]
+    pub post_restore: Vec<HookAction>,
 }
 
 /// Plugin-specific configurations
@@ -105,6 +113,14 @@ pub struct PluginHooks {
     /// Hooks to run after this plugin completes
     #[serde(rename = "post-plugin", default)]
     pub post_plugin: Vec<HookAction>,
+
+    /// Hooks to run before this plugin is restored
+    #[serde(rename = "pre-plugin-restore", default)]
+    pub pre_plugin_restore: Vec<HookAction>,
+
+    /// Hooks to run after this plugin is restored
+    #[serde(rename = "post-plugin-restore", default)]
+    pub post_plugin_restore: Vec<HookAction>,
 }
 
 /// Static files plugin configuration with additional options
@@ -300,6 +316,38 @@ impl Config {
     pub fn get_plugin_post_hooks(&self, plugin_name: &str) -> Vec<HookAction> {
         self.get_plugin_hooks(plugin_name)
             .map(|h| h.post_plugin.clone())
+            .unwrap_or_default()
+    }
+
+    /// Get global pre-restore hooks
+    pub fn get_global_pre_restore_hooks(&self) -> Vec<HookAction> {
+        self.global
+            .as_ref()
+            .and_then(|g| g.hooks.as_ref())
+            .map(|h| h.pre_restore.clone())
+            .unwrap_or_default()
+    }
+
+    /// Get global post-restore hooks
+    pub fn get_global_post_restore_hooks(&self) -> Vec<HookAction> {
+        self.global
+            .as_ref()
+            .and_then(|g| g.hooks.as_ref())
+            .map(|h| h.post_restore.clone())
+            .unwrap_or_default()
+    }
+
+    /// Get plugin-specific pre-plugin-restore hooks
+    pub fn get_plugin_pre_restore_hooks(&self, plugin_name: &str) -> Vec<HookAction> {
+        self.get_plugin_hooks(plugin_name)
+            .map(|h| h.pre_plugin_restore.clone())
+            .unwrap_or_default()
+    }
+
+    /// Get plugin-specific post-plugin-restore hooks
+    pub fn get_plugin_post_restore_hooks(&self, plugin_name: &str) -> Vec<HookAction> {
+        self.get_plugin_hooks(plugin_name)
+            .map(|h| h.post_plugin_restore.clone())
             .unwrap_or_default()
     }
 

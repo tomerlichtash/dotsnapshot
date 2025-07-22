@@ -619,6 +619,8 @@ fn ensure_global_config(config: &mut Config) {
         config.global.as_mut().unwrap().hooks = Some(GlobalHooks {
             pre_snapshot: Vec::new(),
             post_snapshot: Vec::new(),
+            pre_restore: Vec::new(),
+            post_restore: Vec::new(),
         });
     }
 }
@@ -666,6 +668,8 @@ fn ensure_plugin_config(config: &mut Config, plugin_name: &str) {
         plugin_config.as_mut().unwrap().hooks = Some(PluginHooks {
             pre_plugin: Vec::new(),
             post_plugin: Vec::new(),
+            pre_plugin_restore: Vec::new(),
+            post_plugin_restore: Vec::new(),
         });
     }
 }
