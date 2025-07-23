@@ -1,3 +1,4 @@
+pub mod auto_register;
 pub mod checksum;
 pub mod executor;
 pub mod hooks;

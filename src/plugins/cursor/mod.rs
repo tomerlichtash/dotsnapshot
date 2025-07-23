@@ -2,6 +2,5 @@ pub mod extensions;
 pub mod keybindings;
 pub mod settings;
 
-pub use extensions::CursorExtensionsPlugin;
-pub use keybindings::CursorKeybindingsPlugin;
-pub use settings::CursorSettingsPlugin;
+// Auto-registration means we don't need to export plugin types anymore
+// The inventory system handles plugin discovery automatically

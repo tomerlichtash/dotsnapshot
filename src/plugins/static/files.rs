@@ -26,6 +26,7 @@ impl StaticFilesPlugin {
         }
     }
 
+    #[allow(dead_code)]
     pub fn with_config(config: Arc<Config>) -> Self {
         Self {
             config: Some(config),
@@ -558,5 +559,18 @@ mod tests {
         // Test nested paths
         assert!(plugin.should_ignore(&PathBuf::from("/project/.git/config"), &ignore_patterns));
         assert!(plugin.should_ignore(&PathBuf::from("/deep/path/to/secret.key"), &ignore_patterns));
+    }
+}
+
+// Auto-register this plugin - uses different constructor pattern
+inventory::submit! {
+    crate::core::plugin::PluginDescriptor {
+        name: "static_files",
+        category: "static",
+        factory: |_config| {
+            // Static files plugin doesn't use toml::Value config, it uses Arc<Config>
+            // For now, create with default constructor
+            std::sync::Arc::new(StaticFilesPlugin::new())
+        },
     }
 }

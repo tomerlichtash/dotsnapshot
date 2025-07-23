@@ -171,3 +171,6 @@ mod tests {
         assert!(plugin_with_config.get_hooks().is_empty());
     }
 }
+
+// Auto-register this plugin
+crate::register_plugin!(VSCodeKeybindingsPlugin, "vscode_keybindings", "vscode");

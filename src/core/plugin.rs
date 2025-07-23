@@ -14,6 +14,17 @@ pub struct PluginResult {
     pub error_message: Option<String>,
 }
 
+/// Plugin descriptor for auto-registration
+#[derive(Debug, Clone)]
+pub struct PluginDescriptor {
+    pub name: &'static str,
+    pub category: &'static str,
+    pub factory: fn(Option<toml::Value>) -> Arc<dyn Plugin>,
+}
+
+// Inventory collection for auto-registering plugins
+inventory::collect!(PluginDescriptor);
+
 /// Core trait that all plugins must implement with self-discovery capabilities
 #[async_trait]
 pub trait Plugin: Send + Sync {
@@ -55,6 +66,10 @@ impl PluginRegistry {
     }
 
     /// Registers a new plugin with auto-derived name from type
+    ///
+    /// **Deprecated**: Use auto-registration system instead
+    #[deprecated(note = "Use auto-registration system with register_plugin! macro instead")]
+    #[allow(dead_code)]
     pub fn register<T: Plugin + 'static>(&mut self, plugin: Arc<T>) {
         let name = Self::derive_plugin_name_from_type::<T>();
         let plugin_dyn: Arc<dyn Plugin> = plugin;
@@ -62,12 +77,18 @@ impl PluginRegistry {
     }
 
     /// Derives plugin name from type name based on folder structure
+    ///
+    /// **Deprecated**: Use auto-registration system instead
+    #[allow(dead_code)]
     fn derive_plugin_name_from_type<T: 'static>() -> String {
         let type_name = std::any::type_name::<T>();
         Self::convert_type_name_to_plugin_name(type_name)
     }
 
     /// Converts type name to plugin name format using folder structure
+    ///
+    /// **Deprecated**: Use auto-registration system instead
+    #[allow(dead_code)]
     fn convert_type_name_to_plugin_name(type_name: &str) -> String {
         // Extract the module path: dotsnapshot::plugins::vscode::settings::VSCodeSettingsPlugin
         // We want: vscode_settings
@@ -92,6 +113,9 @@ impl PluginRegistry {
     }
 
     /// Simple CamelCase to snake_case conversion for fallback cases
+    ///
+    /// **Deprecated**: Use auto-registration system instead
+    #[allow(dead_code)]
     fn simple_camel_to_snake(s: &str) -> String {
         let mut result = String::new();
         let chars: Vec<char> = s.chars().collect();
@@ -201,6 +225,48 @@ impl PluginRegistry {
             })
             .collect::<Vec<_>>()
             .join(" ")
+    }
+
+    /// Auto-discover and register all plugins from inventory
+    pub fn discover_plugins(config: Option<&Config>) -> Self {
+        let mut registry = Self::new();
+
+        for descriptor in inventory::iter::<PluginDescriptor> {
+            let plugin_config = config
+                .and_then(|c| c.get_raw_plugin_config(descriptor.name))
+                .cloned();
+
+            let plugin = (descriptor.factory)(plugin_config);
+            registry.plugins.push((descriptor.name.to_string(), plugin));
+        }
+
+        registry
+    }
+
+    /// Register all plugins from descriptors with optional configuration filtering
+    pub fn register_from_descriptors(
+        &mut self,
+        config: Option<&Config>,
+        selected_plugins: &[&str],
+    ) {
+        for descriptor in inventory::iter::<PluginDescriptor> {
+            // Check if this plugin should be included
+            if !selected_plugins.is_empty()
+                && !selected_plugins.contains(&"all")
+                && !selected_plugins
+                    .iter()
+                    .any(|&sel| descriptor.name.contains(sel) || descriptor.category == sel)
+            {
+                continue;
+            }
+
+            let plugin_config = config
+                .and_then(|c| c.get_raw_plugin_config(descriptor.name))
+                .cloned();
+
+            let plugin = (descriptor.factory)(plugin_config);
+            self.plugins.push((descriptor.name.to_string(), plugin));
+        }
     }
 }
 

@@ -445,6 +445,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(deprecated)]
     async fn test_execute_snapshot() -> Result<()> {
         let temp_dir = TempDir::new()?;
         let base_path = temp_dir.path().to_path_buf();
@@ -468,6 +469,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(deprecated)]
     async fn test_execute_snapshot_with_test_plugins() -> Result<()> {
         let temp_dir = TempDir::new()?;
         let base_path = temp_dir.path().to_path_buf();
@@ -502,6 +504,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(deprecated)]
     async fn test_regular_plugin_creates_output_file() -> Result<()> {
         use crate::config::{Config, PluginsConfig, StaticPluginConfig};
 
@@ -590,6 +593,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(deprecated)]
     async fn test_static_files_plugin_no_output_file_created() -> Result<()> {
         use crate::config::{Config, PluginsConfig, StaticPluginConfig};
 

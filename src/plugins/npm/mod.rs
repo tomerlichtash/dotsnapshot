@@ -1,5 +1,5 @@
 pub mod config;
 pub mod global_packages;
 
-pub use config::NpmConfigPlugin;
-pub use global_packages::NpmGlobalPackagesPlugin;
+// Auto-registration means we don't need to export plugin types anymore
+// The inventory system handles plugin discovery automatically
