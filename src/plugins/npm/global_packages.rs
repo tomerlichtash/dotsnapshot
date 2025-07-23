@@ -1,8 +1,11 @@
 use anyhow::{Context, Result};
 use async_trait::async_trait;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use std::process::Command;
 use which::which;
 
+use crate::core::config_schema::{ConfigSchema, ValidationHelpers};
 use crate::core::hooks::HookAction;
 use crate::core::plugin::Plugin;
 use crate::symbols::*;
@@ -12,19 +15,50 @@ pub struct NpmGlobalPackagesPlugin {
     config: Option<toml::Value>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
 struct NpmGlobalPackagesConfig {
+    #[schemars(description = "Custom directory path within the snapshot for this plugin's output")]
     target_path: Option<String>,
+
+    #[schemars(
+        description = "Custom filename for the NPM global packages output (default: global_packages.txt)"
+    )]
     output_file: Option<String>,
+
+    #[schemars(description = "Plugin-specific hooks configuration")]
     hooks: Option<PluginHooks>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
 struct PluginHooks {
     #[serde(rename = "pre-plugin", default)]
+    #[schemars(description = "Hooks to run before plugin execution")]
     pre_plugin: Vec<HookAction>,
+
     #[serde(rename = "post-plugin", default)]
+    #[schemars(description = "Hooks to run after plugin execution")]
     post_plugin: Vec<HookAction>,
+}
+
+impl ConfigSchema for NpmGlobalPackagesConfig {
+    fn schema_name() -> &'static str {
+        "NpmGlobalPackagesConfig"
+    }
+
+    fn validate(&self) -> Result<()> {
+        // Validate output file extension if specified
+        if let Some(output_file) = &self.output_file {
+            // NPM global packages list is typically a text file
+            ValidationHelpers::validate_file_extension(output_file, &["txt", "log", "list"])?;
+        }
+
+        // Validate that npm command exists (warning only, not error)
+        if ValidationHelpers::validate_command_exists("npm").is_err() {
+            eprintln!("Warning: npm command not found - NPM functionality may not work");
+        }
+
+        Ok(())
+    }
 }
 
 impl NpmGlobalPackagesPlugin {
@@ -34,13 +68,38 @@ impl NpmGlobalPackagesPlugin {
     }
 
     pub fn with_config(config: toml::Value) -> Self {
-        Self {
-            config: Some(config),
+        // Validate configuration using schema validation
+        match NpmGlobalPackagesConfig::from_toml_value(&config) {
+            Ok(_) => {
+                // Configuration is valid
+                Self {
+                    config: Some(config),
+                }
+            }
+            Err(e) => {
+                // Use shared error formatting
+                let error_msg = ValidationHelpers::format_validation_error(
+                    "NPM Global Packages plugin",
+                    "npm_global_packages",
+                    "target_path (string), output_file (string), hooks (object)",
+                    "target_path = \"npm\", output_file = \"global_packages.txt\"",
+                    &e,
+                );
+
+                eprintln!("{error_msg}");
+
+                // Still create plugin to avoid breaking the application
+                Self {
+                    config: Some(config),
+                }
+            }
         }
     }
 
     fn get_config(&self) -> Option<NpmGlobalPackagesConfig> {
-        self.config.as_ref().and_then(|c| c.clone().try_into().ok())
+        self.config
+            .as_ref()
+            .and_then(|c| NpmGlobalPackagesConfig::from_toml_value(c).ok())
     }
 
     /// Gets list of globally installed NPM packages

@@ -1,8 +1,11 @@
 use anyhow::{Context, Result};
 use async_trait::async_trait;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::fs;
 
+use crate::core::config_schema::{ConfigSchema, ValidationHelpers};
 use crate::core::hooks::HookAction;
 use crate::core::plugin::Plugin;
 use crate::symbols::*;
@@ -12,19 +15,45 @@ pub struct VSCodeKeybindingsPlugin {
     config: Option<toml::Value>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
 struct VSCodeKeybindingsConfig {
+    #[schemars(description = "Custom directory path within the snapshot for this plugin's output")]
     target_path: Option<String>,
+
+    #[schemars(
+        description = "Custom filename for the keybindings output (default: keybindings.json)"
+    )]
     output_file: Option<String>,
+
+    #[schemars(description = "Plugin-specific hooks configuration")]
     hooks: Option<PluginHooks>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
 struct PluginHooks {
     #[serde(rename = "pre-plugin", default)]
+    #[schemars(description = "Hooks to run before plugin execution")]
     pre_plugin: Vec<HookAction>,
+
     #[serde(rename = "post-plugin", default)]
+    #[schemars(description = "Hooks to run after plugin execution")]
     post_plugin: Vec<HookAction>,
+}
+
+impl ConfigSchema for VSCodeKeybindingsConfig {
+    fn schema_name() -> &'static str {
+        "VSCodeKeybindingsConfig"
+    }
+
+    fn validate(&self) -> Result<()> {
+        // Validate output file extension if specified
+        if let Some(output_file) = &self.output_file {
+            // Keybindings are typically JSON files
+            ValidationHelpers::validate_file_extension(output_file, &["json", "jsonc"])?;
+        }
+
+        Ok(())
+    }
 }
 
 impl VSCodeKeybindingsPlugin {
@@ -34,13 +63,38 @@ impl VSCodeKeybindingsPlugin {
     }
 
     pub fn with_config(config: toml::Value) -> Self {
-        Self {
-            config: Some(config),
+        // Validate configuration using schema validation
+        match VSCodeKeybindingsConfig::from_toml_value(&config) {
+            Ok(_) => {
+                // Configuration is valid
+                Self {
+                    config: Some(config),
+                }
+            }
+            Err(e) => {
+                // Use shared error formatting
+                let error_msg = ValidationHelpers::format_validation_error(
+                    "VSCode Keybindings plugin",
+                    "vscode_keybindings",
+                    "target_path (string), output_file (string), hooks (object)",
+                    "target_path = \"vscode\", output_file = \"keybindings.json\"",
+                    &e,
+                );
+
+                eprintln!("{error_msg}");
+
+                // Still create plugin to avoid breaking the application
+                Self {
+                    config: Some(config),
+                }
+            }
         }
     }
 
     fn get_config(&self) -> Option<VSCodeKeybindingsConfig> {
-        self.config.as_ref().and_then(|c| c.clone().try_into().ok())
+        self.config
+            .as_ref()
+            .and_then(|c| VSCodeKeybindingsConfig::from_toml_value(c).ok())
     }
 
     /// Gets the VSCode settings directory based on OS

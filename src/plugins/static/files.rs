@@ -563,13 +563,18 @@ mod tests {
 }
 
 // Auto-register this plugin - uses different constructor pattern
+// Note: This plugin intentionally does NOT use the schema validation system
+// because it has a fundamentally different architecture:
+// - Uses Arc<Config> instead of toml::Value for configuration
+// - Reads from main config [plugins.static] instead of per-plugin TOML
+// - Has complex configuration (files arrays, ignore patterns) that doesn't fit the standard schema
 inventory::submit! {
     crate::core::plugin::PluginDescriptor {
         name: "static_files",
         category: "static",
         factory: |_config| {
             // Static files plugin doesn't use toml::Value config, it uses Arc<Config>
-            // For now, create with default constructor
+            // This is intentional and by design - see comments above
             std::sync::Arc::new(StaticFilesPlugin::new())
         },
     }

@@ -24,6 +24,8 @@ dirs = "5.0"
 which = "6.0"
 glob = "0.3"
 inventory = "0.3"
+schemars = "0.8"
+shellexpand = "3.0"
 
 [dependencies.tokio]
 version = "1.0"

@@ -1,8 +1,11 @@
 use anyhow::{Context, Result};
 use async_trait::async_trait;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::fs;
 
+use crate::core::config_schema::{ConfigSchema, ValidationHelpers};
 use crate::core::hooks::HookAction;
 use crate::core::plugin::Plugin;
 use crate::symbols::*;
@@ -12,19 +15,43 @@ pub struct VSCodeSettingsPlugin {
     config: Option<toml::Value>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
 struct VSCodeSettingsConfig {
+    #[schemars(description = "Custom directory path within the snapshot for this plugin's output")]
     target_path: Option<String>,
+
+    #[schemars(description = "Custom filename for the settings output (default: settings.json)")]
     output_file: Option<String>,
+
+    #[schemars(description = "Plugin-specific hooks configuration")]
     hooks: Option<PluginHooks>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
 struct PluginHooks {
     #[serde(rename = "pre-plugin", default)]
+    #[schemars(description = "Hooks to run before plugin execution")]
     pre_plugin: Vec<HookAction>,
+
     #[serde(rename = "post-plugin", default)]
+    #[schemars(description = "Hooks to run after plugin execution")]
     post_plugin: Vec<HookAction>,
+}
+
+impl ConfigSchema for VSCodeSettingsConfig {
+    fn schema_name() -> &'static str {
+        "VSCodeSettingsConfig"
+    }
+
+    fn validate(&self) -> Result<()> {
+        // Validate output file extension if specified
+        if let Some(output_file) = &self.output_file {
+            // Settings file should be JSON
+            ValidationHelpers::validate_file_extension(output_file, &["json", "jsonc"])?;
+        }
+
+        Ok(())
+    }
 }
 
 impl VSCodeSettingsPlugin {
@@ -34,13 +61,38 @@ impl VSCodeSettingsPlugin {
     }
 
     pub fn with_config(config: toml::Value) -> Self {
-        Self {
-            config: Some(config),
+        // Validate configuration using schema validation
+        match VSCodeSettingsConfig::from_toml_value(&config) {
+            Ok(_) => {
+                // Configuration is valid
+                Self {
+                    config: Some(config),
+                }
+            }
+            Err(e) => {
+                // Use shared error formatting
+                let error_msg = ValidationHelpers::format_validation_error(
+                    "VSCode Settings plugin",
+                    "vscode_settings",
+                    "target_path (string), output_file (string), hooks (object)",
+                    "target_path = \"vscode\", output_file = \"settings.json\"",
+                    &e,
+                );
+
+                eprintln!("{error_msg}");
+
+                // Still create plugin to avoid breaking the application
+                Self {
+                    config: Some(config),
+                }
+            }
         }
     }
 
     fn get_config(&self) -> Option<VSCodeSettingsConfig> {
-        self.config.as_ref().and_then(|c| c.clone().try_into().ok())
+        self.config
+            .as_ref()
+            .and_then(|c| VSCodeSettingsConfig::from_toml_value(c).ok())
     }
 
     /// Gets the VSCode settings directory based on OS
@@ -169,6 +221,67 @@ mod tests {
             Some("settings.json".to_string())
         );
         assert!(plugin_with_config.get_hooks().is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_vscode_settings_schema_validation() {
+        // Test with invalid JSON extension
+        let invalid_config_toml = r#"
+            target_path = "vscode"
+            output_file = "settings.txt"
+        "#;
+        let invalid_config: toml::Value = toml::from_str(invalid_config_toml).unwrap();
+        let plugin_invalid = VSCodeSettingsPlugin::with_config(invalid_config);
+
+        // Should fail validation
+        assert!(plugin_invalid.get_config().is_none());
+
+        // Test with valid JSON extensions
+        let valid_extensions = vec!["json", "jsonc"];
+        for ext in valid_extensions {
+            let config_toml = format!(
+                r#"
+                target_path = "vscode"
+                output_file = "settings.{ext}"
+                "#
+            );
+            let config: toml::Value = toml::from_str(&config_toml).unwrap();
+            let plugin = VSCodeSettingsPlugin::with_config(config);
+
+            assert!(
+                plugin.get_config().is_some(),
+                "Extension .{ext} should be valid for VSCode settings"
+            );
+        }
+    }
+
+    #[test]
+    fn test_vscode_settings_config_schema_direct() {
+        use crate::core::config_schema::ConfigSchema;
+
+        // Test invalid config
+        let invalid_config = VSCodeSettingsConfig {
+            target_path: Some("vscode".to_string()),
+            output_file: Some("settings.yaml".to_string()), // Wrong extension
+            hooks: None,
+        };
+
+        assert!(invalid_config.validate().is_err());
+
+        // Test valid configs
+        let valid_json = VSCodeSettingsConfig {
+            target_path: Some("vscode".to_string()),
+            output_file: Some("settings.json".to_string()),
+            hooks: None,
+        };
+        assert!(valid_json.validate().is_ok());
+
+        let valid_jsonc = VSCodeSettingsConfig {
+            target_path: Some("vscode".to_string()),
+            output_file: Some("settings.jsonc".to_string()),
+            hooks: None,
+        };
+        assert!(valid_jsonc.validate().is_ok());
     }
 }
 
