@@ -63,29 +63,11 @@ pub struct GlobalHooks {
     pub post_snapshot: Vec<HookAction>,
 }
 
-/// Plugin-specific configurations
+/// Plugin-specific configurations - raw TOML values for plugin self-discovery
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct PluginsConfig {
-    /// Homebrew plugin configurations
-    pub homebrew_brewfile: Option<PluginConfig>,
-
-    /// VSCode plugin configurations
-    pub vscode_settings: Option<PluginConfig>,
-    pub vscode_keybindings: Option<PluginConfig>,
-    pub vscode_extensions: Option<PluginConfig>,
-
-    /// Cursor plugin configurations
-    pub cursor_settings: Option<PluginConfig>,
-    pub cursor_keybindings: Option<PluginConfig>,
-    pub cursor_extensions: Option<PluginConfig>,
-
-    /// NPM plugin configurations
-    pub npm_global_packages: Option<PluginConfig>,
-    pub npm_config: Option<PluginConfig>,
-
-    /// Static files plugin configuration
-    #[serde(rename = "static")]
-    pub static_files: Option<StaticPluginConfig>,
+    #[serde(flatten)]
+    pub plugins: std::collections::HashMap<String, toml::Value>,
 }
 
 /// Generic plugin configuration
@@ -93,6 +75,9 @@ pub struct PluginsConfig {
 pub struct PluginConfig {
     /// Custom target path in snapshot (relative to snapshot root)
     pub target_path: Option<String>,
+
+    /// Custom output file for the plugin (overrides auto-derived filename)
+    pub output_file: Option<String>,
 
     /// Plugin-specific hooks
     pub hooks: Option<PluginHooks>,
@@ -115,6 +100,8 @@ pub struct PluginHooks {
 pub struct StaticPluginConfig {
     /// Custom target path in snapshot (relative to snapshot root)
     pub target_path: Option<String>,
+    /// Custom output file for the plugin (overrides auto-derived filename)
+    pub output_file: Option<String>,
     /// List of file paths to include in snapshots
     pub files: Option<Vec<String>>,
     /// Glob patterns to ignore when copying files/directories
@@ -180,7 +167,7 @@ impl Config {
     }
 
     /// Get potential configuration file paths in order of preference
-    fn get_config_paths() -> Vec<PathBuf> {
+    pub fn get_config_paths() -> Vec<PathBuf> {
         let mut paths = Vec::new();
 
         // 1. Current directory
@@ -253,34 +240,17 @@ impl Config {
             .unwrap_or_else(|| "[year]-[month]-[day] [hour]:[minute]:[second]".to_string())
     }
 
-    /// Get static files configuration (legacy)
-    pub fn get_static_files(&self) -> Option<&StaticFilesConfig> {
-        self.static_files.as_ref()
-    }
-
-    /// Get plugin target path for a specific plugin
-    pub fn get_plugin_target_path(&self, plugin_name: &str) -> Option<String> {
+    /// Get raw plugin configuration for a specific plugin (plugin self-discovery)
+    pub fn get_raw_plugin_config(&self, plugin_name: &str) -> Option<&toml::Value> {
         let plugins = self.plugins.as_ref()?;
 
-        match plugin_name {
-            // Auto-derived names map to config fields
-            "homebrew_brewfile" => plugins.homebrew_brewfile.as_ref()?.target_path.clone(),
-            "vscode_settings" => plugins.vscode_settings.as_ref()?.target_path.clone(),
-            "vscode_keybindings" => plugins.vscode_keybindings.as_ref()?.target_path.clone(),
-            "vscode_extensions" => plugins.vscode_extensions.as_ref()?.target_path.clone(),
-            "cursor_settings" => plugins.cursor_settings.as_ref()?.target_path.clone(),
-            "cursor_keybindings" => plugins.cursor_keybindings.as_ref()?.target_path.clone(),
-            "cursor_extensions" => plugins.cursor_extensions.as_ref()?.target_path.clone(),
-            "npm_global_packages" => plugins.npm_global_packages.as_ref()?.target_path.clone(),
-            "npm_config" => plugins.npm_config.as_ref()?.target_path.clone(),
-            "static_files" => plugins.static_files.as_ref()?.target_path.clone(),
-            // Legacy name for static files plugin (was "static", now "static_files")
-            "static" => plugins.static_files.as_ref()?.target_path.clone(),
-            // Fallback names for test plugins that don't have proper module paths
-            "v_s_code_settings" => plugins.vscode_settings.as_ref()?.target_path.clone(),
-            "v_s_code_extensions" => plugins.vscode_extensions.as_ref()?.target_path.clone(),
-            _ => None,
-        }
+        // Handle special case: static_files plugin config is stored under "static" key
+        let config_key = match plugin_name {
+            "static_files" => "static",
+            _ => plugin_name,
+        };
+
+        plugins.plugins.get(config_key)
     }
 
     /// Get hooks configuration
@@ -321,24 +291,13 @@ impl Config {
     }
 
     /// Get plugin hooks configuration
-    fn get_plugin_hooks(&self, plugin_name: &str) -> Option<&PluginHooks> {
-        let plugins = self.plugins.as_ref()?;
-        let plugin_config = match plugin_name {
-            "homebrew_brewfile" => plugins.homebrew_brewfile.as_ref(),
-            "vscode_settings" => plugins.vscode_settings.as_ref(),
-            "vscode_keybindings" => plugins.vscode_keybindings.as_ref(),
-            "vscode_extensions" => plugins.vscode_extensions.as_ref(),
-            "cursor_settings" => plugins.cursor_settings.as_ref(),
-            "cursor_keybindings" => plugins.cursor_keybindings.as_ref(),
-            "cursor_extensions" => plugins.cursor_extensions.as_ref(),
-            "npm_global_packages" => plugins.npm_global_packages.as_ref(),
-            "npm_config" => plugins.npm_config.as_ref(),
-            // Fallback names for test plugins that don't have proper module paths
-            "v_s_code_settings" => plugins.vscode_settings.as_ref(),
-            "v_s_code_extensions" => plugins.vscode_extensions.as_ref(),
-            _ => None,
-        }?;
-        plugin_config.hooks.as_ref()
+    fn get_plugin_hooks(&self, plugin_name: &str) -> Option<PluginHooks> {
+        let raw_config = self.get_raw_plugin_config(plugin_name)?;
+        if let Some(hooks_value) = raw_config.get("hooks") {
+            hooks_value.clone().try_into().ok()
+        } else {
+            None
+        }
     }
 
     /// Save configuration to file

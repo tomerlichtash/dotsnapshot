@@ -51,64 +51,72 @@ async fn test_config_with_hooks_serialization() -> Result<()> {
         }),
         static_files: None,
         plugins: Some(PluginsConfig {
-            homebrew_brewfile: Some(PluginConfig {
-                target_path: Some("homebrew".to_string()),
-                hooks: Some(PluginHooks {
-                    pre_plugin: vec![
-                        HookAction::Script {
-                            command: "homebrew/pre-backup.sh".to_string(),
-                            args: vec!["--update".to_string()],
-                            timeout: 60,
-                            working_dir: None,
-                            env_vars: HashMap::from([(
-                                "HOMEBREW_NO_AUTO_UPDATE".to_string(),
-                                "1".to_string(),
-                            )]),
-                        },
-                        HookAction::Log {
-                            message: "Starting Homebrew backup for {plugin_name}".to_string(),
-                            level: "info".to_string(),
-                        },
-                    ],
-                    post_plugin: vec![
-                        HookAction::Script {
-                            command: "homebrew/validate-brewfile.sh".to_string(),
-                            args: vec![],
-                            timeout: 30,
-                            working_dir: None,
-                            env_vars: HashMap::new(),
-                        },
-                        HookAction::Backup {
-                            path: PathBuf::from("~/.homebrew/backup"),
-                            destination: PathBuf::from("/tmp/homebrew-backup"),
-                        },
-                    ],
-                }),
-            }),
-            vscode_settings: Some(PluginConfig {
-                target_path: Some("vscode".to_string()),
-                hooks: Some(PluginHooks {
-                    pre_plugin: vec![HookAction::Script {
-                        command: "vscode/backup-extensions.sh".to_string(),
-                        args: vec![],
-                        timeout: 30,
-                        working_dir: None,
-                        env_vars: HashMap::new(),
-                    }],
-                    post_plugin: vec![HookAction::Log {
-                        message: "VSCode settings backed up: {file_count} files".to_string(),
-                        level: "info".to_string(),
-                    }],
-                }),
-            }),
-            vscode_keybindings: None,
-            vscode_extensions: None,
-            cursor_settings: None,
-            cursor_keybindings: None,
-            cursor_extensions: None,
-            npm_global_packages: None,
-            npm_config: None,
-            static_files: None,
+            plugins: {
+                let mut map = std::collections::HashMap::new();
+                map.insert(
+                    "homebrew_brewfile".to_string(),
+                    toml::Value::try_from(PluginConfig {
+                        target_path: Some("homebrew".to_string()),
+                        output_file: None,
+                        hooks: Some(PluginHooks {
+                            pre_plugin: vec![
+                                HookAction::Script {
+                                    command: "homebrew/pre-backup.sh".to_string(),
+                                    args: vec!["--update".to_string()],
+                                    timeout: 60,
+                                    working_dir: None,
+                                    env_vars: HashMap::from([(
+                                        "HOMEBREW_NO_AUTO_UPDATE".to_string(),
+                                        "1".to_string(),
+                                    )]),
+                                },
+                                HookAction::Log {
+                                    message: "Starting Homebrew backup for {plugin_name}"
+                                        .to_string(),
+                                    level: "info".to_string(),
+                                },
+                            ],
+                            post_plugin: vec![
+                                HookAction::Script {
+                                    command: "homebrew/validate-brewfile.sh".to_string(),
+                                    args: vec![],
+                                    timeout: 30,
+                                    working_dir: None,
+                                    env_vars: HashMap::new(),
+                                },
+                                HookAction::Backup {
+                                    path: PathBuf::from("~/.homebrew/backup"),
+                                    destination: PathBuf::from("/tmp/homebrew-backup"),
+                                },
+                            ],
+                        }),
+                    })
+                    .unwrap(),
+                );
+                map.insert(
+                    "vscode_settings".to_string(),
+                    toml::Value::try_from(PluginConfig {
+                        target_path: Some("vscode".to_string()),
+                        output_file: None,
+                        hooks: Some(PluginHooks {
+                            pre_plugin: vec![HookAction::Script {
+                                command: "vscode/backup-extensions.sh".to_string(),
+                                args: vec![],
+                                timeout: 30,
+                                working_dir: None,
+                                env_vars: HashMap::new(),
+                            }],
+                            post_plugin: vec![HookAction::Log {
+                                message: "VSCode settings backed up: {file_count} files"
+                                    .to_string(),
+                                level: "info".to_string(),
+                            }],
+                        }),
+                    })
+                    .unwrap(),
+                );
+                map
+            },
         }),
         ui: None,
     };
@@ -175,8 +183,9 @@ async fn test_config_with_hooks_serialization() -> Result<()> {
     assert!(loaded_config.plugins.is_some());
     let plugins = loaded_config.plugins.unwrap();
 
-    assert!(plugins.homebrew_brewfile.is_some());
-    let homebrew_config = plugins.homebrew_brewfile.unwrap();
+    assert!(plugins.plugins.contains_key("homebrew_brewfile"));
+    let homebrew_value = &plugins.plugins["homebrew_brewfile"];
+    let homebrew_config: PluginConfig = homebrew_value.clone().try_into().unwrap();
     assert!(homebrew_config.hooks.is_some());
     let homebrew_hooks = homebrew_config.hooks.unwrap();
 
@@ -233,43 +242,49 @@ async fn test_config_hooks_helper_methods() -> Result<()> {
         }),
         static_files: None,
         plugins: Some(PluginsConfig {
-            homebrew_brewfile: Some(PluginConfig {
-                target_path: None,
-                hooks: Some(PluginHooks {
-                    pre_plugin: vec![HookAction::Script {
-                        command: "homebrew-pre.sh".to_string(),
-                        args: vec![],
-                        timeout: 30,
-                        working_dir: None,
-                        env_vars: HashMap::new(),
-                    }],
-                    post_plugin: vec![HookAction::Script {
-                        command: "homebrew-post.sh".to_string(),
-                        args: vec![],
-                        timeout: 30,
-                        working_dir: None,
-                        env_vars: HashMap::new(),
-                    }],
-                }),
-            }),
-            vscode_settings: Some(PluginConfig {
-                target_path: None,
-                hooks: Some(PluginHooks {
-                    pre_plugin: vec![HookAction::Log {
-                        message: "VSCode pre-plugin".to_string(),
-                        level: "debug".to_string(),
-                    }],
-                    post_plugin: vec![],
-                }),
-            }),
-            vscode_keybindings: None,
-            vscode_extensions: None,
-            cursor_settings: None,
-            cursor_keybindings: None,
-            cursor_extensions: None,
-            npm_global_packages: None,
-            npm_config: None,
-            static_files: None,
+            plugins: {
+                let mut map = std::collections::HashMap::new();
+                map.insert(
+                    "homebrew_brewfile".to_string(),
+                    toml::Value::try_from(PluginConfig {
+                        target_path: None,
+                        output_file: None,
+                        hooks: Some(PluginHooks {
+                            pre_plugin: vec![HookAction::Script {
+                                command: "homebrew-pre.sh".to_string(),
+                                args: vec![],
+                                timeout: 30,
+                                working_dir: None,
+                                env_vars: HashMap::new(),
+                            }],
+                            post_plugin: vec![HookAction::Script {
+                                command: "homebrew-post.sh".to_string(),
+                                args: vec![],
+                                timeout: 30,
+                                working_dir: None,
+                                env_vars: HashMap::new(),
+                            }],
+                        }),
+                    })
+                    .unwrap(),
+                );
+                map.insert(
+                    "vscode_settings".to_string(),
+                    toml::Value::try_from(PluginConfig {
+                        target_path: None,
+                        output_file: None,
+                        hooks: Some(PluginHooks {
+                            pre_plugin: vec![HookAction::Log {
+                                message: "VSCode pre-plugin".to_string(),
+                                level: "debug".to_string(),
+                            }],
+                            post_plugin: vec![],
+                        }),
+                    })
+                    .unwrap(),
+                );
+                map
+            },
         }),
         ui: None,
     };

@@ -21,7 +21,7 @@ use plugins::{
     cursor::{CursorExtensionsPlugin, CursorKeybindingsPlugin, CursorSettingsPlugin},
     homebrew::HomebrewBrewfilePlugin,
     npm::{NpmConfigPlugin, NpmGlobalPackagesPlugin},
-    static_files::StaticFilesPlugin,
+    r#static::StaticFilesPlugin,
     vscode::{VSCodeExtensionsPlugin, VSCodeKeybindingsPlugin, VSCodeSettingsPlugin},
 };
 use symbols::*;
@@ -328,16 +328,99 @@ async fn list_plugins() {
     // Create a registry and register all plugins
     let mut registry = PluginRegistry::new();
 
-    // Register all plugins
-    registry.register(Arc::new(HomebrewBrewfilePlugin::new()));
-    registry.register(Arc::new(VSCodeSettingsPlugin::new()));
-    registry.register(Arc::new(VSCodeKeybindingsPlugin::new()));
-    registry.register(Arc::new(VSCodeExtensionsPlugin::new()));
-    registry.register(Arc::new(CursorSettingsPlugin::new()));
-    registry.register(Arc::new(CursorKeybindingsPlugin::new()));
-    registry.register(Arc::new(CursorExtensionsPlugin::new()));
-    registry.register(Arc::new(NpmGlobalPackagesPlugin::new()));
-    registry.register(Arc::new(NpmConfigPlugin::new()));
+    // Register all plugins with their configurations
+    let homebrew_plugin = if let Some(raw_config) = config
+        .as_ref()
+        .and_then(|c| c.get_raw_plugin_config("homebrew_brewfile"))
+    {
+        Arc::new(HomebrewBrewfilePlugin::with_config(raw_config.clone()))
+    } else {
+        Arc::new(HomebrewBrewfilePlugin::new())
+    };
+    registry.register(homebrew_plugin);
+
+    // VSCode plugins
+    let vscode_settings = if let Some(raw_config) = config
+        .as_ref()
+        .and_then(|c| c.get_raw_plugin_config("vscode_settings"))
+    {
+        Arc::new(VSCodeSettingsPlugin::with_config(raw_config.clone()))
+    } else {
+        Arc::new(VSCodeSettingsPlugin::new())
+    };
+    registry.register(vscode_settings);
+
+    let vscode_keybindings = if let Some(raw_config) = config
+        .as_ref()
+        .and_then(|c| c.get_raw_plugin_config("vscode_keybindings"))
+    {
+        Arc::new(VSCodeKeybindingsPlugin::with_config(raw_config.clone()))
+    } else {
+        Arc::new(VSCodeKeybindingsPlugin::new())
+    };
+    registry.register(vscode_keybindings);
+
+    let vscode_extensions = if let Some(raw_config) = config
+        .as_ref()
+        .and_then(|c| c.get_raw_plugin_config("vscode_extensions"))
+    {
+        Arc::new(VSCodeExtensionsPlugin::with_config(raw_config.clone()))
+    } else {
+        Arc::new(VSCodeExtensionsPlugin::new())
+    };
+    registry.register(vscode_extensions);
+
+    // Cursor plugins
+    let cursor_settings = if let Some(raw_config) = config
+        .as_ref()
+        .and_then(|c| c.get_raw_plugin_config("cursor_settings"))
+    {
+        Arc::new(CursorSettingsPlugin::with_config(raw_config.clone()))
+    } else {
+        Arc::new(CursorSettingsPlugin::new())
+    };
+    registry.register(cursor_settings);
+
+    let cursor_keybindings = if let Some(raw_config) = config
+        .as_ref()
+        .and_then(|c| c.get_raw_plugin_config("cursor_keybindings"))
+    {
+        Arc::new(CursorKeybindingsPlugin::with_config(raw_config.clone()))
+    } else {
+        Arc::new(CursorKeybindingsPlugin::new())
+    };
+    registry.register(cursor_keybindings);
+
+    let cursor_extensions = if let Some(raw_config) = config
+        .as_ref()
+        .and_then(|c| c.get_raw_plugin_config("cursor_extensions"))
+    {
+        Arc::new(CursorExtensionsPlugin::with_config(raw_config.clone()))
+    } else {
+        Arc::new(CursorExtensionsPlugin::new())
+    };
+    registry.register(cursor_extensions);
+
+    let npm_global_plugin = if let Some(raw_config) = config
+        .as_ref()
+        .and_then(|c| c.get_raw_plugin_config("npm_global_packages"))
+    {
+        Arc::new(NpmGlobalPackagesPlugin::with_config(raw_config.clone()))
+    } else {
+        Arc::new(NpmGlobalPackagesPlugin::new())
+    };
+    registry.register(npm_global_plugin);
+
+    let npm_config_plugin = if let Some(raw_config) = config
+        .as_ref()
+        .and_then(|c| c.get_raw_plugin_config("npm_config"))
+    {
+        Arc::new(NpmConfigPlugin::with_config(raw_config.clone()))
+    } else {
+        Arc::new(NpmConfigPlugin::new())
+    };
+    registry.register(npm_config_plugin);
+
     registry.register(Arc::new(StaticFilesPlugin::new()));
 
     // Get detailed plugin information with category names and icons
@@ -500,31 +583,89 @@ async fn main() -> Result<()> {
 
     // Homebrew plugins
     if selected_plugins == "all" || selected_plugins.contains("homebrew") {
-        registry.register(Arc::new(HomebrewBrewfilePlugin::new()));
+        let plugin = if let Some(raw_config) = config.get_raw_plugin_config("homebrew_brewfile") {
+            Arc::new(HomebrewBrewfilePlugin::with_config(raw_config.clone()))
+        } else {
+            Arc::new(HomebrewBrewfilePlugin::new())
+        };
+        registry.register(plugin);
     }
 
     // VSCode plugins
     if selected_plugins == "all" || selected_plugins.contains("vscode") {
-        registry.register(Arc::new(VSCodeSettingsPlugin::new()));
-        registry.register(Arc::new(VSCodeKeybindingsPlugin::new()));
-        registry.register(Arc::new(VSCodeExtensionsPlugin::new()));
+        let vscode_settings =
+            if let Some(raw_config) = config.get_raw_plugin_config("vscode_settings") {
+                Arc::new(VSCodeSettingsPlugin::with_config(raw_config.clone()))
+            } else {
+                Arc::new(VSCodeSettingsPlugin::new())
+            };
+        registry.register(vscode_settings);
+
+        let vscode_keybindings =
+            if let Some(raw_config) = config.get_raw_plugin_config("vscode_keybindings") {
+                Arc::new(VSCodeKeybindingsPlugin::with_config(raw_config.clone()))
+            } else {
+                Arc::new(VSCodeKeybindingsPlugin::new())
+            };
+        registry.register(vscode_keybindings);
+
+        let vscode_extensions =
+            if let Some(raw_config) = config.get_raw_plugin_config("vscode_extensions") {
+                Arc::new(VSCodeExtensionsPlugin::with_config(raw_config.clone()))
+            } else {
+                Arc::new(VSCodeExtensionsPlugin::new())
+            };
+        registry.register(vscode_extensions);
     }
 
     // Cursor plugins
     if selected_plugins == "all" || selected_plugins.contains("cursor") {
-        registry.register(Arc::new(CursorSettingsPlugin::new()));
-        registry.register(Arc::new(CursorKeybindingsPlugin::new()));
-        registry.register(Arc::new(CursorExtensionsPlugin::new()));
+        let cursor_settings =
+            if let Some(raw_config) = config.get_raw_plugin_config("cursor_settings") {
+                Arc::new(CursorSettingsPlugin::with_config(raw_config.clone()))
+            } else {
+                Arc::new(CursorSettingsPlugin::new())
+            };
+        registry.register(cursor_settings);
+
+        let cursor_keybindings =
+            if let Some(raw_config) = config.get_raw_plugin_config("cursor_keybindings") {
+                Arc::new(CursorKeybindingsPlugin::with_config(raw_config.clone()))
+            } else {
+                Arc::new(CursorKeybindingsPlugin::new())
+            };
+        registry.register(cursor_keybindings);
+
+        let cursor_extensions =
+            if let Some(raw_config) = config.get_raw_plugin_config("cursor_extensions") {
+                Arc::new(CursorExtensionsPlugin::with_config(raw_config.clone()))
+            } else {
+                Arc::new(CursorExtensionsPlugin::new())
+            };
+        registry.register(cursor_extensions);
     }
 
     // NPM plugins
     if selected_plugins == "all" || selected_plugins.contains("npm") {
-        registry.register(Arc::new(NpmGlobalPackagesPlugin::new()));
-        registry.register(Arc::new(NpmConfigPlugin::new()));
+        let npm_global_plugin =
+            if let Some(raw_config) = config.get_raw_plugin_config("npm_global_packages") {
+                Arc::new(NpmGlobalPackagesPlugin::with_config(raw_config.clone()))
+            } else {
+                Arc::new(NpmGlobalPackagesPlugin::new())
+            };
+        registry.register(npm_global_plugin);
+
+        let npm_config_plugin = if let Some(raw_config) = config.get_raw_plugin_config("npm_config")
+        {
+            Arc::new(NpmConfigPlugin::with_config(raw_config.clone()))
+        } else {
+            Arc::new(NpmConfigPlugin::new())
+        };
+        registry.register(npm_config_plugin);
     }
 
     // Static files plugin
-    if selected_plugins == "all" || selected_plugins.contains("static") {
+    if selected_plugins == "all" || selected_plugins.contains("static_files") {
         registry.register(Arc::new(StaticFilesPlugin::with_config(Arc::new(
             config.clone(),
         ))));

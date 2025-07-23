@@ -2,7 +2,6 @@ use crate::config::Config;
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 /// Represents the result of a plugin execution
@@ -15,12 +14,9 @@ pub struct PluginResult {
     pub error_message: Option<String>,
 }
 
-/// Core trait that all plugins must implement
+/// Core trait that all plugins must implement with self-discovery capabilities
 #[async_trait]
 pub trait Plugin: Send + Sync {
-    /// Returns the filename that will be used for the snapshot
-    fn filename(&self) -> &str;
-
     /// Returns a description of what the plugin does
     fn description(&self) -> &str;
 
@@ -33,9 +29,15 @@ pub trait Plugin: Send + Sync {
     /// Validates that the plugin can run (e.g., required binaries exist)
     async fn validate(&self) -> Result<()>;
 
-    /// Returns the expected output file path for this plugin
-    fn output_path(&self, base_path: &Path) -> PathBuf {
-        base_path.join(self.filename())
+    /// Get target path from plugin's own configuration
+    fn get_target_path(&self) -> Option<String>;
+
+    /// Get output file from plugin's own configuration
+    fn get_output_file(&self) -> Option<String>;
+
+    /// Get plugin hooks from plugin's own configuration
+    fn get_hooks(&self) -> Vec<crate::core::hooks::HookAction> {
+        Vec::new() // Default: no hooks
     }
 }
 
@@ -109,6 +111,27 @@ impl PluginRegistry {
         &self.plugins
     }
 
+    /// Derives the default filename for a plugin (always .txt extension)
+    pub fn derive_plugin_filename(plugin_name: &str) -> String {
+        format!("{plugin_name}.txt")
+    }
+
+    /// Gets the final output file for a plugin using plugin self-discovery
+    pub fn get_plugin_output_file_from_plugin(plugin: &dyn Plugin, plugin_name: &str) -> String {
+        // Static files plugin doesn't use a single output file - it copies files directly
+        if matches!(plugin_name, "static_files") {
+            return "N/A (copies files directly)".to_string();
+        }
+
+        // Use plugin's own configuration first
+        if let Some(custom_output_file) = plugin.get_output_file() {
+            return custom_output_file;
+        }
+
+        // Fall back to auto-derived filename
+        Self::derive_plugin_filename(plugin_name)
+    }
+
     /// Finds a plugin by name
     #[allow(dead_code)]
     pub fn find_plugin(&self, name: &str) -> Option<&Arc<dyn Plugin>> {
@@ -127,9 +150,10 @@ impl PluginRegistry {
             .iter()
             .map(|(name, plugin)| {
                 let category = Self::extract_category_from_plugin_name(name, config);
+                let output_file = Self::get_plugin_output_file_from_plugin(plugin.as_ref(), name);
                 (
                     name.clone(),
-                    plugin.filename().to_string(),
+                    output_file,
                     plugin.description().to_string(),
                     category,
                     plugin.icon().to_string(),
@@ -231,15 +255,15 @@ mod tests {
         );
         assert_eq!(
             PluginRegistry::convert_type_name_to_plugin_name(
-                "dotsnapshot::plugins::static_files::plugin::StaticFilesPlugin"
+                "dotsnapshot::plugins::static::files::StaticFilesPlugin"
             ),
-            "static_files_plugin"
+            "static_files"
         );
 
         // Fallback for type names without full paths (backward compatibility)
         assert_eq!(
-            PluginRegistry::convert_type_name_to_plugin_name("VSCodeSettingsPlugin"),
-            "v_s_code_settings"
+            PluginRegistry::convert_type_name_to_plugin_name("TestVscodeSettingsPlugin"),
+            "test_vscode_settings"
         );
         assert_eq!(
             PluginRegistry::convert_type_name_to_plugin_name("SimplePlugin"),
@@ -337,5 +361,107 @@ mod tests {
             "Homebrew"
         );
         assert_eq!(PluginRegistry::folder_name_to_category("cursor"), "Cursor");
+    }
+
+    #[test]
+    fn test_derive_plugin_filename() {
+        // Test auto-derived filenames always use .txt extension
+        assert_eq!(
+            PluginRegistry::derive_plugin_filename("vscode_settings"),
+            "vscode_settings.txt"
+        );
+        assert_eq!(
+            PluginRegistry::derive_plugin_filename("homebrew_brewfile"),
+            "homebrew_brewfile.txt"
+        );
+        assert_eq!(
+            PluginRegistry::derive_plugin_filename("npm_global_packages"),
+            "npm_global_packages.txt"
+        );
+        assert_eq!(
+            PluginRegistry::derive_plugin_filename("test_plugin"),
+            "test_plugin.txt"
+        );
+    }
+
+    #[test]
+    fn test_get_plugin_output_file_from_plugin() {
+        use crate::plugins::r#static::files::StaticFilesPlugin;
+        use crate::plugins::vscode::settings::VSCodeSettingsPlugin;
+
+        // Test plugin that doesn't specify a custom output file - should use auto-derived
+        let vscode_plugin = VSCodeSettingsPlugin::new();
+        assert_eq!(
+            PluginRegistry::get_plugin_output_file_from_plugin(&vscode_plugin, "vscode_settings"),
+            "vscode_settings.txt"
+        );
+
+        // Test static files plugin special handling
+        let static_plugin = StaticFilesPlugin::new();
+        assert_eq!(
+            PluginRegistry::get_plugin_output_file_from_plugin(&static_plugin, "static_files"),
+            "N/A (copies files directly)"
+        );
+
+        // Test that the method would work with any plugin that returns None from get_output_file()
+        // This verifies the fallback behavior to auto-derived filenames
+        struct MockPlugin;
+        #[async_trait::async_trait]
+        impl crate::core::plugin::Plugin for MockPlugin {
+            fn description(&self) -> &str {
+                "Mock plugin"
+            }
+            fn icon(&self) -> &str {
+                "🔧"
+            }
+            async fn execute(&self) -> anyhow::Result<String> {
+                Ok("test".to_string())
+            }
+            async fn validate(&self) -> anyhow::Result<()> {
+                Ok(())
+            }
+            fn get_target_path(&self) -> Option<String> {
+                None
+            }
+            fn get_output_file(&self) -> Option<String> {
+                None
+            }
+        }
+
+        let mock_plugin = MockPlugin;
+        assert_eq!(
+            PluginRegistry::get_plugin_output_file_from_plugin(&mock_plugin, "mock_plugin"),
+            "mock_plugin.txt"
+        );
+
+        // Test plugin that specifies a custom output file
+        struct CustomOutputPlugin;
+        #[async_trait::async_trait]
+        impl crate::core::plugin::Plugin for CustomOutputPlugin {
+            fn description(&self) -> &str {
+                "Custom output plugin"
+            }
+            fn icon(&self) -> &str {
+                "📝"
+            }
+            async fn execute(&self) -> anyhow::Result<String> {
+                Ok("test".to_string())
+            }
+            async fn validate(&self) -> anyhow::Result<()> {
+                Ok(())
+            }
+            fn get_target_path(&self) -> Option<String> {
+                None
+            }
+            fn get_output_file(&self) -> Option<String> {
+                Some("custom-output.json".to_string())
+            }
+        }
+
+        let custom_plugin = CustomOutputPlugin;
+        assert_eq!(
+            PluginRegistry::get_plugin_output_file_from_plugin(&custom_plugin, "custom_plugin"),
+            "custom-output.json"
+        );
     }
 }

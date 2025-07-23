@@ -3,16 +3,44 @@ use async_trait::async_trait;
 use std::path::PathBuf;
 use tokio::fs;
 
+use crate::core::hooks::HookAction;
 use crate::core::plugin::Plugin;
 use crate::symbols::*;
 
 /// Plugin for capturing Cursor keybindings
-pub struct CursorKeybindingsPlugin;
+pub struct CursorKeybindingsPlugin {
+    config: Option<toml::Value>,
+}
+
+#[derive(serde::Deserialize)]
+struct CursorKeybindingsConfig {
+    target_path: Option<String>,
+    output_file: Option<String>,
+    hooks: Option<PluginHooks>,
+}
+
+#[derive(serde::Deserialize)]
+struct PluginHooks {
+    #[serde(rename = "pre-plugin", default)]
+    pre_plugin: Vec<HookAction>,
+    #[serde(rename = "post-plugin", default)]
+    post_plugin: Vec<HookAction>,
+}
 
 impl CursorKeybindingsPlugin {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
-        Self
+        Self { config: None }
+    }
+
+    pub fn with_config(config: toml::Value) -> Self {
+        Self {
+            config: Some(config),
+        }
+    }
+
+    fn get_config(&self) -> Option<CursorKeybindingsConfig> {
+        self.config.as_ref().and_then(|c| c.clone().try_into().ok())
     }
 
     /// Gets the Cursor settings directory based on OS
@@ -49,10 +77,6 @@ impl CursorKeybindingsPlugin {
 
 #[async_trait]
 impl Plugin for CursorKeybindingsPlugin {
-    fn filename(&self) -> &str {
-        "cursor_keybindings.json"
-    }
-
     fn description(&self) -> &str {
         "Captures Cursor editor custom keybindings configuration"
     }
@@ -77,6 +101,25 @@ impl Plugin for CursorKeybindingsPlugin {
 
         Ok(())
     }
+
+    fn get_target_path(&self) -> Option<String> {
+        self.get_config()?.target_path
+    }
+
+    fn get_output_file(&self) -> Option<String> {
+        self.get_config()?.output_file
+    }
+
+    fn get_hooks(&self) -> Vec<HookAction> {
+        self.get_config()
+            .and_then(|c| c.hooks)
+            .map(|h| {
+                let mut hooks = h.pre_plugin;
+                hooks.extend(h.post_plugin);
+                hooks
+            })
+            .unwrap_or_default()
+    }
 }
 
 #[cfg(test)]
@@ -84,9 +127,12 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_cursor_keybindings_plugin_name() {
+    async fn test_cursor_keybindings_plugin_description() {
         let plugin = CursorKeybindingsPlugin::new();
-        assert_eq!(plugin.filename(), "cursor_keybindings.json");
+        assert_eq!(
+            plugin.description(),
+            "Captures Cursor editor custom keybindings configuration"
+        );
     }
 
     #[tokio::test]
@@ -96,5 +142,32 @@ mod tests {
 
         // Just check that we get a valid path
         assert!(settings_dir.is_absolute());
+    }
+
+    #[tokio::test]
+    async fn test_cursor_keybindings_plugin_config() {
+        // Test with no config
+        let plugin = CursorKeybindingsPlugin::new();
+        assert_eq!(plugin.get_target_path(), None);
+        assert_eq!(plugin.get_output_file(), None);
+        assert!(plugin.get_hooks().is_empty());
+
+        // Test with config
+        let config_toml = r#"
+            target_path = "cursor"
+            output_file = "keybindings.json"
+        "#;
+        let config: toml::Value = toml::from_str(config_toml).unwrap();
+        let plugin_with_config = CursorKeybindingsPlugin::with_config(config);
+
+        assert_eq!(
+            plugin_with_config.get_target_path(),
+            Some("cursor".to_string())
+        );
+        assert_eq!(
+            plugin_with_config.get_output_file(),
+            Some("keybindings.json".to_string())
+        );
+        assert!(plugin_with_config.get_hooks().is_empty());
     }
 }

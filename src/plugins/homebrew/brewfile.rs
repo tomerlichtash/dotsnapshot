@@ -3,16 +3,44 @@ use async_trait::async_trait;
 use std::process::Command;
 use which::which;
 
+use crate::core::hooks::HookAction;
 use crate::core::plugin::Plugin;
 use crate::symbols::*;
 
 /// Plugin for generating Homebrew Brewfile
-pub struct HomebrewBrewfilePlugin;
+pub struct HomebrewBrewfilePlugin {
+    config: Option<toml::Value>,
+}
+
+#[derive(serde::Deserialize)]
+struct HomebrewBrewfileConfig {
+    target_path: Option<String>,
+    output_file: Option<String>,
+    hooks: Option<PluginHooks>,
+}
+
+#[derive(serde::Deserialize)]
+struct PluginHooks {
+    #[serde(rename = "pre-plugin", default)]
+    pre_plugin: Vec<HookAction>,
+    #[serde(rename = "post-plugin", default)]
+    post_plugin: Vec<HookAction>,
+}
 
 impl HomebrewBrewfilePlugin {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
-        Self
+        Self { config: None }
+    }
+
+    pub fn with_config(config: toml::Value) -> Self {
+        Self {
+            config: Some(config),
+        }
+    }
+
+    fn get_config(&self) -> Option<HomebrewBrewfileConfig> {
+        self.config.as_ref().and_then(|c| c.clone().try_into().ok())
     }
 
     /// Executes brew bundle dump to generate Brewfile content
@@ -54,10 +82,6 @@ impl HomebrewBrewfilePlugin {
 
 #[async_trait]
 impl Plugin for HomebrewBrewfilePlugin {
-    fn filename(&self) -> &str {
-        "Brewfile"
-    }
-
     fn description(&self) -> &str {
         "Generates a Homebrew Brewfile with all installed packages"
     }
@@ -96,6 +120,25 @@ impl Plugin for HomebrewBrewfilePlugin {
 
         Ok(())
     }
+
+    fn get_target_path(&self) -> Option<String> {
+        self.get_config()?.target_path
+    }
+
+    fn get_output_file(&self) -> Option<String> {
+        self.get_config()?.output_file
+    }
+
+    fn get_hooks(&self) -> Vec<HookAction> {
+        self.get_config()
+            .and_then(|c| c.hooks)
+            .map(|h| {
+                let mut hooks = h.pre_plugin;
+                hooks.extend(h.post_plugin);
+                hooks
+            })
+            .unwrap_or_default()
+    }
 }
 
 #[cfg(test)]
@@ -103,9 +146,12 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_homebrew_brewfile_plugin_name() {
+    async fn test_homebrew_brewfile_plugin_description() {
         let plugin = HomebrewBrewfilePlugin::new();
-        assert_eq!(plugin.filename(), "Brewfile");
+        assert_eq!(
+            plugin.description(),
+            "Generates a Homebrew Brewfile with all installed packages"
+        );
     }
 
     #[tokio::test]
@@ -117,5 +163,32 @@ mod tests {
         if which("brew").is_ok() {
             assert!(plugin.validate().await.is_ok());
         }
+    }
+
+    #[tokio::test]
+    async fn test_homebrew_brewfile_plugin_config() {
+        // Test with no config
+        let plugin = HomebrewBrewfilePlugin::new();
+        assert_eq!(plugin.get_target_path(), None);
+        assert_eq!(plugin.get_output_file(), None);
+        assert!(plugin.get_hooks().is_empty());
+
+        // Test with config
+        let config_toml = r#"
+            target_path = "homebrew"
+            output_file = "Brewfile"
+        "#;
+        let config: toml::Value = toml::from_str(config_toml).unwrap();
+        let plugin_with_config = HomebrewBrewfilePlugin::with_config(config);
+
+        assert_eq!(
+            plugin_with_config.get_target_path(),
+            Some("homebrew".to_string())
+        );
+        assert_eq!(
+            plugin_with_config.get_output_file(),
+            Some("Brewfile".to_string())
+        );
+        assert!(plugin_with_config.get_hooks().is_empty());
     }
 }

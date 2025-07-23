@@ -1,5 +1,5 @@
 pub mod cursor;
 pub mod homebrew;
 pub mod npm;
-pub mod static_files;
+pub mod r#static;
 pub mod vscode;

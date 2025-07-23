@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tracing::info;
 
-use crate::config::Config;
+use crate::config::{Config, StaticPluginConfig};
 use crate::core::checksum::calculate_directory_checksum;
 use crate::core::plugin::Plugin;
 use crate::symbols::*;
@@ -43,7 +43,7 @@ impl StaticFilesPlugin {
         }
     }
 
-    /// Reads the static files configuration from the main config
+    /// Reads the static files configuration from the plugins config
     async fn read_config(&self) -> Result<Vec<PathBuf>> {
         let config = match &self.config {
             Some(config) => config,
@@ -53,10 +53,26 @@ impl StaticFilesPlugin {
             }
         };
 
-        let static_config = match config.get_static_files() {
-            Some(static_config) => static_config,
+        // Get static files plugin configuration from plugins section
+        // Note: The plugin name is "static_files" but the TOML section is "static"
+        let static_config = match &config.plugins {
+            Some(plugins) => match plugins.plugins.get("static") {
+                Some(static_value) => {
+                    match static_value.clone().try_into::<StaticPluginConfig>() {
+                        Ok(static_config) => static_config,
+                        Err(_) => {
+                            // No static files plugin configuration section
+                            return Ok(Vec::new());
+                        }
+                    }
+                }
+                _ => {
+                    // No static files plugin configuration section
+                    return Ok(Vec::new());
+                }
+            },
             None => {
-                // No static files configuration section
+                // No plugins configuration section
                 return Ok(Vec::new());
             }
         };
@@ -118,9 +134,14 @@ impl StaticFilesPlugin {
     /// Get ignore patterns from configuration
     fn get_ignore_patterns(&self) -> Vec<String> {
         if let Some(config) = &self.config {
-            if let Some(static_config) = config.get_static_files() {
-                if let Some(ignore_patterns) = &static_config.ignore {
-                    return ignore_patterns.clone();
+            if let Some(plugins) = &config.plugins {
+                if let Some(static_value) = plugins.plugins.get("static") {
+                    if let Ok(static_config) = static_value.clone().try_into::<StaticPluginConfig>()
+                    {
+                        if let Some(ignore_patterns) = &static_config.ignore {
+                            return ignore_patterns.clone();
+                        }
+                    }
                 }
             }
         }
@@ -331,21 +352,12 @@ impl StaticFilesPlugin {
 
 #[async_trait]
 impl Plugin for StaticFilesPlugin {
-    fn filename(&self) -> &str {
-        "static.json"
-    }
-
     fn description(&self) -> &str {
         "Copies arbitrary static files and directories based on configuration"
     }
 
     fn icon(&self) -> &str {
         CONTENT_FILE
-    }
-
-    /// Override output path to place static.json in .snapshot directory
-    fn output_path(&self, base_path: &Path) -> PathBuf {
-        base_path.join(".snapshot").join(self.filename())
     }
 
     async fn execute(&self) -> Result<String> {
@@ -422,6 +434,14 @@ impl Plugin for StaticFilesPlugin {
         // No additional validation needed since config is injected
         Ok(())
     }
+
+    fn get_target_path(&self) -> Option<String> {
+        None
+    }
+
+    fn get_output_file(&self) -> Option<String> {
+        None
+    }
 }
 
 #[cfg(test)]
@@ -429,9 +449,12 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_static_plugin_name() {
+    async fn test_static_plugin_description() {
         let plugin = StaticFilesPlugin::new();
-        assert_eq!(plugin.filename(), "static.json");
+        assert_eq!(
+            plugin.description(),
+            "Copies arbitrary static files and directories based on configuration"
+        );
     }
 
     #[tokio::test]
@@ -461,7 +484,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_plugin_with_main_config() {
-        use crate::config::{Config, StaticFilesConfig};
+        use crate::config::{Config, PluginsConfig, StaticPluginConfig};
         use std::sync::Arc;
         use tempfile::TempDir;
 
@@ -472,18 +495,30 @@ mod tests {
         // Set environment variable for snapshot directory
         std::env::set_var("DOTSNAPSHOT_SNAPSHOT_DIR", temp_dir.path());
 
-        // Create a test config with static files
+        // Create a test config with static files in plugins section
         let config = Config {
             output_dir: None,
             include_plugins: None,
             logging: None,
             hooks: None,
             global: None,
-            static_files: Some(StaticFilesConfig {
-                files: Some(vec!["/etc/hosts".to_string()]),
-                ignore: None,
+            static_files: None,
+            plugins: Some(PluginsConfig {
+                plugins: {
+                    let mut map = std::collections::HashMap::new();
+                    map.insert(
+                        "static".to_string(),
+                        toml::Value::try_from(StaticPluginConfig {
+                            target_path: None,
+                            output_file: None,
+                            files: Some(vec!["/etc/hosts".to_string()]),
+                            ignore: None,
+                        })
+                        .unwrap(),
+                    );
+                    map
+                },
             }),
-            plugins: None,
             ui: None,
         };
 
