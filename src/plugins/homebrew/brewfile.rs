@@ -292,23 +292,32 @@ impl Plugin for HomebrewBrewfilePlugin {
             // Actually install packages from the Brewfile
             info!("Installing packages from Brewfile...");
             let target_dir_clone = target_path.to_path_buf();
-            let install_result = tokio::task::spawn_blocking(move || {
+            match tokio::task::spawn_blocking(move || {
                 std::process::Command::new("brew")
                     .args(["bundle", "install"])
                     .current_dir(target_dir_clone)
                     .output()
             })
-            .await??;
-
-            if install_result.status.success() {
-                info!("Successfully installed packages from Brewfile");
-            } else {
-                let stderr = String::from_utf8_lossy(&install_result.stderr);
-                if stderr.contains("command not found") || stderr.contains("No such file") {
-                    warn!("Homebrew not found. Please install Homebrew and run 'brew bundle install' manually");
-                } else {
-                    warn!("Failed to install some packages from Brewfile: {}", stderr);
-                    warn!("You may need to run 'brew bundle install' manually to retry failed installations");
+            .await
+            {
+                Ok(Ok(install_result)) => {
+                    if install_result.status.success() {
+                        info!("Successfully installed packages from Brewfile");
+                    } else {
+                        let stderr = String::from_utf8_lossy(&install_result.stderr);
+                        if stderr.contains("command not found") || stderr.contains("No such file") {
+                            warn!("Homebrew not found. Please install Homebrew and run 'brew bundle install' manually");
+                        } else {
+                            warn!("Failed to install some packages from Brewfile: {}", stderr);
+                            warn!("You may need to run 'brew bundle install' manually to retry failed installations");
+                        }
+                    }
+                }
+                Ok(Err(e)) => {
+                    warn!("Failed to execute brew command: {}. Please install Homebrew and run 'brew bundle install' manually", e);
+                }
+                Err(e) => {
+                    warn!("Failed to spawn brew command task: {}. Please install Homebrew and run 'brew bundle install' manually", e);
                 }
             }
 
