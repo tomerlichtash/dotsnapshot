@@ -65,7 +65,19 @@ title = "dotsnapshot"                       # Optional notification title
 
 # ==============================================================================
 # Plugin Configurations
-# Each plugin can have custom target_path, output_file, and hooks
+# Each plugin can have custom target_path, output_file, restore_target_dir, and hooks
+#
+# Configuration options:
+# - target_path: Directory within snapshot where plugin output is stored
+# - output_file: Custom filename for plugin output (overrides default)
+# - restore_target_dir: Custom directory where files are restored (supports ~ expansion)
+# - hooks: Custom scripts to run before/after plugin execution
+#
+# Restore target precedence (highest to lowest):
+# 1. CLI --target-dir flag (overrides everything)
+# 2. Plugin's restore_target_dir setting (from this config)  
+# 3. Plugin's default directory (e.g., VSCode settings directory)
+# 4. General default directory (usually home directory)
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -95,6 +107,10 @@ timeout = 30
 [plugins.vscode_settings]
 target_path = "vscode"                      # All VSCode files go in 'vscode' directory
 output_file = "settings.json"              # Keep original JSON format
+restore_target_dir = "~/Library/Application Support/Code/User"  # Custom restore target (macOS default shown)
+# restore_target_dir = "~/.config/Code/User"                     # Linux/Unix default
+# restore_target_dir = "~/AppData/Roaming/Code/User"             # Windows default  
+# restore_target_dir = "~/custom-vscode-config"                  # Custom directory
 
 [plugins.vscode_settings.hooks]
 pre-plugin = []                             # No pre-plugin hooks

@@ -24,6 +24,11 @@ struct VSCodeSettingsConfig {
     #[schemars(description = "Custom filename for the settings output (default: settings.json)")]
     output_file: Option<String>,
 
+    #[schemars(
+        description = "Custom target directory for restoration (default: VSCode settings directory)"
+    )]
+    restore_target_dir: Option<String>,
+
     #[schemars(description = "Plugin-specific hooks configuration")]
     hooks: Option<PluginHooks>,
 }
@@ -163,6 +168,14 @@ impl Plugin for VSCodeSettingsPlugin {
         self.get_config()?.output_file
     }
 
+    fn get_restore_target_dir(&self) -> Option<String> {
+        self.get_config()?.restore_target_dir
+    }
+
+    fn get_default_restore_target_dir(&self) -> Result<PathBuf> {
+        self.get_vscode_settings_dir()
+    }
+
     fn get_hooks(&self) -> Vec<HookAction> {
         self.get_config()
             .and_then(|c| c.hooks)
@@ -172,6 +185,58 @@ impl Plugin for VSCodeSettingsPlugin {
                 hooks
             })
             .unwrap_or_default()
+    }
+
+    async fn restore(
+        &self,
+        snapshot_path: &std::path::Path,
+        target_path: &std::path::Path,
+        dry_run: bool,
+    ) -> Result<Vec<PathBuf>> {
+        let mut restored_files = Vec::new();
+
+        // Find settings.json in the snapshot
+        let settings_file = snapshot_path.join("settings.json");
+        if !settings_file.exists() {
+            return Ok(restored_files);
+        }
+
+        // Use the target directory provided by RestoreManager
+        // (RestoreManager handles CLI override > plugin config > default precedence)
+        let target_settings_file = target_path.join("settings.json");
+
+        if dry_run {
+            warn!(
+                "DRY RUN: Would restore VSCode settings to {}",
+                target_settings_file.display()
+            );
+            restored_files.push(target_settings_file);
+        } else {
+            // Create VSCode settings directory if it doesn't exist
+            if let Some(parent) = target_settings_file.parent() {
+                fs::create_dir_all(parent)
+                    .await
+                    .context("Failed to create VSCode settings directory")?;
+            }
+
+            // Copy settings file
+            fs::copy(&settings_file, &target_settings_file)
+                .await
+                .with_context(|| {
+                    format!(
+                        "Failed to restore VSCode settings from {}",
+                        settings_file.display()
+                    )
+                })?;
+
+            warn!(
+                "Restored VSCode settings to {}",
+                target_settings_file.display()
+            );
+            restored_files.push(target_settings_file);
+        }
+
+        Ok(restored_files)
     }
 }
 
@@ -264,6 +329,7 @@ mod tests {
         let invalid_config = VSCodeSettingsConfig {
             target_path: Some("vscode".to_string()),
             output_file: Some("settings.yaml".to_string()), // Wrong extension
+            restore_target_dir: None,
             hooks: None,
         };
 
@@ -273,6 +339,7 @@ mod tests {
         let valid_json = VSCodeSettingsConfig {
             target_path: Some("vscode".to_string()),
             output_file: Some("settings.json".to_string()),
+            restore_target_dir: None,
             hooks: None,
         };
         assert!(valid_json.validate().is_ok());
@@ -280,6 +347,7 @@ mod tests {
         let valid_jsonc = VSCodeSettingsConfig {
             target_path: Some("vscode".to_string()),
             output_file: Some("settings.jsonc".to_string()),
+            restore_target_dir: None,
             hooks: None,
         };
         assert!(valid_jsonc.validate().is_ok());

@@ -5,6 +5,7 @@ A fast, extensible Rust CLI utility that creates snapshots of dotfiles and confi
 ## Features
 
 - **Plugin Architecture**: Extensible plugin system for different tools and configurations
+- **Restore Functionality**: Comprehensive restore capabilities with flexible target directory configuration
 - **Plugin Hooks System**: Execute custom scripts and actions at specific points during snapshot creation
 - **Async Execution**: All plugins run concurrently for better performance
 - **Checksum Optimization**: Reuses existing files when content hasn't changed
@@ -127,6 +128,135 @@ dotsnapshot --man | sudo tee /usr/local/share/man/man1/dotsnapshot.1
 - `-p, --plugins <PLUGINS>`: Comma-separated list of plugins to run
 - `-c, --config <PATH>`: Path to config file
 - `-h, --help`: Show help information
+
+## Restore Functionality
+
+Dotsnapshot provides comprehensive restore capabilities to seamlessly restore your configuration from snapshots with flexible targeting options.
+
+### Basic Restore Usage
+
+```bash
+# Restore all plugins from a snapshot
+dotsnapshot restore /path/to/snapshot
+
+# Restore specific plugins only
+dotsnapshot restore /path/to/snapshot --plugins vscode_settings,homebrew_brewfile
+
+# Preview changes without applying them (dry run)
+dotsnapshot restore /path/to/snapshot --dry-run
+
+# Force restore without confirmation prompts
+dotsnapshot restore /path/to/snapshot --force
+
+# Create backups of existing files before overwriting
+dotsnapshot restore /path/to/snapshot --backup
+
+# Override target directory for all plugins
+dotsnapshot restore /path/to/snapshot --target-dir ~/custom-restore-location
+```
+
+### Restore Options
+
+- `--plugins <PLUGINS>`: Comma-separated list of plugins to restore (supports wildcards like `vscode*`)
+- `--dry-run`: Preview what would be restored without making changes
+- `--backup`: Create timestamped backups of existing files before overwriting
+- `--force`: Skip confirmation prompts and restore immediately
+- `--target-dir <PATH>`: Override target directory for all plugins (highest precedence)
+
+### Target Directory Precedence
+
+Dotsnapshot uses a clear precedence system for determining where files are restored:
+
+1. **CLI `--target-dir` flag** (highest precedence) - overrides everything
+2. **Plugin's `restore_target_dir` configuration** - from dotsnapshot.toml
+3. **Plugin's default directory** - VSCode settings directory, etc.
+4. **General default directory** - usually home directory
+
+### Per-Plugin Restore Configuration
+
+Each plugin can specify its own restore target directory in the configuration file:
+
+```toml
+[plugins.vscode_settings]
+target_path = "vscode"
+output_file = "settings.json"
+restore_target_dir = "~/custom-vscode-config"  # Custom restore location
+
+[plugins.homebrew_brewfile]
+target_path = "homebrew"
+output_file = "Brewfile"
+# restore_target_dir not set - uses plugin default (current directory)
+```
+
+### Platform-Specific Restore Targets
+
+Configure different restore targets for different operating systems:
+
+```toml
+[plugins.vscode_settings]
+# macOS default VSCode directory
+restore_target_dir = "~/Library/Application Support/Code/User"
+
+# Alternatively, for Linux/Unix:
+# restore_target_dir = "~/.config/Code/User"
+
+# Or for Windows:
+# restore_target_dir = "~/AppData/Roaming/Code/User"
+
+# Or custom directory:
+# restore_target_dir = "~/my-custom-config"
+```
+
+### Restore Examples
+
+**Basic restoration:**
+```bash
+# Restore everything to default locations
+dotsnapshot restore ~/.snapshots/20240117_143022
+```
+
+**Selective restoration:**
+```bash
+# Restore only VSCode-related plugins
+dotsnapshot restore ~/.snapshots/20240117_143022 --plugins "vscode*"
+
+# Restore specific plugins
+dotsnapshot restore ~/.snapshots/20240117_143022 --plugins "vscode_settings,homebrew_brewfile"
+```
+
+**Safe restoration with preview:**
+```bash
+# Preview what would be restored
+dotsnapshot restore ~/.snapshots/20240117_143022 --dry-run
+
+# Create backups before restoring
+dotsnapshot restore ~/.snapshots/20240117_143022 --backup
+```
+
+**Custom target directory:**
+```bash
+# Restore all plugins to a custom directory
+dotsnapshot restore ~/.snapshots/20240117_143022 --target-dir ~/test-restore
+
+# This overrides all plugin-specific configurations
+```
+
+### Plugin-Specific Restore Behavior
+
+Different plugins handle restoration differently:
+
+- **VSCode Settings**: Restores to VSCode settings directory by default, supports custom targets
+- **Homebrew Brewfile**: Restores to current directory by default, ready for `brew bundle install`
+- **NPM Config**: Restores to default NPM config locations
+- **Static Files**: Restores files to their original locations based on snapshot structure
+
+### Restore Safety Features
+
+- **Dry Run Mode**: Preview all changes before applying them
+- **Backup Creation**: Automatically backup existing files with timestamps
+- **Confirmation Prompts**: Interactive confirmation unless `--force` is used
+- **Error Handling**: Graceful handling of permission issues and missing directories
+- **Detailed Logging**: Comprehensive logging of all restore operations
 
 ## Plugin Hooks System
 
@@ -254,6 +384,12 @@ output_dir = "/path/to/snapshots"
 
 # Specific plugins to include (if not specified, all plugins run)
 include_plugins = ["homebrew", "vscode"]
+
+# Plugin-specific configurations
+[plugins.vscode_settings]
+target_path = "vscode"                      # Directory within snapshot
+output_file = "settings.json"              # Custom output filename
+restore_target_dir = "~/custom-vscode"     # Custom restore directory
 
 # Hooks configuration
 [hooks]

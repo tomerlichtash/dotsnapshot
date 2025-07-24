@@ -46,6 +46,18 @@ pub trait Plugin: Send + Sync {
     /// Get output file from plugin's own configuration
     fn get_output_file(&self) -> Option<String>;
 
+    /// Get restore target directory from plugin's own configuration
+    fn get_restore_target_dir(&self) -> Option<String> {
+        None // Default: no custom restore target
+    }
+
+    /// Get plugin's default restore target directory (not from config)
+    /// This is used when no custom target is specified
+    fn get_default_restore_target_dir(&self) -> Result<std::path::PathBuf> {
+        // Default: use home directory
+        Ok(dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from(".")))
+    }
+
     /// Get plugin hooks from plugin's own configuration
     fn get_hooks(&self) -> Vec<crate::core::hooks::HookAction> {
         Vec::new() // Default: no hooks
@@ -58,6 +70,29 @@ pub trait Plugin: Send + Sync {
     /// Returns false (default) for standard plugins that return content to be saved
     fn creates_own_output_files(&self) -> bool {
         false // Default: executor should save the plugin's output
+    }
+
+    /// Restores configuration from a snapshot for this plugin
+    ///
+    /// This method allows plugins to implement custom restoration logic beyond
+    /// simple file copying. For example, VSCode plugins might want to install
+    /// extensions after restoring settings.
+    ///
+    /// # Arguments
+    /// * `snapshot_path` - Path to the plugin's snapshot directory
+    /// * `target_path` - Target directory where files should be restored
+    /// * `dry_run` - If true, only simulate the restoration
+    ///
+    /// # Returns
+    /// Vector of successfully restored file paths
+    async fn restore(
+        &self,
+        _snapshot_path: &std::path::Path,
+        _target_path: &std::path::Path,
+        _dry_run: bool,
+    ) -> Result<Vec<std::path::PathBuf>> {
+        // Default implementation: no custom restore logic
+        Ok(Vec::new())
     }
 }
 
@@ -191,6 +226,11 @@ impl PluginRegistry {
             .iter()
             .find(|(plugin_name, _)| plugin_name == name)
             .map(|(_, plugin)| plugin)
+    }
+
+    /// Gets a plugin by name (alias for find_plugin)
+    pub fn get_plugin(&self, name: &str) -> Option<&Arc<dyn Plugin>> {
+        self.find_plugin(name)
     }
 
     /// Lists all available plugins with detailed information including display names and icons

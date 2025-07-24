@@ -67,7 +67,32 @@ enum Commands {
     /// Manage plugin hooks
     Hooks {
         #[command(subcommand)]
-        command: HooksCommands,
+        command: Box<HooksCommands>,
+    },
+    /// Restore configuration from a snapshot
+    Restore {
+        /// Path to the snapshot directory to restore from
+        snapshot_path: PathBuf,
+
+        /// Restore only specific plugins (comma-separated)
+        #[arg(short, long)]
+        plugins: Option<String>,
+
+        /// Preview changes without applying them
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Create backup of existing files before restoring
+        #[arg(long, default_value = "true")]
+        backup: bool,
+
+        /// Skip confirmation prompts
+        #[arg(long)]
+        force: bool,
+
+        /// Custom target directory for restoration
+        #[arg(long)]
+        target_dir: Option<PathBuf>,
     },
 }
 
@@ -383,7 +408,26 @@ async fn main() -> Result<()> {
     if let Some(command) = args.command {
         match command {
             Commands::Hooks { command } => {
-                return cli::hooks::handle_hooks_command(command, args.config).await;
+                return cli::hooks::handle_hooks_command(*command, args.config).await;
+            }
+            Commands::Restore {
+                snapshot_path,
+                plugins,
+                dry_run,
+                backup,
+                force,
+                target_dir,
+            } => {
+                return cli::restore::handle_restore_command(
+                    snapshot_path,
+                    plugins,
+                    dry_run,
+                    backup,
+                    force,
+                    target_dir,
+                    args.config,
+                )
+                .await;
             }
         }
     }
