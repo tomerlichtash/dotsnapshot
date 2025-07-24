@@ -2,6 +2,5 @@ pub mod extensions;
 pub mod keybindings;
 pub mod settings;
 
-pub use extensions::VSCodeExtensionsPlugin;
-pub use keybindings::VSCodeKeybindingsPlugin;
-pub use settings::VSCodeSettingsPlugin;
+// Auto-registration means we don't need to export plugin types anymore
+// The inventory system handles plugin discovery automatically

@@ -1,5 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -12,7 +13,7 @@ use tracing::{debug, error, info, warn};
 use crate::symbols::*;
 
 /// Types of hooks that can be executed
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum HookType {
     /// Executed before any plugins run (global setup, validation)
@@ -37,7 +38,7 @@ impl std::fmt::Display for HookType {
 }
 
 /// Hook action types that can be executed
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "action", rename_all = "lowercase")]
 pub enum HookAction {
     /// Execute a script or command

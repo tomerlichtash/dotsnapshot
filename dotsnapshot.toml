@@ -1,84 +1,179 @@
+# ==============================================================================
+# dotsnapshot configuration file
+# This file configures how your dotfiles and development environment are backed up
+# ==============================================================================
+
+# Directory where snapshots will be stored (relative to current directory)
 output_dir = "./.snapshots"
 
-[logging]
-verbose = true
-time_format = "[year]-[month]-[day] [hour]:[minute]:[second]"
+# Specific plugins to include (if not specified, all plugins run)
+# Available plugins: homebrew_brewfile, vscode_settings, vscode_keybindings, vscode_extensions, 
+#                    cursor_settings, cursor_keybindings, cursor_extensions, npm_global_packages, npm_config, static_files
+# include_plugins = ["homebrew_brewfile", "vscode_settings", "static_files"]
 
+# ==============================================================================
+# UI Configuration
+# ==============================================================================
+[ui]
+# Custom display names for plugin categories in the output
+plugin_categories = { vscode = "VSCode", cursor = "Cursor", npm = "NPM", homebrew = "Homebrew", static = "Static Files" }
+
+# ==============================================================================
+# Logging Configuration  
+# ==============================================================================
+[logging]
+verbose = true                                                    # Enable detailed logging output
+time_format = "[year]-[month]-[day] [hour]:[minute]:[second]"     # Format for timestamps in log messages
+
+# ==============================================================================
+# Hooks Configuration
+# Hooks allow you to run custom scripts before/after snapshots or specific plugins
+# ==============================================================================
 [hooks]
 scripts_dir = "/Users/tomerlichtash/dev/projects/file-snapshots/tests/test-scripts"
 
+# Global pre-snapshot hooks (run before any plugins execute)
 [[global.hooks.pre-snapshot]]
-action = "script"
-command = "pre-snapshot-setup.sh"
-args = []
-timeout = 30
+action = "script"                           # Run a custom script
+command = "pre-snapshot-setup.sh"          # Script name (must be in scripts_dir)
+args = []                                   # Command line arguments for the script
+timeout = 30                                # Timeout in seconds
 
 [global.hooks.pre-snapshot.env_vars]
+# BACKUP_TYPE = "full"                      # Example environment variable
+# TARGET_DIR = "/tmp/backup"                # Example environment variable
 
 [[global.hooks.pre-snapshot]]
-action = "log"
+action = "log"                              # Log a message
 message = "Starting dotsnapshot backup process at {timestamp}"
-level = "info"
+level = "info"                              # Log level: trace, debug, info, warn, error
 
+# Global post-snapshot hooks (run after all plugins complete)
 [[global.hooks.post-snapshot]]
-action = "script"
+action = "script"                           # Run cleanup script
 command = "post-snapshot-cleanup.sh"
 args = []
 timeout = 30
 
 [global.hooks.post-snapshot.env_vars]
+# CLEANUP_TEMP = "true"                     # Example environment variable
 
 [[global.hooks.post-snapshot]]
-action = "notify"
+action = "notify"                           # Send system notification
 message = "Backup completed successfully! 🎉"
+title = "dotsnapshot"                       # Optional notification title
 
-[static]
+# ==============================================================================
+# Plugin Configurations
+# Each plugin can have custom target_path, output_file, and hooks
+# ==============================================================================
 
+# ------------------------------------------------------------------------------
+# Homebrew Package Manager
+# Captures installed packages and taps in Brewfile format
+# ------------------------------------------------------------------------------
 [plugins.homebrew_brewfile]
-target_path = "homebrew"
+target_path = "homebrew"                    # Directory within snapshot
+output_file = "Brewfile"                    # Custom filename (default: homebrew_brewfile.txt)
 
 [plugins.homebrew_brewfile.hooks]
-post-plugin = []
+post-plugin = []                            # No post-plugin hooks
 
 [[plugins.homebrew_brewfile.hooks.pre-plugin]]
-action = "script"
+action = "script"                           # Run before homebrew plugin
 command = "homebrew-pre-backup.sh"
 args = []
 timeout = 30
 
 [plugins.homebrew_brewfile.hooks.pre-plugin.env_vars]
+# HOMEBREW_NO_AUTO_UPDATE = "1"            # Example: prevent auto-update during backup
 
+# ------------------------------------------------------------------------------
+# VSCode Editor
+# Captures settings, keybindings, and installed extensions
+# ------------------------------------------------------------------------------
 [plugins.vscode_settings]
-target_path = "vscode"
+target_path = "vscode"                      # All VSCode files go in 'vscode' directory
+output_file = "settings.json"              # Keep original JSON format
 
 [plugins.vscode_settings.hooks]
-pre-plugin = []
+pre-plugin = []                             # No pre-plugin hooks
 
 [[plugins.vscode_settings.hooks.post-plugin]]
-action = "script"
+action = "script"                           # Run after vscode settings captured
 command = "vscode-post-backup.sh"
 args = []
 timeout = 30
 
 [plugins.vscode_settings.hooks.post-plugin.env_vars]
+# VSCODE_BACKUP_PATH = "vscode/settings.json"  # Example: pass file path to script
 
 [plugins.vscode_keybindings]
-target_path = "vscode"
+target_path = "vscode"                      # Same directory as settings
+output_file = "keybindings.json"           # Keep original JSON format
 
 [plugins.vscode_extensions]
-target_path = "vscode"
+target_path = "vscode"                      # Same directory as other VSCode files
+output_file = "extensions.txt"             # List of installed extensions
 
+# ------------------------------------------------------------------------------
+# Cursor Editor
+# Captures settings, keybindings, and installed extensions for Cursor
+# ------------------------------------------------------------------------------
 [plugins.cursor_settings]
-target_path = "cursor"
+target_path = "cursor"                      # All Cursor files go in 'cursor' directory
+output_file = "settings.json"
 
 [plugins.cursor_keybindings]
 target_path = "cursor"
+output_file = "keybindings.json"
 
 [plugins.cursor_extensions]
 target_path = "cursor"
+output_file = "extensions.txt"
 
+# ------------------------------------------------------------------------------
+# NPM Package Manager
+# Captures globally installed packages and npm configuration
+# ------------------------------------------------------------------------------
 [plugins.npm_global_packages]
-target_path = "npm"
+target_path = "npm"                         # Both npm plugins share directory
+output_file = "global-packages.txt"        # Custom filename for clarity
 
 [plugins.npm_config]
-target_path = "npm"
+target_path = "npm"                         # Same directory as global packages
+output_file = ".npmrc"                      # Keep original config file name
+
+# ------------------------------------------------------------------------------
+# Static Files Plugin (handles direct file/directory copying)
+# Copies important dotfiles and configuration files directly
+# ------------------------------------------------------------------------------
+[plugins.static]
+files = [
+    "~/.zshrc",                             # Zsh shell configuration
+    "./dotsnapshot.toml"                    # This configuration file itself
+]
+ignore = [
+    "*.key",                                # Ignore private key files
+    "*_rsa",                                # Ignore RSA private keys  
+    "*_ed25519",                            # Ignore Ed25519 private keys
+    "known_hosts*",                         # Ignore SSH known hosts (may contain sensitive info)
+    "*.lock",                               # Ignore lock files
+    "target/",                              # Ignore Rust build artifacts
+    "node_modules/",                        # Ignore Node.js dependencies
+    ".git/",                                # Ignore git directory
+    ".DS_Store",                            # Ignore macOS metadata files
+    "Thumbs.db"                             # Ignore Windows thumbnail cache
+]
+
+# Example hooks for static files plugin:
+# [plugins.static.hooks]
+# [[plugins.static.hooks.pre-plugin]]
+# action = "script"
+# command = "prepare-dotfiles.sh"
+# args = []
+# timeout = 60
+# 
+# [plugins.static.hooks.pre-plugin.env_vars]
+# SOURCE_HOME = "/Users/username"
+# BACKUP_EXCLUDES = "*.tmp,*.log"

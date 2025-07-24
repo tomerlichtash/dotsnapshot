@@ -103,24 +103,26 @@ async fn handle_add_hook(
         "pre-plugin" => {
             let plugin_name = plugin_name.as_ref().unwrap();
             ensure_plugin_config(&mut config, plugin_name);
-            let plugin_config = get_plugin_config_mut(&mut config, plugin_name).unwrap();
-            plugin_config
-                .hooks
-                .as_mut()
-                .unwrap()
-                .pre_plugin
-                .push(hook_action.clone());
+            modify_plugin_config(&mut config, plugin_name, |plugin_config| {
+                plugin_config
+                    .hooks
+                    .as_mut()
+                    .unwrap()
+                    .pre_plugin
+                    .push(hook_action.clone());
+            });
         }
         "post-plugin" => {
             let plugin_name = plugin_name.as_ref().unwrap();
             ensure_plugin_config(&mut config, plugin_name);
-            let plugin_config = get_plugin_config_mut(&mut config, plugin_name).unwrap();
-            plugin_config
-                .hooks
-                .as_mut()
-                .unwrap()
-                .post_plugin
-                .push(hook_action.clone());
+            modify_plugin_config(&mut config, plugin_name, |plugin_config| {
+                plugin_config
+                    .hooks
+                    .as_mut()
+                    .unwrap()
+                    .post_plugin
+                    .push(hook_action.clone());
+            });
         }
         _ => unreachable!(),
     }
@@ -205,31 +207,29 @@ async fn handle_remove_hook(
         }
         "pre-plugin" => {
             let plugin_name = plugin_name.as_ref().unwrap();
-            if let Some(plugin_config) = get_plugin_config_mut(&mut config, plugin_name) {
-                if let Some(hooks) = plugin_config.hooks.as_mut() {
-                    &mut hooks.pre_plugin
-                } else {
-                    info!("No pre-plugin hooks configured for {plugin_name}");
-                    return Ok(());
-                }
-            } else {
-                info!("No pre-plugin hooks configured for {plugin_name}");
-                return Ok(());
-            }
+            return handle_plugin_hook_removal(
+                &mut config,
+                plugin_name,
+                "pre-plugin",
+                index,
+                all,
+                script,
+                config_path,
+            )
+            .await;
         }
         "post-plugin" => {
             let plugin_name = plugin_name.as_ref().unwrap();
-            if let Some(plugin_config) = get_plugin_config_mut(&mut config, plugin_name) {
-                if let Some(hooks) = plugin_config.hooks.as_mut() {
-                    &mut hooks.post_plugin
-                } else {
-                    info!("No post-plugin hooks configured for {plugin_name}");
-                    return Ok(());
-                }
-            } else {
-                info!("No post-plugin hooks configured for {plugin_name}");
-                return Ok(());
-            }
+            return handle_plugin_hook_removal(
+                &mut config,
+                plugin_name,
+                "post-plugin",
+                index,
+                all,
+                script,
+                config_path,
+            )
+            .await;
         }
         _ => unreachable!(),
     };
@@ -678,65 +678,209 @@ fn ensure_plugin_config(config: &mut Config, plugin_name: &str) {
 
     if config.plugins.is_none() {
         config.plugins = Some(PluginsConfig {
-            homebrew_brewfile: None,
-            vscode_settings: None,
-            vscode_keybindings: None,
-            vscode_extensions: None,
-            cursor_settings: None,
-            cursor_keybindings: None,
-            cursor_extensions: None,
-            npm_global_packages: None,
-            npm_config: None,
-            static_files: None,
+            plugins: std::collections::HashMap::new(),
         });
     }
 
     let plugins = config.plugins.as_mut().unwrap();
-    let plugin_config = match plugin_name {
-        "homebrew_brewfile" => &mut plugins.homebrew_brewfile,
-        "vscode_settings" => &mut plugins.vscode_settings,
-        "vscode_keybindings" => &mut plugins.vscode_keybindings,
-        "vscode_extensions" => &mut plugins.vscode_extensions,
-        "cursor_settings" => &mut plugins.cursor_settings,
-        "cursor_keybindings" => &mut plugins.cursor_keybindings,
-        "cursor_extensions" => &mut plugins.cursor_extensions,
-        "npm_global_packages" => &mut plugins.npm_global_packages,
-        "npm_config" => &mut plugins.npm_config,
-        _ => return,
+
+    if !plugins.plugins.contains_key(plugin_name) {
+        let plugin_config = PluginConfig {
+            target_path: None,
+            output_file: None,
+            hooks: Some(PluginHooks {
+                pre_plugin: Vec::new(),
+                post_plugin: Vec::new(),
+            }),
+        };
+        if let Ok(value) = toml::Value::try_from(plugin_config) {
+            plugins.plugins.insert(plugin_name.to_string(), value);
+        } else {
+            warn!(
+                "Failed to serialize PluginConfig for plugin '{}'",
+                plugin_name
+            );
+        }
+    } else {
+        // Ensure hooks exist
+        if let Some(plugin_value) = plugins.plugins.get_mut(plugin_name) {
+            if let Ok(mut plugin_config) = plugin_value.clone().try_into::<PluginConfig>() {
+                if plugin_config.hooks.is_none() {
+                    plugin_config.hooks = Some(PluginHooks {
+                        pre_plugin: Vec::new(),
+                        post_plugin: Vec::new(),
+                    });
+                    if let Ok(value) = toml::Value::try_from(plugin_config) {
+                        *plugin_value = value;
+                    } else {
+                        warn!(
+                            "Failed to serialize PluginConfig for plugin '{}'",
+                            plugin_name
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Helper function to modify plugin config - returns a closure that modifies the plugin config in place
+fn modify_plugin_config<F, R>(config: &mut Config, plugin_name: &str, modifier: F) -> Option<R>
+where
+    F: FnOnce(&mut PluginConfig) -> R,
+{
+    let plugins = config.plugins.as_mut()?;
+    let plugin_value = plugins.plugins.get_mut(plugin_name)?;
+
+    if let Ok(mut plugin_config) = plugin_value.clone().try_into::<PluginConfig>() {
+        let result = modifier(&mut plugin_config);
+        match toml::Value::try_from(plugin_config) {
+            Ok(value) => {
+                *plugin_value = value;
+                Some(result)
+            }
+            Err(e) => {
+                warn!(
+                    "Failed to serialize PluginConfig for plugin '{}': {}",
+                    plugin_name, e
+                );
+                None
+            }
+        }
+    } else {
+        None
+    }
+}
+
+// Legacy function for backward compatibility - now uses modify_plugin_config internally
+
+async fn handle_plugin_hook_removal(
+    config: &mut Config,
+    plugin_name: &str,
+    hook_type: &str,
+    index: Option<usize>,
+    all: bool,
+    script: Option<String>,
+    config_path: Option<PathBuf>,
+) -> Result<()> {
+    let plugins = config.plugins.as_mut();
+    if plugins.is_none() {
+        info!("No {hook_type} hooks configured for {plugin_name}");
+        return Ok(());
+    }
+    let plugins = plugins.unwrap();
+
+    // Get the current plugin config or create a new one
+    let current_value = plugins.plugins.get(plugin_name).cloned();
+    let mut plugin_config = if let Some(value) = current_value {
+        value.try_into::<PluginConfig>().unwrap_or(PluginConfig {
+            target_path: None,
+            output_file: None,
+            hooks: None,
+        })
+    } else {
+        PluginConfig {
+            target_path: None,
+            output_file: None,
+            hooks: None,
+        }
     };
 
-    if plugin_config.is_none() {
-        *plugin_config = Some(PluginConfig {
-            target_path: None,
-            hooks: None,
-        });
-    }
-
-    if plugin_config.as_ref().unwrap().hooks.is_none() {
-        plugin_config.as_mut().unwrap().hooks = Some(PluginHooks {
+    // Check if hooks exist
+    if plugin_config.hooks.is_none() {
+        plugin_config.hooks = Some(PluginHooks {
             pre_plugin: Vec::new(),
             post_plugin: Vec::new(),
         });
     }
-}
 
-fn get_plugin_config_mut<'a>(
-    config: &'a mut Config,
-    plugin_name: &str,
-) -> Option<&'a mut PluginConfig> {
-    let plugins = config.plugins.as_mut()?;
-    match plugin_name {
-        "homebrew_brewfile" => plugins.homebrew_brewfile.as_mut(),
-        "vscode_settings" => plugins.vscode_settings.as_mut(),
-        "vscode_keybindings" => plugins.vscode_keybindings.as_mut(),
-        "vscode_extensions" => plugins.vscode_extensions.as_mut(),
-        "cursor_settings" => plugins.cursor_settings.as_mut(),
-        "cursor_keybindings" => plugins.cursor_keybindings.as_mut(),
-        "cursor_extensions" => plugins.cursor_extensions.as_mut(),
-        "npm_global_packages" => plugins.npm_global_packages.as_mut(),
-        "npm_config" => plugins.npm_config.as_mut(),
-        _ => None,
+    {
+        let hooks = if hook_type == "pre-plugin" {
+            if let Some(ref mut hooks) = plugin_config.hooks {
+                &mut hooks.pre_plugin
+            } else {
+                info!("No {hook_type} hooks configured for {plugin_name}");
+                return Ok(());
+            }
+        } else if let Some(ref mut hooks) = plugin_config.hooks {
+            &mut hooks.post_plugin
+        } else {
+            info!("No {hook_type} hooks configured for {plugin_name}");
+            return Ok(());
+        };
+
+        let original_count = hooks.len();
+
+        if all {
+            hooks.clear();
+            info!(
+                "{} Removed all {hook_type} hooks from {plugin_name}:",
+                INDICATOR_SUCCESS
+            );
+            info!("   {}  {} hooks removed", CONTENT_TRASH, original_count);
+        } else if let Some(idx) = index {
+            if idx < hooks.len() {
+                let removed_hook = hooks.remove(idx);
+                info!(
+                    "{} Removed {hook_type} hook from {plugin_name}:",
+                    INDICATOR_SUCCESS
+                );
+                info!("   {} {removed_hook}", DOC_NOTE);
+            } else {
+                error!(
+                    "{} Index {idx} is out of range (max: {})",
+                    INDICATOR_ERROR,
+                    hooks.len().saturating_sub(1)
+                );
+                return Ok(());
+            }
+        } else if let Some(script_name) = script {
+            let mut removed_count = 0;
+            hooks.retain(|hook| {
+                if let HookAction::Script { command, .. } = hook {
+                    if command.contains(&script_name) {
+                        removed_count += 1;
+                        false
+                    } else {
+                        true
+                    }
+                } else {
+                    true
+                }
+            });
+
+            if removed_count > 0 {
+                info!(
+                    "{} Removed {} {hook_type} hook(s) from {plugin_name} containing '{script_name}'",
+                    INDICATOR_SUCCESS,
+                    removed_count
+                );
+            } else {
+                info!("No {hook_type} hooks found for {plugin_name} containing '{script_name}'");
+            }
+        }
     }
+
+    // Save the modified config back to the HashMap
+    plugins.plugins.insert(
+        plugin_name.to_string(),
+        toml::Value::try_from(plugin_config).with_context(|| {
+            format!("Failed to serialize PluginConfig for plugin '{plugin_name}'")
+        })?,
+    );
+
+    // Save the config
+    let save_path = config_path.unwrap_or_else(|| {
+        Config::get_config_paths()
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| PathBuf::from("dotsnapshot.toml"))
+    });
+    config.save_to_file(&save_path).await?;
+
+    info!("{} Configuration updated", INDICATOR_SUCCESS);
+
+    Ok(())
 }
 
 fn show_global_hooks(
@@ -953,32 +1097,8 @@ fn get_all_plugin_names(config: &Config) -> Vec<String> {
     let mut names = Vec::new();
 
     if let Some(plugins) = &config.plugins {
-        if plugins.homebrew_brewfile.is_some() {
-            names.push("homebrew_brewfile".to_string());
-        }
-        if plugins.vscode_settings.is_some() {
-            names.push("vscode_settings".to_string());
-        }
-        if plugins.vscode_keybindings.is_some() {
-            names.push("vscode_keybindings".to_string());
-        }
-        if plugins.vscode_extensions.is_some() {
-            names.push("vscode_extensions".to_string());
-        }
-        if plugins.cursor_settings.is_some() {
-            names.push("cursor_settings".to_string());
-        }
-        if plugins.cursor_keybindings.is_some() {
-            names.push("cursor_keybindings".to_string());
-        }
-        if plugins.cursor_extensions.is_some() {
-            names.push("cursor_extensions".to_string());
-        }
-        if plugins.npm_global_packages.is_some() {
-            names.push("npm_global_packages".to_string());
-        }
-        if plugins.npm_config.is_some() {
-            names.push("npm_config".to_string());
+        for plugin_name in plugins.plugins.keys() {
+            names.push(plugin_name.clone());
         }
     }
 

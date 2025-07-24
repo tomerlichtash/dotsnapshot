@@ -17,13 +17,8 @@ mod symbols;
 use config::Config;
 use core::executor::SnapshotExecutor;
 use core::plugin::PluginRegistry;
-use plugins::{
-    cursor::{CursorExtensionsPlugin, CursorKeybindingsPlugin, CursorSettingsPlugin},
-    homebrew::HomebrewBrewfilePlugin,
-    npm::{NpmConfigPlugin, NpmGlobalPackagesPlugin},
-    static_files::StaticFilesPlugin,
-    vscode::{VSCodeExtensionsPlugin, VSCodeKeybindingsPlugin, VSCodeSettingsPlugin},
-};
+// Auto-registration system means we don't need explicit plugin imports
+// The inventory system will discover all plugins automatically
 use symbols::*;
 
 #[derive(Parser)]
@@ -313,87 +308,48 @@ fn create_subscriber(
 }
 
 async fn list_plugins() {
+    use std::collections::HashMap;
+
+    // Type alias to simplify the complex type
+    type PluginInfo = (String, String, String);
+    type PluginGroup = (String, Vec<PluginInfo>);
+
     println!("Available plugins:");
     println!();
 
-    // Create a registry and register all plugins
-    let mut registry = PluginRegistry::new();
+    // Load config for UI customization (optional)
+    let config = Config::load().await.ok();
 
-    // Register all plugins
-    registry.register(Arc::new(HomebrewBrewfilePlugin::new()));
-    registry.register(Arc::new(VSCodeSettingsPlugin::new()));
-    registry.register(Arc::new(VSCodeKeybindingsPlugin::new()));
-    registry.register(Arc::new(VSCodeExtensionsPlugin::new()));
-    registry.register(Arc::new(CursorSettingsPlugin::new()));
-    registry.register(Arc::new(CursorKeybindingsPlugin::new()));
-    registry.register(Arc::new(CursorExtensionsPlugin::new()));
-    registry.register(Arc::new(NpmGlobalPackagesPlugin::new()));
-    registry.register(Arc::new(NpmConfigPlugin::new()));
-    registry.register(Arc::new(StaticFilesPlugin::new()));
+    // Auto-discover and register all plugins
+    let registry = PluginRegistry::discover_plugins(config.as_ref());
 
-    // Get plugin information
-    let plugins = registry.list_plugins();
+    // Get detailed plugin information with category names and icons
+    let plugins_detailed = registry.list_plugins_detailed(config.as_ref());
 
-    // Group plugins by vendor
-    let mut homebrew_plugins = Vec::new();
-    let mut vscode_plugins = Vec::new();
-    let mut cursor_plugins = Vec::new();
-    let mut npm_plugins = Vec::new();
-    let mut static_plugins = Vec::new();
+    // Group plugins by category dynamically
+    let mut plugin_groups: HashMap<String, PluginGroup> = HashMap::new();
 
-    for (name, filename, description) in plugins {
-        if name.starts_with("homebrew_") {
-            homebrew_plugins.push((name, filename, description));
-        } else if name.starts_with("vscode_") {
-            vscode_plugins.push((name, filename, description));
-        } else if name.starts_with("cursor_") {
-            cursor_plugins.push((name, filename, description));
-        } else if name.starts_with("npm_") {
-            npm_plugins.push((name, filename, description));
-        } else if name == "static" {
-            static_plugins.push((name, filename, description));
-        }
+    for (name, filename, description, category, icon) in plugins_detailed {
+        plugin_groups
+            .entry(category.clone())
+            .or_insert_with(|| (icon.clone(), Vec::new()))
+            .1
+            .push((name, filename, description));
     }
 
-    // Display grouped plugins
-    if !homebrew_plugins.is_empty() {
-        println!("{TOOL_PACKAGE_MANAGER} Homebrew:");
-        for (name, filename, description) in homebrew_plugins {
-            println!("  {name:<20} -> {filename:<20} {description}");
-        }
-        println!();
-    }
+    // Sort groups by category name for consistent output
+    let mut sorted_groups: Vec<_> = plugin_groups.into_iter().collect();
+    sorted_groups.sort_by(|a, b| a.0.cmp(&b.0));
 
-    if !vscode_plugins.is_empty() {
-        println!("{TOOL_COMPUTER} VSCode:");
-        for (name, filename, description) in vscode_plugins {
-            println!("  {name:<20} -> {filename:<20} {description}");
+    // Display grouped plugins dynamically
+    for (category, (icon, plugins)) in sorted_groups {
+        if !plugins.is_empty() {
+            println!("{icon} {category}:");
+            for (name, filename, description) in plugins {
+                println!("  {name:<20} -> {filename:<20} {description}");
+            }
+            println!();
         }
-        println!();
-    }
-
-    if !cursor_plugins.is_empty() {
-        println!("{TOOL_EDITOR}  Cursor:");
-        for (name, filename, description) in cursor_plugins {
-            println!("  {name:<20} -> {filename:<20} {description}");
-        }
-        println!();
-    }
-
-    if !npm_plugins.is_empty() {
-        println!("{CONTENT_PACKAGE} NPM:");
-        for (name, filename, description) in npm_plugins {
-            println!("  {name:<20} -> {filename:<20} {description}");
-        }
-        println!();
-    }
-
-    if !static_plugins.is_empty() {
-        println!("{CONTENT_FILE} Static:");
-        for (name, filename, description) in static_plugins {
-            println!("  {name:<20} -> {filename:<20} {description}");
-        }
-        println!();
     }
 
     println!("Usage:");
@@ -507,55 +463,22 @@ async fn main() -> Result<()> {
     // Create output directory if it doesn't exist
     tokio::fs::create_dir_all(&output_dir).await?;
 
-    // Initialize plugin registry
-    let mut registry = PluginRegistry::new();
-
     // Determine which plugins to run
-    let selected_plugins = if let Some(cli_plugins) = args.plugins.as_deref() {
+    let selected_plugins: Vec<String> = if let Some(cli_plugins) = args.plugins.as_deref() {
         // CLI argument takes precedence
-        cli_plugins
+        cli_plugins.split(',').map(|s| s.to_string()).collect()
     } else if let Some(config_plugins) = config.get_include_plugins() {
-        // Use config file plugins (convert to comma-separated string)
-        let plugins_str = config_plugins.join(",");
-        // We need to store this in a variable to extend its lifetime
-        let plugins_str = Box::leak(plugins_str.into_boxed_str());
-        plugins_str
+        // Use config file plugins
+        config_plugins
     } else {
         // Default: run all plugins
-        "all"
+        vec!["all".to_string()]
     };
 
-    // Homebrew plugins
-    if selected_plugins == "all" || selected_plugins.contains("homebrew") {
-        registry.register(Arc::new(HomebrewBrewfilePlugin::new()));
-    }
-
-    // VSCode plugins
-    if selected_plugins == "all" || selected_plugins.contains("vscode") {
-        registry.register(Arc::new(VSCodeSettingsPlugin::new()));
-        registry.register(Arc::new(VSCodeKeybindingsPlugin::new()));
-        registry.register(Arc::new(VSCodeExtensionsPlugin::new()));
-    }
-
-    // Cursor plugins
-    if selected_plugins == "all" || selected_plugins.contains("cursor") {
-        registry.register(Arc::new(CursorSettingsPlugin::new()));
-        registry.register(Arc::new(CursorKeybindingsPlugin::new()));
-        registry.register(Arc::new(CursorExtensionsPlugin::new()));
-    }
-
-    // NPM plugins
-    if selected_plugins == "all" || selected_plugins.contains("npm") {
-        registry.register(Arc::new(NpmGlobalPackagesPlugin::new()));
-        registry.register(Arc::new(NpmConfigPlugin::new()));
-    }
-
-    // Static files plugin
-    if selected_plugins == "all" || selected_plugins.contains("static") {
-        registry.register(Arc::new(StaticFilesPlugin::with_config(Arc::new(
-            config.clone(),
-        ))));
-    }
+    // Auto-discover and register plugins with filtering
+    let mut registry = PluginRegistry::new();
+    let selected_plugins_refs: Vec<&str> = selected_plugins.iter().map(|s| s.as_str()).collect();
+    registry.register_from_descriptors(Some(&config), &selected_plugins_refs);
 
     // Create executor and run snapshot
     let executor = SnapshotExecutor::with_config(Arc::new(registry), output_dir, Arc::new(config));

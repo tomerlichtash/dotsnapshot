@@ -1,6 +1,6 @@
 # Test configuration for dotsnapshot
 output_dir = "~/dotfiles/snapshots"
-include_plugins = ["static"]
+include_plugins = ["static_files"]
 
 [static]
 files = [
