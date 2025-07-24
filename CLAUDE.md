@@ -51,6 +51,16 @@
 - Test commands: Check README or ask user for project-specific commands
 - Never commit if tests are failing
 
+## Code Quality Rules
+
+**CRITICAL: Always use inline format arguments in Rust**
+- Use `{variable_name}` instead of `{}` with positional arguments
+- Use `{variable_name:?}` instead of `{:?}` for debug formatting
+- Use `{variable_name}` with `.display()` calls on paths
+- This applies to ALL format macros: `println!`, `format!`, `warn!`, `info!`, `error!`, etc.
+- Pre-commit hooks WILL fail if positional arguments are used
+- See CLIPPY_NOTES.md for detailed examples
+
 ## Branch Strategy
 
 - **main:** Development and release branch

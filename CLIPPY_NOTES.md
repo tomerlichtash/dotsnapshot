@@ -20,3 +20,28 @@ Plugin structs use `new()` methods without implementing `Default` trait. This is
 3. **Explicit Intent**: Using `new()` makes plugin instantiation more explicit than relying on `Default`
 
 The warnings are suppressed with `#[allow(clippy::new_without_default)]` to maintain clean clippy output while preserving the intended design patterns.
+
+## `uninlined_format_args` Warnings
+
+Clippy requires using inline format arguments instead of positional arguments in format strings. This is enforced by our pre-commit hooks.
+
+**Always use the inline syntax:**
+```rust
+// ✅ Correct - inline format arguments
+println!("Restored paths: {restored_paths:?}");
+format!("config for {plugin_name}");
+warn!("DRY RUN: Would restore VSCode settings to {}", target_settings_file.display());
+
+// ❌ Wrong - positional arguments (will fail clippy)
+println!("Restored paths: {:?}", restored_paths);
+format!("config for {}", plugin_name);
+warn!("DRY RUN: Would restore VSCode settings to {}", target_settings_file.display());
+```
+
+**Key rules:**
+1. Use `{variable_name}` instead of `{}` when the variable is available in scope
+2. Use `{variable_name:?}` instead of `{:?}` for debug formatting
+3. Use `{variable_name:display}` when calling `.display()` on paths
+4. This applies to all format macros: `println!`, `format!`, `warn!`, `info!`, `error!`, etc.
+
+This is enforced to improve code readability and reduce the chance of mismatched arguments.
