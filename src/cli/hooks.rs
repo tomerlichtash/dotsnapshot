@@ -693,10 +693,14 @@ fn ensure_plugin_config(config: &mut Config, plugin_name: &str) {
                 post_plugin: Vec::new(),
             }),
         };
-        plugins.plugins.insert(
-            plugin_name.to_string(),
-            toml::Value::try_from(plugin_config).unwrap(),
-        );
+        if let Ok(value) = toml::Value::try_from(plugin_config) {
+            plugins.plugins.insert(plugin_name.to_string(), value);
+        } else {
+            warn!(
+                "Failed to serialize PluginConfig for plugin '{}'",
+                plugin_name
+            );
+        }
     } else {
         // Ensure hooks exist
         if let Some(plugin_value) = plugins.plugins.get_mut(plugin_name) {
@@ -706,7 +710,14 @@ fn ensure_plugin_config(config: &mut Config, plugin_name: &str) {
                         pre_plugin: Vec::new(),
                         post_plugin: Vec::new(),
                     });
-                    *plugin_value = toml::Value::try_from(plugin_config).unwrap();
+                    if let Ok(value) = toml::Value::try_from(plugin_config) {
+                        *plugin_value = value;
+                    } else {
+                        warn!(
+                            "Failed to serialize PluginConfig for plugin '{}'",
+                            plugin_name
+                        );
+                    }
                 }
             }
         }
@@ -723,8 +734,19 @@ where
 
     if let Ok(mut plugin_config) = plugin_value.clone().try_into::<PluginConfig>() {
         let result = modifier(&mut plugin_config);
-        *plugin_value = toml::Value::try_from(plugin_config).unwrap();
-        Some(result)
+        match toml::Value::try_from(plugin_config) {
+            Ok(value) => {
+                *plugin_value = value;
+                Some(result)
+            }
+            Err(e) => {
+                warn!(
+                    "Failed to serialize PluginConfig for plugin '{}': {}",
+                    plugin_name, e
+                );
+                None
+            }
+        }
     } else {
         None
     }
@@ -842,7 +864,9 @@ async fn handle_plugin_hook_removal(
     // Save the modified config back to the HashMap
     plugins.plugins.insert(
         plugin_name.to_string(),
-        toml::Value::try_from(plugin_config).unwrap(),
+        toml::Value::try_from(plugin_config).with_context(|| {
+            format!("Failed to serialize PluginConfig for plugin '{plugin_name}'")
+        })?,
     );
 
     // Save the config

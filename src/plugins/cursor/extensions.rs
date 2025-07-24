@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::process::Command;
+use tracing::warn;
 use which::which;
 
 use crate::core::config_schema::{ConfigSchema, ValidationHelpers};
@@ -54,7 +55,7 @@ impl ConfigSchema for CursorExtensionsConfig {
 
         // Validate that cursor command exists (warning only, not error)
         if ValidationHelpers::validate_command_exists("cursor").is_err() {
-            eprintln!("Warning: cursor command not found - Cursor functionality may not work");
+            warn!("cursor command not found - Cursor functionality may not work");
         }
 
         Ok(())
@@ -88,7 +89,7 @@ impl CursorExtensionsPlugin {
                     &e,
                 );
 
-                eprintln!("{error_msg}");
+                warn!("{error_msg}");
 
                 // Still create plugin to avoid breaking the application
                 Self {

@@ -293,8 +293,8 @@ impl SnapshotExecutor {
             snapshot_dir.join(&output_file)
         };
 
-        // Static files plugin handles its own file operations, don't save additional output file
-        if !matches!(plugin_name.as_str(), "static_files") {
+        // Some plugins handle their own file operations, skip output file creation for those
+        if !plugin.creates_own_output_files() {
             // Create parent directory if it doesn't exist
             if let Some(parent) = output_path.parent() {
                 async_fs::create_dir_all(parent).await.context(format!(

@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::process::Command;
+use tracing::warn;
 use which::which;
 
 use crate::core::config_schema::{ConfigSchema, ValidationHelpers};
@@ -54,7 +55,7 @@ impl ConfigSchema for NpmGlobalPackagesConfig {
 
         // Validate that npm command exists (warning only, not error)
         if ValidationHelpers::validate_command_exists("npm").is_err() {
-            eprintln!("Warning: npm command not found - NPM functionality may not work");
+            warn!("npm command not found - NPM functionality may not work");
         }
 
         Ok(())
@@ -86,7 +87,7 @@ impl NpmGlobalPackagesPlugin {
                     &e,
                 );
 
-                eprintln!("{error_msg}");
+                warn!("{error_msg}");
 
                 // Still create plugin to avoid breaking the application
                 Self {

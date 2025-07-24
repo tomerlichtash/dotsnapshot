@@ -4,6 +4,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::fs;
+use tracing::warn;
 
 use crate::core::config_schema::{ConfigSchema, ValidationHelpers};
 use crate::core::hooks::HookAction;
@@ -79,7 +80,7 @@ impl VSCodeSettingsPlugin {
                     &e,
                 );
 
-                eprintln!("{error_msg}");
+                warn!("{error_msg}");
 
                 // Still create plugin to avoid breaking the application
                 Self {

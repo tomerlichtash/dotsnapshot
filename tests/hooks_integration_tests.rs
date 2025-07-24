@@ -8,6 +8,20 @@ use std::path::PathBuf;
 use tempfile::TempDir;
 use tokio::fs;
 
+/// Helper function to insert a plugin configuration into the HashMap
+/// This reduces code duplication when constructing test configurations
+fn insert_plugin_config(
+    map: &mut HashMap<String, toml::Value>,
+    plugin_name: &str,
+    config: PluginConfig,
+) -> Result<()> {
+    let value = toml::Value::try_from(config).map_err(|e| {
+        anyhow::anyhow!("Failed to serialize plugin config '{}': {}", plugin_name, e)
+    })?;
+    map.insert(plugin_name.to_string(), value);
+    Ok(())
+}
+
 #[tokio::test]
 async fn test_config_with_hooks_serialization() -> Result<()> {
     let temp_dir = TempDir::new()?;
@@ -53,9 +67,12 @@ async fn test_config_with_hooks_serialization() -> Result<()> {
         plugins: Some(PluginsConfig {
             plugins: {
                 let mut map = std::collections::HashMap::new();
-                map.insert(
-                    "homebrew_brewfile".to_string(),
-                    toml::Value::try_from(PluginConfig {
+
+                // Add homebrew plugin configuration
+                insert_plugin_config(
+                    &mut map,
+                    "homebrew_brewfile",
+                    PluginConfig {
                         target_path: Some("homebrew".to_string()),
                         output_file: None,
                         hooks: Some(PluginHooks {
@@ -90,12 +107,14 @@ async fn test_config_with_hooks_serialization() -> Result<()> {
                                 },
                             ],
                         }),
-                    })
-                    .unwrap(),
-                );
-                map.insert(
-                    "vscode_settings".to_string(),
-                    toml::Value::try_from(PluginConfig {
+                    },
+                )?;
+
+                // Add vscode plugin configuration
+                insert_plugin_config(
+                    &mut map,
+                    "vscode_settings",
+                    PluginConfig {
                         target_path: Some("vscode".to_string()),
                         output_file: None,
                         hooks: Some(PluginHooks {
@@ -112,9 +131,9 @@ async fn test_config_with_hooks_serialization() -> Result<()> {
                                 level: "info".to_string(),
                             }],
                         }),
-                    })
-                    .unwrap(),
-                );
+                    },
+                )?;
+
                 map
             },
         }),
@@ -244,9 +263,12 @@ async fn test_config_hooks_helper_methods() -> Result<()> {
         plugins: Some(PluginsConfig {
             plugins: {
                 let mut map = std::collections::HashMap::new();
-                map.insert(
-                    "homebrew_brewfile".to_string(),
-                    toml::Value::try_from(PluginConfig {
+
+                // Add homebrew plugin configuration
+                insert_plugin_config(
+                    &mut map,
+                    "homebrew_brewfile",
+                    PluginConfig {
                         target_path: None,
                         output_file: None,
                         hooks: Some(PluginHooks {
@@ -265,12 +287,14 @@ async fn test_config_hooks_helper_methods() -> Result<()> {
                                 env_vars: HashMap::new(),
                             }],
                         }),
-                    })
-                    .unwrap(),
-                );
-                map.insert(
-                    "vscode_settings".to_string(),
-                    toml::Value::try_from(PluginConfig {
+                    },
+                )?;
+
+                // Add vscode plugin configuration
+                insert_plugin_config(
+                    &mut map,
+                    "vscode_settings",
+                    PluginConfig {
                         target_path: None,
                         output_file: None,
                         hooks: Some(PluginHooks {
@@ -280,9 +304,9 @@ async fn test_config_hooks_helper_methods() -> Result<()> {
                             }],
                             post_plugin: vec![],
                         }),
-                    })
-                    .unwrap(),
-                );
+                    },
+                )?;
+
                 map
             },
         }),

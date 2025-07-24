@@ -443,6 +443,10 @@ impl Plugin for StaticFilesPlugin {
     fn get_output_file(&self) -> Option<String> {
         None
     }
+
+    fn creates_own_output_files(&self) -> bool {
+        true // Static files plugin handles its own file operations
+    }
 }
 
 #[cfg(test)]
@@ -562,19 +566,33 @@ mod tests {
     }
 }
 
-// Auto-register this plugin - uses different constructor pattern
-// Note: This plugin intentionally does NOT use the schema validation system
-// because it has a fundamentally different architecture:
-// - Uses Arc<Config> instead of toml::Value for configuration
-// - Reads from main config [plugins.static] instead of per-plugin TOML
-// - Has complex configuration (files arrays, ignore patterns) that doesn't fit the standard schema
+// Auto-register this plugin using manual inventory submission
+//
+// IMPORTANT: This plugin intentionally does NOT use the standard register_plugin! macro
+// because it has a fundamentally different architecture than other plugins:
+//
+// Key differences from standard plugins:
+// 1. **Configuration Source**: Reads from main config [plugins.static_files] section,
+//    not from individual plugin TOML values like other plugins
+// 2. **Configuration Type**: Uses Arc<Config> instead of toml::Value for configuration
+// 3. **Schema Validation**: Does NOT use the ConfigSchema trait because its configuration
+//    is complex (file arrays, ignore patterns, recursive structures) that doesn't fit
+//    the standard field-based validation model
+// 4. **Lifecycle**: Accesses full application config during snapshot execution,
+//    not just plugin-specific config during initialization
+//
+// Standard plugin pattern:   Plugin::with_config(toml::Value) -> validates with ConfigSchema
+// Static files pattern:      Plugin::new() -> later accesses Arc<Config> during execution
+//
+// This design is intentional and should not be changed to match other plugins without
+// careful consideration of the architectural implications.
 inventory::submit! {
     crate::core::plugin::PluginDescriptor {
         name: "static_files",
         category: "static",
         factory: |_config| {
-            // Static files plugin doesn't use toml::Value config, it uses Arc<Config>
-            // This is intentional and by design - see comments above
+            // NOTE: _config parameter is ignored because static files plugin
+            // gets its configuration differently (see architecture notes above)
             std::sync::Arc::new(StaticFilesPlugin::new())
         },
     }

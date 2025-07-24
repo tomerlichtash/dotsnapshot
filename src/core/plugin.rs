@@ -50,6 +50,15 @@ pub trait Plugin: Send + Sync {
     fn get_hooks(&self) -> Vec<crate::core::hooks::HookAction> {
         Vec::new() // Default: no hooks
     }
+
+    /// Indicates whether this plugin creates its own output files and should skip
+    /// the standard executor output file creation
+    ///
+    /// Returns true for plugins like static_files that handle their own file operations
+    /// Returns false (default) for standard plugins that return content to be saved
+    fn creates_own_output_files(&self) -> bool {
+        false // Default: executor should save the plugin's output
+    }
 }
 
 /// Plugin registry for managing available plugins
@@ -68,8 +77,12 @@ impl PluginRegistry {
     /// Registers a new plugin with auto-derived name from type
     ///
     /// **Deprecated**: Use auto-registration system instead
-    #[deprecated(note = "Use auto-registration system with register_plugin! macro instead")]
+    #[deprecated(
+        since = "1.2.0",
+        note = "Use auto-registration system with register_plugin! macro instead. This method will be removed in version 2.0.0."
+    )]
     #[allow(dead_code)]
+    #[allow(deprecated)]
     pub fn register<T: Plugin + 'static>(&mut self, plugin: Arc<T>) {
         let name = Self::derive_plugin_name_from_type::<T>();
         let plugin_dyn: Arc<dyn Plugin> = plugin;
@@ -79,7 +92,12 @@ impl PluginRegistry {
     /// Derives plugin name from type name based on folder structure
     ///
     /// **Deprecated**: Use auto-registration system instead
+    #[deprecated(
+        since = "1.2.0",
+        note = "Use auto-registration system with register_plugin! macro instead. This method will be removed in version 2.0.0."
+    )]
     #[allow(dead_code)]
+    #[allow(deprecated)]
     fn derive_plugin_name_from_type<T: 'static>() -> String {
         let type_name = std::any::type_name::<T>();
         Self::convert_type_name_to_plugin_name(type_name)
@@ -88,7 +106,12 @@ impl PluginRegistry {
     /// Converts type name to plugin name format using folder structure
     ///
     /// **Deprecated**: Use auto-registration system instead
+    #[deprecated(
+        since = "1.2.0",
+        note = "Use auto-registration system with register_plugin! macro instead. This method will be removed in version 2.0.0."
+    )]
     #[allow(dead_code)]
+    #[allow(deprecated)]
     fn convert_type_name_to_plugin_name(type_name: &str) -> String {
         // Extract the module path: dotsnapshot::plugins::vscode::settings::VSCodeSettingsPlugin
         // We want: vscode_settings
@@ -115,7 +138,12 @@ impl PluginRegistry {
     /// Simple CamelCase to snake_case conversion for fallback cases
     ///
     /// **Deprecated**: Use auto-registration system instead
+    #[deprecated(
+        since = "1.2.0",
+        note = "Use auto-registration system with register_plugin! macro instead. This method will be removed in version 2.0.0."
+    )]
     #[allow(dead_code)]
+    #[allow(deprecated)]
     fn simple_camel_to_snake(s: &str) -> String {
         let mut result = String::new();
         let chars: Vec<char> = s.chars().collect();
@@ -275,6 +303,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(deprecated)]
     fn test_simple_camel_to_snake() {
         // Basic CamelCase conversion for fallback cases
         assert_eq!(
@@ -293,6 +322,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_convert_type_name_to_plugin_name() {
         // Full type paths with folder structure (primary approach)
         assert_eq!(
@@ -344,6 +374,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_derive_plugin_name_from_type() {
         // This would test the actual type derivation, but we can't easily test std::any::type_name
         // in unit tests since it requires actual types. The integration test in --list covers this.
