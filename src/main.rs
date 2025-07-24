@@ -464,22 +464,21 @@ async fn main() -> Result<()> {
     tokio::fs::create_dir_all(&output_dir).await?;
 
     // Determine which plugins to run
-    let selected_plugins_string;
-    let selected_plugins: Vec<&str> = if let Some(cli_plugins) = args.plugins.as_deref() {
+    let selected_plugins: Vec<String> = if let Some(cli_plugins) = args.plugins.as_deref() {
         // CLI argument takes precedence
-        cli_plugins.split(',').collect()
+        cli_plugins.split(',').map(|s| s.to_string()).collect()
     } else if let Some(config_plugins) = config.get_include_plugins() {
-        // Use config file plugins - store in variable to extend lifetime
-        selected_plugins_string = config_plugins.join(",");
-        selected_plugins_string.split(',').collect()
+        // Use config file plugins
+        config_plugins
     } else {
         // Default: run all plugins
-        vec!["all"]
+        vec!["all".to_string()]
     };
 
     // Auto-discover and register plugins with filtering
     let mut registry = PluginRegistry::new();
-    registry.register_from_descriptors(Some(&config), &selected_plugins);
+    let selected_plugins_refs: Vec<&str> = selected_plugins.iter().map(|s| s.as_str()).collect();
+    registry.register_from_descriptors(Some(&config), &selected_plugins_refs);
 
     // Create executor and run snapshot
     let executor = SnapshotExecutor::with_config(Arc::new(registry), output_dir, Arc::new(config));
