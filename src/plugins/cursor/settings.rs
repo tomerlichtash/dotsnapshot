@@ -290,6 +290,98 @@ mod tests {
         );
         assert!(plugin_with_config.get_hooks().is_empty());
     }
+
+    #[tokio::test]
+    async fn test_cursor_settings_restore_functionality() {
+        use tempfile::TempDir;
+        use tokio::fs;
+
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        let target_dir = temp_dir.path().join("target");
+
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+        fs::create_dir_all(&target_dir).await.unwrap();
+
+        // Create test settings.json
+        let test_settings_content = r#"{
+    "editor.fontSize": 14,
+    "editor.theme": "dark",
+    "workbench.colorTheme": "Default Dark+"
+}"#;
+        let settings_path = snapshot_dir.join("settings.json");
+        fs::write(&settings_path, test_settings_content)
+            .await
+            .unwrap();
+
+        let plugin = CursorSettingsPlugin::new();
+
+        // Test dry run
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, true)
+            .await
+            .unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0], target_dir.join("settings.json"));
+        assert!(!target_dir.join("settings.json").exists());
+
+        // Test actual restore
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, false)
+            .await
+            .unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(target_dir.join("settings.json").exists());
+
+        let restored_content = fs::read_to_string(target_dir.join("settings.json"))
+            .await
+            .unwrap();
+        assert_eq!(restored_content, test_settings_content);
+    }
+
+    #[tokio::test]
+    async fn test_cursor_settings_restore_no_file() {
+        use tempfile::TempDir;
+        use tokio::fs;
+
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        let target_dir = temp_dir.path().join("target");
+
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+        fs::create_dir_all(&target_dir).await.unwrap();
+
+        let plugin = CursorSettingsPlugin::new();
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, false)
+            .await
+            .unwrap();
+
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_cursor_settings_restore_target_dir_methods() {
+        let plugin = CursorSettingsPlugin::new();
+
+        let default_dir = plugin.get_default_restore_target_dir().unwrap();
+        assert!(default_dir.is_absolute());
+
+        assert_eq!(plugin.get_restore_target_dir(), None);
+
+        let config_toml = r#"
+            target_path = "cursor"
+            output_file = "settings.json"
+            restore_target_dir = "/custom/cursor/path"
+        "#;
+        let config: toml::Value = toml::from_str(config_toml).unwrap();
+        let plugin_with_config = CursorSettingsPlugin::with_config(config);
+
+        assert_eq!(
+            plugin_with_config.get_restore_target_dir(),
+            Some("/custom/cursor/path".to_string())
+        );
+    }
 }
 
 // Auto-register this plugin

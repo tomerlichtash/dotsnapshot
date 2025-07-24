@@ -317,6 +317,101 @@ mod tests {
         );
         assert!(plugin_with_config.get_hooks().is_empty());
     }
+
+    #[tokio::test]
+    async fn test_npm_config_restore_functionality() {
+        use tempfile::TempDir;
+        use tokio::fs;
+
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        let target_dir = temp_dir.path().join("target");
+
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+        fs::create_dir_all(&target_dir).await.unwrap();
+
+        // Create test npmrc file
+        let test_npmrc_content = r#"registry=https://registry.npmjs.org/
+save-exact=true
+engine-strict=true
+"#;
+        let npmrc_path = snapshot_dir.join("npmrc.txt");
+        fs::write(&npmrc_path, test_npmrc_content).await.unwrap();
+
+        let plugin = NpmConfigPlugin::new();
+
+        // Test dry run
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, true)
+            .await
+            .unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0], target_dir.join(".npmrc"));
+        assert!(!target_dir.join(".npmrc").exists());
+
+        // Test actual restore
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, false)
+            .await
+            .unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(target_dir.join(".npmrc").exists());
+
+        let restored_content = fs::read_to_string(target_dir.join(".npmrc")).await.unwrap();
+        assert_eq!(restored_content, test_npmrc_content);
+    }
+
+    #[tokio::test]
+    async fn test_npm_config_restore_alternative_names() {
+        use tempfile::TempDir;
+        use tokio::fs;
+
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        let target_dir = temp_dir.path().join("target");
+
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+        fs::create_dir_all(&target_dir).await.unwrap();
+
+        let test_content = "registry=https://registry.npmjs.org/";
+        let alt_path = snapshot_dir.join(".npmrc");
+        fs::write(&alt_path, test_content).await.unwrap();
+
+        let plugin = NpmConfigPlugin::new();
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, false)
+            .await
+            .unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert!(target_dir.join(".npmrc").exists());
+
+        let restored_content = fs::read_to_string(target_dir.join(".npmrc")).await.unwrap();
+        assert_eq!(restored_content, test_content);
+    }
+
+    #[test]
+    fn test_npm_config_restore_target_dir_methods() {
+        let plugin = NpmConfigPlugin::new();
+
+        let default_dir = plugin.get_default_restore_target_dir().unwrap();
+        assert!(default_dir.is_absolute() || default_dir == std::path::PathBuf::from("."));
+
+        assert_eq!(plugin.get_restore_target_dir(), None);
+
+        let config_toml = r#"
+            target_path = "npm"
+            output_file = ".npmrc"
+            restore_target_dir = "/home/user"
+        "#;
+        let config: toml::Value = toml::from_str(config_toml).unwrap();
+        let plugin_with_config = NpmConfigPlugin::with_config(config);
+
+        assert_eq!(
+            plugin_with_config.get_restore_target_dir(),
+            Some("/home/user".to_string())
+        );
+    }
 }
 
 // Auto-register this plugin

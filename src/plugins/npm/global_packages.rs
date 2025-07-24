@@ -316,6 +316,108 @@ mod tests {
         );
         assert!(plugin_with_config.get_hooks().is_empty());
     }
+
+    #[tokio::test]
+    async fn test_npm_global_packages_restore_functionality() {
+        use tempfile::TempDir;
+        use tokio::fs;
+
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        let target_dir = temp_dir.path().join("target");
+
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+        fs::create_dir_all(&target_dir).await.unwrap();
+
+        // Create test global packages file
+        let test_packages_content = r#"npm@8.19.2
+typescript@4.8.4
+@angular/cli@14.2.6
+nodemon@2.0.20
+"#;
+        let packages_path = snapshot_dir.join("global_packages.txt");
+        fs::write(&packages_path, test_packages_content)
+            .await
+            .unwrap();
+
+        let plugin = NpmGlobalPackagesPlugin::new();
+
+        // Test dry run
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, true)
+            .await
+            .unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0], target_dir.join("npm_global_packages.txt"));
+        assert!(!target_dir.join("npm_global_packages.txt").exists());
+
+        // Test actual restore
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, false)
+            .await
+            .unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(target_dir.join("npm_global_packages.txt").exists());
+
+        let restored_content = fs::read_to_string(target_dir.join("npm_global_packages.txt"))
+            .await
+            .unwrap();
+        assert_eq!(restored_content, test_packages_content);
+    }
+
+    #[tokio::test]
+    async fn test_npm_global_packages_restore_alternative_names() {
+        use tempfile::TempDir;
+        use tokio::fs;
+
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        let target_dir = temp_dir.path().join("target");
+
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+        fs::create_dir_all(&target_dir).await.unwrap();
+
+        let test_content = "npm@8.19.2\ntypescript@4.8.4";
+        let alt_path = snapshot_dir.join("npm_global_packages.txt");
+        fs::write(&alt_path, test_content).await.unwrap();
+
+        let plugin = NpmGlobalPackagesPlugin::new();
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, false)
+            .await
+            .unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert!(target_dir.join("npm_global_packages.txt").exists());
+
+        let restored_content = fs::read_to_string(target_dir.join("npm_global_packages.txt"))
+            .await
+            .unwrap();
+        assert_eq!(restored_content, test_content);
+    }
+
+    #[test]
+    fn test_npm_global_packages_restore_target_dir_methods() {
+        let plugin = NpmGlobalPackagesPlugin::new();
+
+        let default_dir = plugin.get_default_restore_target_dir().unwrap();
+        assert!(default_dir.is_absolute() || default_dir == std::path::PathBuf::from("."));
+
+        assert_eq!(plugin.get_restore_target_dir(), None);
+
+        let config_toml = r#"
+            target_path = "npm"
+            output_file = "global-packages.txt"
+            restore_target_dir = "/custom/npm/path"
+        "#;
+        let config: toml::Value = toml::from_str(config_toml).unwrap();
+        let plugin_with_config = NpmGlobalPackagesPlugin::with_config(config);
+
+        assert_eq!(
+            plugin_with_config.get_restore_target_dir(),
+            Some("/custom/npm/path".to_string())
+        );
+    }
 }
 
 // Auto-register this plugin

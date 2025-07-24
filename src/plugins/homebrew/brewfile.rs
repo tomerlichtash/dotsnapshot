@@ -462,6 +462,142 @@ mod tests {
 
         assert!(valid_config.validate().is_ok());
     }
+
+    #[tokio::test]
+    async fn test_homebrew_brewfile_restore_functionality() {
+        use tempfile::TempDir;
+        use tokio::fs;
+
+        // Create temporary directories for testing
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        let target_dir = temp_dir.path().join("target");
+
+        // Create snapshot directory structure
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+        fs::create_dir_all(&target_dir).await.unwrap();
+
+        // Create a test Brewfile in the snapshot
+        let test_brewfile_content = r#"tap "homebrew/core"
+brew "git"
+brew "node"
+cask "visual-studio-code"
+"#;
+        let brewfile_path = snapshot_dir.join("Brewfile");
+        fs::write(&brewfile_path, test_brewfile_content)
+            .await
+            .unwrap();
+
+        let plugin = HomebrewBrewfilePlugin::new();
+
+        // Test dry run
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, true)
+            .await
+            .unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0], target_dir.join("Brewfile"));
+
+        // Brewfile should not exist in target dir after dry run
+        assert!(!target_dir.join("Brewfile").exists());
+
+        // Test actual restore
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, false)
+            .await
+            .unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0], target_dir.join("Brewfile"));
+
+        // Brewfile should exist in target dir after restore
+        assert!(target_dir.join("Brewfile").exists());
+
+        // Content should match
+        let restored_content = fs::read_to_string(target_dir.join("Brewfile"))
+            .await
+            .unwrap();
+        assert_eq!(restored_content, test_brewfile_content);
+    }
+
+    #[tokio::test]
+    async fn test_homebrew_brewfile_restore_alternative_names() {
+        use tempfile::TempDir;
+        use tokio::fs;
+
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        let target_dir = temp_dir.path().join("target");
+
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+        fs::create_dir_all(&target_dir).await.unwrap();
+
+        // Create a Brewfile with alternative name
+        let test_content = "brew \"git\"";
+        let alt_brewfile_path = snapshot_dir.join("brewfile.txt");
+        fs::write(&alt_brewfile_path, test_content).await.unwrap();
+
+        let plugin = HomebrewBrewfilePlugin::new();
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, false)
+            .await
+            .unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert!(target_dir.join("Brewfile").exists());
+
+        let restored_content = fs::read_to_string(target_dir.join("Brewfile"))
+            .await
+            .unwrap();
+        assert_eq!(restored_content, test_content);
+    }
+
+    #[tokio::test]
+    async fn test_homebrew_brewfile_restore_no_file() {
+        use tempfile::TempDir;
+        use tokio::fs;
+
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        let target_dir = temp_dir.path().join("target");
+
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+        fs::create_dir_all(&target_dir).await.unwrap();
+
+        let plugin = HomebrewBrewfilePlugin::new();
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, false)
+            .await
+            .unwrap();
+
+        // Should return empty result when no Brewfile exists
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_homebrew_brewfile_restore_target_dir_methods() {
+        let plugin = HomebrewBrewfilePlugin::new();
+
+        // Test default restore target dir
+        let default_dir = plugin.get_default_restore_target_dir().unwrap();
+        assert!(default_dir.is_absolute() || default_dir == std::path::PathBuf::from("."));
+
+        // Test get_restore_target_dir returns None for plugin without config
+        assert_eq!(plugin.get_restore_target_dir(), None);
+
+        // Test with config that has restore_target_dir
+        let config_toml = r#"
+            target_path = "homebrew"
+            output_file = "Brewfile"
+            restore_target_dir = "/custom/path"
+        "#;
+        let config: toml::Value = toml::from_str(config_toml).unwrap();
+        let plugin_with_config = HomebrewBrewfilePlugin::with_config(config);
+
+        assert_eq!(
+            plugin_with_config.get_restore_target_dir(),
+            Some("/custom/path".to_string())
+        );
+    }
 }
 
 // Auto-register this plugin

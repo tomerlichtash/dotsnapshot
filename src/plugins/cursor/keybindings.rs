@@ -26,6 +26,11 @@ struct CursorKeybindingsConfig {
     )]
     output_file: Option<String>,
 
+    #[schemars(
+        description = "Custom target directory for restoration (default: Cursor settings directory)"
+    )]
+    restore_target_dir: Option<String>,
+
     #[schemars(description = "Plugin-specific hooks configuration")]
     hooks: Option<PluginHooks>,
 }
@@ -165,6 +170,14 @@ impl Plugin for CursorKeybindingsPlugin {
         self.get_config()?.output_file
     }
 
+    fn get_restore_target_dir(&self) -> Option<String> {
+        self.get_config()?.restore_target_dir
+    }
+
+    fn get_default_restore_target_dir(&self) -> Result<std::path::PathBuf> {
+        self.get_cursor_settings_dir()
+    }
+
     fn get_hooks(&self) -> Vec<HookAction> {
         self.get_config()
             .and_then(|c| c.hooks)
@@ -174,6 +187,59 @@ impl Plugin for CursorKeybindingsPlugin {
                 hooks
             })
             .unwrap_or_default()
+    }
+
+    async fn restore(
+        &self,
+        snapshot_path: &std::path::Path,
+        target_path: &std::path::Path,
+        dry_run: bool,
+    ) -> Result<Vec<std::path::PathBuf>> {
+        use tracing::{info, warn};
+
+        let mut restored_files = Vec::new();
+
+        // Find keybindings.json in the snapshot
+        let keybindings_file = snapshot_path.join("keybindings.json");
+        if !keybindings_file.exists() {
+            return Ok(restored_files);
+        }
+
+        // Use the target directory provided by RestoreManager
+        let target_keybindings_file = target_path.join("keybindings.json");
+
+        if dry_run {
+            warn!(
+                "DRY RUN: Would restore Cursor keybindings to {}",
+                target_keybindings_file.display()
+            );
+            restored_files.push(target_keybindings_file);
+        } else {
+            // Create Cursor settings directory if it doesn't exist
+            if let Some(parent) = target_keybindings_file.parent() {
+                fs::create_dir_all(parent)
+                    .await
+                    .context("Failed to create Cursor settings directory")?;
+            }
+
+            // Copy keybindings file
+            fs::copy(&keybindings_file, &target_keybindings_file)
+                .await
+                .with_context(|| {
+                    format!(
+                        "Failed to restore Cursor keybindings from {}",
+                        keybindings_file.display()
+                    )
+                })?;
+
+            info!(
+                "Restored Cursor keybindings to {}",
+                target_keybindings_file.display()
+            );
+            restored_files.push(target_keybindings_file);
+        }
+
+        Ok(restored_files)
     }
 }
 
@@ -224,6 +290,48 @@ mod tests {
             Some("keybindings.json".to_string())
         );
         assert!(plugin_with_config.get_hooks().is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_cursor_keybindings_restore_functionality() {
+        use tempfile::TempDir;
+        use tokio::fs;
+
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        let target_dir = temp_dir.path().join("target");
+
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+        fs::create_dir_all(&target_dir).await.unwrap();
+
+        let test_content =
+            r#"[{"key": "ctrl+shift+p", "command": "workbench.action.showCommands"}]"#;
+        let keybindings_path = snapshot_dir.join("keybindings.json");
+        fs::write(&keybindings_path, test_content).await.unwrap();
+
+        let plugin = CursorKeybindingsPlugin::new();
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, false)
+            .await
+            .unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert!(target_dir.join("keybindings.json").exists());
+
+        let restored_content = fs::read_to_string(target_dir.join("keybindings.json"))
+            .await
+            .unwrap();
+        assert_eq!(restored_content, test_content);
+    }
+
+    #[test]
+    fn test_cursor_keybindings_restore_target_dir_methods() {
+        let plugin = CursorKeybindingsPlugin::new();
+
+        let default_dir = plugin.get_default_restore_target_dir().unwrap();
+        assert!(default_dir.is_absolute());
+
+        assert_eq!(plugin.get_restore_target_dir(), None);
     }
 }
 
