@@ -24,6 +24,11 @@ struct NpmConfigConfig {
     #[schemars(description = "Custom filename for the NPM config output (default: npmrc.txt)")]
     output_file: Option<String>,
 
+    #[schemars(
+        description = "Custom target directory for restoration (default: home directory for .npmrc)"
+    )]
+    restore_target_dir: Option<String>,
+
     #[schemars(description = "Plugin-specific hooks configuration")]
     hooks: Option<PluginHooks>,
 }
@@ -168,6 +173,15 @@ impl Plugin for NpmConfigPlugin {
         self.get_config()?.output_file
     }
 
+    fn get_restore_target_dir(&self) -> Option<String> {
+        self.get_config()?.restore_target_dir
+    }
+
+    fn get_default_restore_target_dir(&self) -> Result<std::path::PathBuf> {
+        // NPM config is typically restored to the home directory as .npmrc
+        Ok(dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from(".")))
+    }
+
     fn get_hooks(&self) -> Vec<HookAction> {
         self.get_config()
             .and_then(|c| c.hooks)
@@ -177,6 +191,83 @@ impl Plugin for NpmConfigPlugin {
                 hooks
             })
             .unwrap_or_default()
+    }
+
+    async fn restore(
+        &self,
+        snapshot_path: &std::path::Path,
+        target_path: &std::path::Path,
+        dry_run: bool,
+    ) -> Result<Vec<std::path::PathBuf>> {
+        use tokio::fs;
+        use tracing::{info, warn};
+
+        let mut restored_files = Vec::new();
+
+        // Find NPM config file in the snapshot
+        let config_filename = self
+            .get_output_file()
+            .unwrap_or_else(|| "npmrc.txt".to_string());
+        let mut source_config = snapshot_path.join(&config_filename);
+
+        if !source_config.exists() {
+            // Try alternative common names
+            let alternative_names = ["npmrc.txt", "npm_config.txt", ".npmrc", "config.txt"];
+            let mut found = false;
+
+            for name in &alternative_names {
+                let alt_path = snapshot_path.join(name);
+                if alt_path.exists() {
+                    source_config = alt_path;
+                    info!(
+                        "Found NPM config file at alternative path: {}",
+                        source_config.display()
+                    );
+                    found = true;
+                    break;
+                }
+            }
+
+            if !found {
+                return Ok(restored_files); // No config file found
+            }
+        }
+
+        let target_npmrc = target_path.join(".npmrc");
+
+        if dry_run {
+            warn!(
+                "DRY RUN: Would restore NPM config to {}",
+                target_npmrc.display()
+            );
+            warn!("DRY RUN: This is a reference config. Review and apply settings manually.");
+            restored_files.push(target_npmrc);
+        } else {
+            // Create target directory if it doesn't exist
+            if let Some(parent) = target_npmrc.parent() {
+                fs::create_dir_all(parent)
+                    .await
+                    .context("Failed to create target directory for NPM config")?;
+            }
+
+            // Copy config file to target location as .npmrc
+            fs::copy(&source_config, &target_npmrc)
+                .await
+                .with_context(|| {
+                    format!(
+                        "Failed to restore NPM config from {}",
+                        source_config.display()
+                    )
+                })?;
+
+            info!("Restored NPM config to {}", target_npmrc.display());
+            info!("Note: This is a reference config from the snapshot.");
+            info!("Review the settings and manually apply any sensitive configurations that were filtered out.");
+
+            restored_files.push(target_npmrc);
+        }
+
+        Ok(restored_files)
     }
 }
 

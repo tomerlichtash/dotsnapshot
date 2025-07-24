@@ -24,6 +24,11 @@ struct HomebrewBrewfileConfig {
     #[schemars(description = "Custom filename for the Brewfile output (default: Brewfile)")]
     output_file: Option<String>,
 
+    #[schemars(
+        description = "Custom target directory for restoration (default: current directory)"
+    )]
+    restore_target_dir: Option<String>,
+
     #[schemars(description = "Plugin-specific hooks configuration")]
     hooks: Option<PluginHooks>,
 }
@@ -192,6 +197,15 @@ impl Plugin for HomebrewBrewfilePlugin {
         self.get_config()?.output_file
     }
 
+    fn get_restore_target_dir(&self) -> Option<String> {
+        self.get_config()?.restore_target_dir
+    }
+
+    fn get_default_restore_target_dir(&self) -> Result<std::path::PathBuf> {
+        // Homebrew Brewfiles are typically restored to the current directory
+        Ok(std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")))
+    }
+
     fn get_hooks(&self) -> Vec<HookAction> {
         self.get_config()
             .and_then(|c| c.hooks)
@@ -201,6 +215,85 @@ impl Plugin for HomebrewBrewfilePlugin {
                 hooks
             })
             .unwrap_or_default()
+    }
+
+    async fn restore(
+        &self,
+        snapshot_path: &std::path::Path,
+        target_path: &std::path::Path,
+        dry_run: bool,
+    ) -> Result<Vec<std::path::PathBuf>> {
+        use tokio::fs;
+        use tracing::{info, warn};
+
+        let mut restored_files = Vec::new();
+
+        // Find Brewfile in the snapshot (could be "Brewfile" or custom name)
+        let brewfile_name = self
+            .get_output_file()
+            .unwrap_or_else(|| "Brewfile".to_string());
+        let mut source_brewfile = snapshot_path.join(&brewfile_name);
+
+        if !source_brewfile.exists() {
+            // Try alternative common names
+            let alternative_names = ["Brewfile", "brewfile.txt", "Brewfile.txt"];
+            let mut found = false;
+
+            for name in &alternative_names {
+                let alt_path = snapshot_path.join(name);
+                if alt_path.exists() {
+                    source_brewfile = alt_path;
+                    info!(
+                        "Found Brewfile at alternative path: {}",
+                        source_brewfile.display()
+                    );
+                    found = true;
+                    break;
+                }
+            }
+
+            if !found {
+                return Ok(restored_files); // No Brewfile found
+            }
+        }
+
+        let target_brewfile = target_path.join("Brewfile");
+
+        if dry_run {
+            warn!(
+                "DRY RUN: Would restore Homebrew Brewfile to {}",
+                target_brewfile.display()
+            );
+            warn!("DRY RUN: After restoration, you could run 'brew bundle install' to install packages");
+            restored_files.push(target_brewfile);
+        } else {
+            // Create target directory if it doesn't exist
+            if let Some(parent) = target_brewfile.parent() {
+                fs::create_dir_all(parent)
+                    .await
+                    .context("Failed to create target directory for Brewfile")?;
+            }
+
+            // Copy Brewfile to target location
+            fs::copy(&source_brewfile, &target_brewfile)
+                .await
+                .with_context(|| {
+                    format!(
+                        "Failed to restore Brewfile from {}",
+                        source_brewfile.display()
+                    )
+                })?;
+
+            info!(
+                "Restored Homebrew Brewfile to {}",
+                target_brewfile.display()
+            );
+            info!("To install packages from the Brewfile, run: brew bundle install");
+
+            restored_files.push(target_brewfile);
+        }
+
+        Ok(restored_files)
     }
 }
 
@@ -352,6 +445,7 @@ mod tests {
         let config = HomebrewBrewfileConfig {
             target_path: Some("homebrew".to_string()),
             output_file: Some("Brewfile.invalid".to_string()),
+            restore_target_dir: None,
             hooks: None,
         };
 
@@ -362,6 +456,7 @@ mod tests {
         let valid_config = HomebrewBrewfileConfig {
             target_path: Some("homebrew".to_string()),
             output_file: Some("Brewfile.txt".to_string()),
+            restore_target_dir: None,
             hooks: None,
         };
 

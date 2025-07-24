@@ -24,6 +24,11 @@ struct CursorSettingsConfig {
     #[schemars(description = "Custom filename for the settings output (default: settings.json)")]
     output_file: Option<String>,
 
+    #[schemars(
+        description = "Custom target directory for restoration (default: Cursor settings directory)"
+    )]
+    restore_target_dir: Option<String>,
+
     #[schemars(description = "Plugin-specific hooks configuration")]
     hooks: Option<PluginHooks>,
 }
@@ -163,6 +168,14 @@ impl Plugin for CursorSettingsPlugin {
         self.get_config()?.output_file
     }
 
+    fn get_restore_target_dir(&self) -> Option<String> {
+        self.get_config()?.restore_target_dir
+    }
+
+    fn get_default_restore_target_dir(&self) -> Result<std::path::PathBuf> {
+        self.get_cursor_settings_dir()
+    }
+
     fn get_hooks(&self) -> Vec<HookAction> {
         self.get_config()
             .and_then(|c| c.hooks)
@@ -172,6 +185,60 @@ impl Plugin for CursorSettingsPlugin {
                 hooks
             })
             .unwrap_or_default()
+    }
+
+    async fn restore(
+        &self,
+        snapshot_path: &std::path::Path,
+        target_path: &std::path::Path,
+        dry_run: bool,
+    ) -> Result<Vec<std::path::PathBuf>> {
+        use tracing::{info, warn};
+
+        let mut restored_files = Vec::new();
+
+        // Find settings.json in the snapshot
+        let settings_file = snapshot_path.join("settings.json");
+        if !settings_file.exists() {
+            return Ok(restored_files);
+        }
+
+        // Use the target directory provided by RestoreManager
+        // (RestoreManager handles CLI override > plugin config > default precedence)
+        let target_settings_file = target_path.join("settings.json");
+
+        if dry_run {
+            warn!(
+                "DRY RUN: Would restore Cursor settings to {}",
+                target_settings_file.display()
+            );
+            restored_files.push(target_settings_file);
+        } else {
+            // Create Cursor settings directory if it doesn't exist
+            if let Some(parent) = target_settings_file.parent() {
+                fs::create_dir_all(parent)
+                    .await
+                    .context("Failed to create Cursor settings directory")?;
+            }
+
+            // Copy settings file
+            fs::copy(&settings_file, &target_settings_file)
+                .await
+                .with_context(|| {
+                    format!(
+                        "Failed to restore Cursor settings from {}",
+                        settings_file.display()
+                    )
+                })?;
+
+            info!(
+                "Restored Cursor settings to {}",
+                target_settings_file.display()
+            );
+            restored_files.push(target_settings_file);
+        }
+
+        Ok(restored_files)
     }
 }
 

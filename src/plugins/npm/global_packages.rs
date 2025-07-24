@@ -26,6 +26,11 @@ struct NpmGlobalPackagesConfig {
     )]
     output_file: Option<String>,
 
+    #[schemars(
+        description = "Custom target directory for restoration (default: current directory for package list)"
+    )]
+    restore_target_dir: Option<String>,
+
     #[schemars(description = "Plugin-specific hooks configuration")]
     hooks: Option<PluginHooks>,
 }
@@ -153,6 +158,15 @@ impl Plugin for NpmGlobalPackagesPlugin {
         self.get_config()?.output_file
     }
 
+    fn get_restore_target_dir(&self) -> Option<String> {
+        self.get_config()?.restore_target_dir
+    }
+
+    fn get_default_restore_target_dir(&self) -> Result<std::path::PathBuf> {
+        // NPM global packages list is typically saved to the current directory
+        Ok(std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")))
+    }
+
     fn get_hooks(&self) -> Vec<HookAction> {
         self.get_config()
             .and_then(|c| c.hooks)
@@ -162,6 +176,94 @@ impl Plugin for NpmGlobalPackagesPlugin {
                 hooks
             })
             .unwrap_or_default()
+    }
+
+    async fn restore(
+        &self,
+        snapshot_path: &std::path::Path,
+        target_path: &std::path::Path,
+        dry_run: bool,
+    ) -> Result<Vec<std::path::PathBuf>> {
+        use tokio::fs;
+        use tracing::{info, warn};
+
+        let mut restored_files = Vec::new();
+
+        // Find global packages file in the snapshot
+        let packages_filename = self
+            .get_output_file()
+            .unwrap_or_else(|| "global_packages.txt".to_string());
+        let mut source_packages = snapshot_path.join(&packages_filename);
+
+        if !source_packages.exists() {
+            // Try alternative common names
+            let alternative_names = [
+                "global_packages.txt",
+                "npm_global_packages.txt",
+                "packages.txt",
+            ];
+            let mut found = false;
+
+            for name in &alternative_names {
+                let alt_path = snapshot_path.join(name);
+                if alt_path.exists() {
+                    source_packages = alt_path;
+                    info!(
+                        "Found NPM packages file at alternative path: {}",
+                        source_packages.display()
+                    );
+                    found = true;
+                    break;
+                }
+            }
+
+            if !found {
+                return Ok(restored_files); // No packages file found
+            }
+        }
+
+        let target_packages_file = target_path.join("npm_global_packages.txt");
+
+        if dry_run {
+            warn!(
+                "DRY RUN: Would restore NPM global packages list to {}",
+                target_packages_file.display()
+            );
+            warn!(
+                "DRY RUN: Review the package list and install manually or use automation scripts"
+            );
+            restored_files.push(target_packages_file);
+        } else {
+            // Create target directory if it doesn't exist
+            if let Some(parent) = target_packages_file.parent() {
+                fs::create_dir_all(parent)
+                    .await
+                    .context("Failed to create target directory for NPM packages file")?;
+            }
+
+            // Copy packages file to target location
+            fs::copy(&source_packages, &target_packages_file)
+                .await
+                .with_context(|| {
+                    format!(
+                        "Failed to restore NPM global packages from {}",
+                        source_packages.display()
+                    )
+                })?;
+
+            info!(
+                "Restored NPM global packages list to {}",
+                target_packages_file.display()
+            );
+            info!("Note: This is a reference list. To install packages, you'll need to:");
+            info!("  1. Review the package list in the restored file");
+            info!("  2. Install packages manually with 'npm install -g <package>'");
+            info!("  3. Or create an automation script based on the package list");
+
+            restored_files.push(target_packages_file);
+        }
+
+        Ok(restored_files)
     }
 }
 
