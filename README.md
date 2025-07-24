@@ -16,20 +16,49 @@ A fast, extensible Rust CLI utility that creates snapshots of dotfiles and confi
 
 ### Homebrew
 - **Brewfile**: Complete package manifest for restoration
+  - **Restore**: Automatically installs all packages using `brew bundle install`
+  - **Target**: Current directory (configurable)
+  - **Notes**: Requires Homebrew and brew bundle to be installed
 
 ### VSCode
 - **Settings**: User settings configuration (settings.json)
+  - **Restore**: Copies settings.json to VSCode User directory
+  - **Target**: `~/Library/Application Support/Code/User` (macOS), `~/.config/Code/User` (Linux), `~/AppData/Roaming/Code/User` (Windows)
 - **Keybindings**: Custom keybindings (keybindings.json)
+  - **Restore**: Copies keybindings.json to VSCode User directory
+  - **Target**: Same as settings directory
 - **Extensions**: Installed extensions with versions
+  - **Restore**: Creates reference list with manual installation instructions
+  - **Target**: Current directory as `vscode_extensions.txt`
+  - **Notes**: Provides `code --install-extension` commands for manual installation
 
 ### Cursor
 - **Settings**: User settings configuration (settings.json)
+  - **Restore**: Copies settings.json to Cursor User directory
+  - **Target**: `~/Library/Application Support/Cursor/User` (macOS), `~/.config/Cursor/User` (Linux), `~/AppData/Roaming/Cursor/User` (Windows)
 - **Keybindings**: Custom keybindings (keybindings.json)
+  - **Restore**: Copies keybindings.json to Cursor User directory
+  - **Target**: Same as settings directory
 - **Extensions**: Installed extensions with versions
+  - **Restore**: Creates reference list with manual installation instructions
+  - **Target**: Current directory as `cursor_extensions.txt`
+  - **Notes**: Provides `cursor --install-extension` commands for manual installation
 
 ### NPM
 - **Global Packages**: Globally installed packages and versions
+  - **Restore**: Creates reference list with manual installation instructions
+  - **Target**: Current directory as `npm_global_packages.txt`
+  - **Notes**: Provides `npm install -g` commands for manual installation
 - **Configuration**: NPM configuration (filtered for security)
+  - **Restore**: Copies .npmrc to home directory
+  - **Target**: `~/.npmrc`
+  - **Notes**: Sensitive data (tokens, passwords) filtered during backup for security
+
+### Static Files
+- **Custom Files**: Any files specified in configuration
+  - **Restore**: Intelligent restoration to original filesystem locations
+  - **Target**: Files restored to their original paths (e.g., `~/.zshrc` → home directory, `/etc/hosts` → `/etc/hosts`)
+  - **Notes**: Preserves directory structure and handles cross-platform paths automatically
 
 ## Installation
 

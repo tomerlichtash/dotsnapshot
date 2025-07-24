@@ -83,11 +83,12 @@ title = "dotsnapshot"                       # Optional notification title
 # ------------------------------------------------------------------------------
 # Homebrew Package Manager
 # Captures installed packages and taps in Brewfile format
+# Automatically installs packages during restore
 # ------------------------------------------------------------------------------
 [plugins.homebrew_brewfile]
 target_path = "homebrew"                    # Directory within snapshot
 output_file = "Brewfile"                    # Custom filename (default: homebrew_brewfile.txt)
-restore_target_dir = "."                    # Restore Brewfile to current directory
+restore_target_dir = "."                    # Restore Brewfile to current directory and install packages
 
 [plugins.homebrew_brewfile.hooks]
 post-plugin = []                            # No post-plugin hooks
