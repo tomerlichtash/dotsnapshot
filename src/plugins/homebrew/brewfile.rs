@@ -524,12 +524,16 @@ cask "visual-studio-code"
         assert!(!target_dir.join("Brewfile").exists());
 
         // Test actual restore
-        let result = plugin
-            .restore(&snapshot_dir, &target_dir, false)
-            .await
-            .unwrap();
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0], target_dir.join("Brewfile"));
+        let result = plugin.restore(&snapshot_dir, &target_dir, false).await;
+
+        // The restore should succeed even if brew bundle install fails in CI
+        assert!(
+            result.is_ok(),
+            "Restore should succeed even if brew command is not available"
+        );
+        let restored_files = result.unwrap();
+        assert_eq!(restored_files.len(), 1);
+        assert_eq!(restored_files[0], target_dir.join("Brewfile"));
 
         // Brewfile should exist in target dir after restore
         assert!(target_dir.join("Brewfile").exists());
@@ -562,12 +566,15 @@ cask "visual-studio-code"
         fs::write(&alt_brewfile_path, test_content).await.unwrap();
 
         let plugin = HomebrewBrewfilePlugin::new();
-        let result = plugin
-            .restore(&snapshot_dir, &target_dir, false)
-            .await
-            .unwrap();
+        let result = plugin.restore(&snapshot_dir, &target_dir, false).await;
 
-        assert_eq!(result.len(), 1);
+        // The restore should succeed even if brew bundle install fails in CI
+        assert!(
+            result.is_ok(),
+            "Restore should succeed even if brew command is not available"
+        );
+        let restored_files = result.unwrap();
+        assert_eq!(restored_files.len(), 1);
         assert!(target_dir.join("Brewfile").exists());
 
         let restored_content = fs::read_to_string(target_dir.join("Brewfile"))
