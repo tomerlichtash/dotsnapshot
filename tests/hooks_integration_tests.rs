@@ -8,8 +8,11 @@ use std::path::PathBuf;
 use tempfile::TempDir;
 use tokio::fs;
 
-/// Helper function to insert a plugin configuration into the HashMap
-/// This reduces code duplication when constructing test configurations
+/// Helper function to insert a plugin configuration into the HashMap.
+/// This function serializes the `PluginConfig` into a TOML value, handles
+/// any serialization errors, and inserts the result into the provided map.
+/// It is specifically designed to reduce code duplication when constructing
+/// test configurations.
 fn insert_plugin_config(
     map: &mut HashMap<String, toml::Value>,
     plugin_name: &str,
