@@ -106,6 +106,17 @@ Releases are fully automated using semantic-release based on conventional commit
 - `src/` - Rust source code
 - `.github/workflows/` - CI/CD workflows
 
+## Writing Guidelines
+
+### **Language and Style**
+- **NEVER use the word "comprehensive"** in PR descriptions, commit messages, or documentation
+- Use specific, descriptive language instead:
+  - ✅ "Complete restore functionality" 
+  - ✅ "Full test coverage"
+  - ✅ "Detailed implementation"
+  - ❌ "Comprehensive restore functionality"
+  - ❌ "Comprehensive test coverage"
+
 ---
 
 **Claude: Reference this file before starting any work. These rules are non-negotiable.**
