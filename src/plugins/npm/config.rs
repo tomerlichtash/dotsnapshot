@@ -47,8 +47,12 @@ impl ConfigSchema for NpmConfigConfig {
         // Validate output file extension if specified
         if let Some(output_file) = &self.output_file {
             // NPM config is typically text-based, but allow files without extension (like npmrc)
-            if output_file.contains('.') {
-                ValidationHelpers::validate_file_extension(output_file, &["txt", "log", "rc"])?;
+            // Hidden files starting with . are considered as having no extension
+            if output_file.contains('.') && !output_file.starts_with('.') {
+                ValidationHelpers::validate_file_extension(
+                    output_file,
+                    &["txt", "log", "rc", "npmrc"],
+                )?;
             }
         }
 

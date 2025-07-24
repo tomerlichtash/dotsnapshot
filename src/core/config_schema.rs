@@ -126,13 +126,20 @@ impl ValidationHelpers {
         example: &str,
         error: &anyhow::Error,
     ) -> String {
+        // Extract the most specific error from the chain
+        let root_error = error
+            .chain()
+            .last()
+            .map(|e| e.to_string())
+            .unwrap_or_else(|| error.to_string());
+
         format!(
-            "{INDICATOR_WARNING}  Configuration validation failed for {plugin_display_name}:\n\
-             {INDICATOR_INFO} Error details: {error}\n\
-             {TOOL_CONFIG} Please check your configuration in 'dotsnapshot.toml' under [plugins.{plugin_config_key}]\n\
-             {DOC_BOOK} Valid fields: {valid_fields}\n\
-             {EXPERIENCE_IDEA} Example: {example}\n\
-             {EXPERIENCE_SPEED} Plugin will continue with default configuration."
+            "{INDICATOR_WARNING} Configuration validation failed for {plugin_display_name}\n\
+             Error: {root_error}\n\
+             Check: [plugins.{plugin_config_key}] in dotsnapshot.toml\n\
+             Valid fields: {valid_fields}\n\
+             Example: {example}\n\
+             Note: Plugin will continue with default configuration"
         )
     }
 }
