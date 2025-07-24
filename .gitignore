@@ -10,3 +10,4 @@ dotsnapshot-*
 # Snapshot directories
 .snapshots
 test-snapshots
+.mcp.json

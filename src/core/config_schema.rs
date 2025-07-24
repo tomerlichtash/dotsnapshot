@@ -1,8 +1,7 @@
 use crate::symbols::*;
 use anyhow::{Context, Result};
-use schemars::{schema_for, JsonSchema};
+use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
-use std::collections::HashMap;
 
 /// Trait for plugin configuration validation with schema support
 pub trait ConfigSchema: DeserializeOwned + JsonSchema {
@@ -13,12 +12,6 @@ pub trait ConfigSchema: DeserializeOwned + JsonSchema {
     fn validate(&self) -> Result<()> {
         // Default implementation - can be overridden for custom validation
         Ok(())
-    }
-
-    /// Get the JSON schema for this configuration
-    #[allow(dead_code)]
-    fn get_schema() -> schemars::schema::RootSchema {
-        schema_for!(Self)
     }
 
     /// Parse and validate configuration from TOML value
@@ -43,41 +36,10 @@ pub trait ConfigSchema: DeserializeOwned + JsonSchema {
     }
 }
 
-/// Configuration validation error with detailed context
-#[allow(dead_code)]
-#[derive(Debug, thiserror::Error)]
-pub enum ConfigValidationError {
-    #[error("Missing required field '{field}' in {plugin} configuration")]
-    MissingField { plugin: String, field: String },
-
-    #[error("Invalid value for field '{field}' in {plugin} configuration: {reason}")]
-    InvalidValue {
-        plugin: String,
-        field: String,
-        reason: String,
-    },
-
-    #[error("Configuration schema mismatch for {plugin}: {details}")]
-    SchemaMismatch { plugin: String, details: String },
-
-    #[error("Custom validation failed for {plugin}: {message}")]
-    CustomValidation { plugin: String, message: String },
-}
-
 /// Helper functions for common validation patterns
 pub struct ValidationHelpers;
 
 impl ValidationHelpers {
-    /// Validate that a path exists (for file/directory fields)
-    #[allow(dead_code)]
-    pub fn validate_path_exists(path: &str) -> Result<()> {
-        let expanded_path = shellexpand::tilde(path);
-        if !std::path::Path::new(expanded_path.as_ref()).exists() {
-            return Err(anyhow::anyhow!("Path does not exist: {}", path));
-        }
-        Ok(())
-    }
-
     /// Validate that a command exists in PATH
     pub fn validate_command_exists(command: &str) -> Result<()> {
         which::which(command).with_context(|| format!("Command '{command}' not found in PATH"))?;
@@ -99,20 +61,6 @@ impl ValidationHelpers {
             return Err(anyhow::anyhow!(
                 "File must have an extension. Allowed extensions: {:?}",
                 allowed_extensions
-            ));
-        }
-        Ok(())
-    }
-
-    /// Validate timeout value (must be positive and reasonable)
-    #[allow(dead_code)]
-    pub fn validate_timeout(timeout: u64) -> Result<()> {
-        if timeout == 0 {
-            return Err(anyhow::anyhow!("Timeout must be greater than 0"));
-        }
-        if timeout > 3600 {
-            return Err(anyhow::anyhow!(
-                "Timeout must be less than 3600 seconds (1 hour)"
             ));
         }
         Ok(())
@@ -144,49 +92,6 @@ impl ValidationHelpers {
     }
 }
 
-/// Configuration documentation generator
-#[allow(dead_code)]
-pub struct ConfigDocGenerator;
-
-impl ConfigDocGenerator {
-    /// Generate markdown documentation for a configuration schema
-    #[allow(dead_code)]
-    pub fn generate_markdown_docs<T: ConfigSchema>() -> String {
-        let schema = T::get_schema();
-        let mut docs = String::new();
-
-        docs.push_str(&format!(
-            "# {} Configuration\n\n",
-            <T as ConfigSchema>::schema_name()
-        ));
-
-        if let Some(description) = &schema
-            .schema
-            .metadata
-            .as_ref()
-            .and_then(|m| m.description.as_ref())
-        {
-            docs.push_str(&format!("{description}\n\n"));
-        }
-
-        // Add schema information
-        docs.push_str("## Configuration Schema\n\n");
-        docs.push_str("```json\n");
-        docs.push_str(&serde_json::to_string_pretty(&schema).unwrap_or_default());
-        docs.push_str("\n```\n\n");
-
-        docs
-    }
-
-    /// Generate example configuration
-    #[allow(dead_code)]
-    pub fn generate_example_config<T: ConfigSchema>() -> HashMap<String, toml::Value> {
-        // This would generate example values based on the schema
-        // For now, return empty map - can be enhanced later
-        HashMap::new()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -200,9 +105,6 @@ mod tests {
 
         #[schemars(description = "The output filename")]
         output_file: Option<String>,
-
-        #[schemars(description = "Timeout in seconds")]
-        timeout: Option<u64>,
     }
 
     impl ConfigSchema for TestConfig {
@@ -211,10 +113,6 @@ mod tests {
         }
 
         fn validate(&self) -> Result<()> {
-            if let Some(timeout) = self.timeout {
-                ValidationHelpers::validate_timeout(timeout)?;
-            }
-
             if let Some(output_file) = &self.output_file {
                 ValidationHelpers::validate_file_extension(output_file, &["txt", "json", "toml"])?;
             }
@@ -228,21 +126,9 @@ mod tests {
         let valid_config = TestConfig {
             target_path: Some("test".to_string()),
             output_file: Some("test.json".to_string()),
-            timeout: Some(30),
         };
 
         assert!(valid_config.validate().is_ok());
-    }
-
-    #[test]
-    fn test_config_schema_invalid_timeout() {
-        let invalid_config = TestConfig {
-            target_path: Some("test".to_string()),
-            output_file: Some("test.json".to_string()),
-            timeout: Some(0), // Invalid: zero timeout
-        };
-
-        assert!(invalid_config.validate().is_err());
     }
 
     #[test]
@@ -250,7 +136,6 @@ mod tests {
         let invalid_config = TestConfig {
             target_path: Some("test".to_string()),
             output_file: Some("test.invalid".to_string()), // Invalid extension
-            timeout: Some(30),
         };
 
         assert!(invalid_config.validate().is_err());
@@ -268,19 +153,6 @@ mod tests {
         let config = TestConfig::from_toml_value(&toml_value);
 
         assert!(config.is_ok());
-    }
-
-    #[test]
-    fn test_schema_generation() {
-        let _schema = TestConfig::get_schema();
-        // Just verify we can generate a schema without panicking
-    }
-
-    #[test]
-    fn test_documentation_generation() {
-        let docs = ConfigDocGenerator::generate_markdown_docs::<TestConfig>();
-        assert!(docs.contains("TestConfig Configuration"));
-        assert!(docs.contains("Configuration Schema"));
     }
 
     #[test]
@@ -302,24 +174,10 @@ mod tests {
     }
 
     #[test]
-    fn test_validation_helpers_timeout() {
-        // Valid timeouts
-        assert!(ValidationHelpers::validate_timeout(1).is_ok());
-        assert!(ValidationHelpers::validate_timeout(30).is_ok());
-        assert!(ValidationHelpers::validate_timeout(3600).is_ok());
-
-        // Invalid timeouts
-        assert!(ValidationHelpers::validate_timeout(0).is_err());
-        assert!(ValidationHelpers::validate_timeout(3601).is_err());
-        assert!(ValidationHelpers::validate_timeout(10000).is_err());
-    }
-
-    #[test]
     fn test_config_schema_error_context() {
         let invalid_toml_str = r#"
             target_path = "test"
             output_file = "test.exe"  # Invalid extension
-            timeout = 0  # Invalid timeout
         "#;
 
         let toml_value: toml::Value = toml::from_str(invalid_toml_str).unwrap();
@@ -335,18 +193,17 @@ mod tests {
 
     #[test]
     fn test_multiple_validation_errors() {
-        // Test config with multiple validation issues
+        // Test config with validation issues
         let config = TestConfig {
             target_path: Some("test".to_string()),
             output_file: Some("test.exe".to_string()), // Invalid extension
-            timeout: Some(0),                          // Invalid timeout
         };
 
         let result = config.validate();
         assert!(result.is_err());
 
-        // The error should be about the first validation that fails
+        // The error should be about the invalid extension
         let error = result.unwrap_err();
-        assert!(error.to_string().contains("Timeout must be greater than 0"));
+        assert!(error.to_string().contains("Invalid file extension"));
     }
 }
