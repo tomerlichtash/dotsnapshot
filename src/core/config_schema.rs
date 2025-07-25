@@ -41,6 +41,7 @@ pub struct ValidationHelpers;
 
 impl ValidationHelpers {
     /// Validate that a command exists in PATH
+    #[allow(dead_code)]
     pub fn validate_command_exists(command: &str) -> Result<()> {
         which::which(command).with_context(|| format!("Command '{command}' not found in PATH"))?;
         Ok(())

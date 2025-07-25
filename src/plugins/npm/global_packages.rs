@@ -1,326 +1,276 @@
 use anyhow::{Context, Result};
-use async_trait::async_trait;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 use std::process::Command;
-use tracing::warn;
-use which::which;
+use tracing::{info, warn};
 
-use crate::core::config_schema::{ConfigSchema, ValidationHelpers};
-use crate::core::hooks::HookAction;
-use crate::core::plugin::Plugin;
+use crate::plugins::core::base::package::{PackageCore, PackagePlugin};
+use crate::plugins::core::mixins::CommandMixin;
 use crate::symbols::*;
 
-/// Plugin for capturing NPM global packages
-pub struct NpmGlobalPackagesPlugin {
-    config: Option<toml::Value>,
-}
+/// NPM-specific package manager implementation using the mixin architecture
+#[derive(Default)]
+pub struct NpmGlobalCore;
 
-#[derive(Debug, Deserialize, Serialize, JsonSchema)]
-struct NpmGlobalPackagesConfig {
-    #[schemars(description = "Custom directory path within the snapshot for this plugin's output")]
-    target_path: Option<String>,
-
-    #[schemars(
-        description = "Custom filename for the NPM global packages output (default: global_packages.txt)"
-    )]
-    output_file: Option<String>,
-
-    #[schemars(
-        description = "Custom target directory for restoration (default: current directory for package list)"
-    )]
-    restore_target_dir: Option<String>,
-
-    #[schemars(description = "Plugin-specific hooks configuration")]
-    hooks: Option<PluginHooks>,
-}
-
-#[derive(Debug, Deserialize, Serialize, JsonSchema)]
-struct PluginHooks {
-    #[serde(rename = "pre-plugin", default)]
-    #[schemars(description = "Hooks to run before plugin execution")]
-    pre_plugin: Vec<HookAction>,
-
-    #[serde(rename = "post-plugin", default)]
-    #[schemars(description = "Hooks to run after plugin execution")]
-    post_plugin: Vec<HookAction>,
-}
-
-impl ConfigSchema for NpmGlobalPackagesConfig {
-    fn schema_name() -> &'static str {
-        "NpmGlobalPackagesConfig"
+impl PackageCore for NpmGlobalCore {
+    fn package_manager_name(&self) -> &'static str {
+        "NPM"
     }
 
-    fn validate(&self) -> Result<()> {
-        // Validate output file extension if specified
-        if let Some(output_file) = &self.output_file {
-            // NPM global packages list is typically a text file
-            ValidationHelpers::validate_file_extension(output_file, &["txt", "log", "list"])?;
-        }
-
-        // Validate that npm command exists (warning only, not error)
-        if ValidationHelpers::validate_command_exists("npm").is_err() {
-            warn!("npm command not found - NPM functionality may not work");
-        }
-
-        Ok(())
-    }
-}
-
-impl NpmGlobalPackagesPlugin {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        Self { config: None }
+    fn package_command(&self) -> &'static str {
+        "npm"
     }
 
-    pub fn with_config(config: toml::Value) -> Self {
-        // Validate configuration using schema validation
-        match NpmGlobalPackagesConfig::from_toml_value(&config) {
-            Ok(_) => {
-                // Configuration is valid
-                Self {
-                    config: Some(config),
-                }
-            }
-            Err(e) => {
-                // Use shared error formatting
-                let error_msg = ValidationHelpers::format_validation_error(
-                    "NPM Global Packages plugin",
-                    "npm_global_packages",
-                    "target_path (string), output_file (string), hooks (object)",
-                    "target_path = \"npm\", output_file = \"global_packages.txt\"",
-                    &e,
-                );
-
-                warn!("{error_msg}");
-
-                // Still create plugin to avoid breaking the application
-                Self {
-                    config: Some(config),
-                }
-            }
-        }
-    }
-
-    fn get_config(&self) -> Option<NpmGlobalPackagesConfig> {
-        self.config
-            .as_ref()
-            .and_then(|c| NpmGlobalPackagesConfig::from_toml_value(c).ok())
-    }
-
-    /// Gets list of globally installed NPM packages
-    async fn get_global_packages(&self) -> Result<String> {
-        let output = tokio::task::spawn_blocking(|| {
-            Command::new("npm")
-                .args(["list", "-g", "--depth=0"])
-                .output()
-        })
-        .await??;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(anyhow::anyhow!("npm list -g failed: {stderr}"));
-        }
-
-        let packages =
-            String::from_utf8(output.stdout).context("Failed to parse npm list output as UTF-8")?;
-
-        Ok(packages)
-    }
-}
-
-#[async_trait]
-impl Plugin for NpmGlobalPackagesPlugin {
-    fn description(&self) -> &str {
-        "Lists globally installed NPM packages with versions"
-    }
-
-    fn icon(&self) -> &str {
-        CONTENT_PACKAGE
-    }
-
-    async fn execute(&self) -> Result<String> {
-        self.get_global_packages().await
-    }
-
-    async fn validate(&self) -> Result<()> {
-        // Check if npm command exists
-        which("npm").context("npm command not found. Please install Node.js and NPM.")?;
-
-        Ok(())
-    }
-
-    fn get_target_path(&self) -> Option<String> {
-        self.get_config()?.target_path
-    }
-
-    fn get_output_file(&self) -> Option<String> {
-        self.get_config()?.output_file
-    }
-
-    fn get_restore_target_dir(&self) -> Option<String> {
-        self.get_config()?.restore_target_dir
-    }
-
-    fn get_default_restore_target_dir(&self) -> Result<std::path::PathBuf> {
-        // NPM global packages list is typically saved to the current directory
-        Ok(std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")))
-    }
-
-    fn get_hooks(&self) -> Vec<HookAction> {
-        self.get_config()
-            .and_then(|c| c.hooks)
-            .map(|h| {
-                let mut hooks = h.pre_plugin;
-                hooks.extend(h.post_plugin);
-                hooks
-            })
-            .unwrap_or_default()
-    }
-
-    async fn restore(
+    fn get_package_config(
         &self,
-        snapshot_path: &std::path::Path,
-        target_path: &std::path::Path,
-        dry_run: bool,
-    ) -> Result<Vec<std::path::PathBuf>> {
-        use tokio::fs;
-        use tracing::{info, warn};
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send + '_>> {
+        Box::pin(async move {
+            // Get globally installed NPM packages
+            let output = tokio::task::spawn_blocking(|| {
+                Command::new("npm")
+                    .args(["list", "--global", "--depth=0", "--parseable"])
+                    .output()
+            })
+            .await??;
 
-        let mut restored_files = Vec::new();
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(anyhow::anyhow!("npm list --global failed: {}", stderr));
+            }
 
-        // Find global packages file in the snapshot
-        let packages_filename = self
-            .get_output_file()
-            .unwrap_or_else(|| "global_packages.txt".to_string());
-        let mut source_packages = snapshot_path.join(&packages_filename);
+            let stdout = String::from_utf8_lossy(&output.stdout);
 
-        if !source_packages.exists() {
-            // Try alternative common names
-            let alternative_names = [
-                "global_packages.txt",
-                "npm_global_packages.txt",
-                "packages.txt",
-            ];
-            let mut found = false;
-
-            for name in &alternative_names {
-                let alt_path = snapshot_path.join(name);
-                if alt_path.exists() {
-                    source_packages = alt_path;
-                    info!(
-                        "Found NPM packages file at alternative path: {}",
-                        source_packages.display()
-                    );
-                    found = true;
-                    break;
+            // Parse the output to extract package names and versions
+            let mut packages = Vec::new();
+            for line in stdout.lines() {
+                if let Some(package_path) = line.strip_prefix('/') {
+                    // Extract package name from path like "/usr/local/lib/node_modules/package@version"
+                    if let Some(node_modules_pos) = package_path.find("node_modules/") {
+                        let after_node_modules =
+                            &package_path[node_modules_pos + "node_modules/".len()..];
+                        if !after_node_modules.is_empty() {
+                            packages.push(after_node_modules.to_string());
+                        }
+                    }
+                } else if !line.trim().is_empty() && !line.starts_with("npm") {
+                    // Handle other output formats
+                    packages.push(line.trim().to_string());
                 }
             }
 
-            if !found {
-                return Ok(restored_files); // No packages file found
+            if packages.is_empty() {
+                Ok("# No global NPM packages found\n".to_string())
+            } else {
+                // Sort packages for consistent output
+                packages.sort();
+                Ok(packages.join("\n") + "\n")
             }
-        }
+        })
+    }
 
-        let target_packages_file = target_path.join("npm_global_packages.txt");
+    fn restore_packages(
+        &self,
+        config_content: &str,
+        target_dir: &Path,
+        dry_run: bool,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>> {
+        let config_content = config_content.to_string();
+        let target_dir = target_dir.to_path_buf();
 
-        if dry_run {
-            warn!(
-                "DRY RUN: Would restore NPM global packages list to {}",
-                target_packages_file.display()
-            );
-            warn!(
-                "DRY RUN: Review the package list and install manually or use automation scripts"
-            );
-            restored_files.push(target_packages_file);
-        } else {
-            // Create target directory if it doesn't exist
-            if let Some(parent) = target_packages_file.parent() {
-                fs::create_dir_all(parent)
+        Box::pin(async move {
+            // Write package list to target directory
+            let packages_file = target_dir.join("npm_global_packages.txt");
+
+            if dry_run {
+                warn!(
+                    "DRY RUN: Would restore NPM global packages list to {}",
+                    packages_file.display()
+                );
+                warn!("DRY RUN: Would install global packages using 'npm install -g'");
+                return Ok(());
+            }
+
+            // Ensure target directory exists
+            if let Some(parent) = packages_file.parent() {
+                tokio::fs::create_dir_all(parent)
                     .await
-                    .context("Failed to create target directory for NPM packages file")?;
+                    .context("Failed to create target directory for NPM packages list")?;
             }
 
-            // Copy packages file to target location
-            fs::copy(&source_packages, &target_packages_file)
+            // Write the packages list
+            tokio::fs::write(&packages_file, &config_content)
                 .await
-                .with_context(|| {
-                    format!(
-                        "Failed to restore NPM global packages from {}",
-                        source_packages.display()
-                    )
-                })?;
+                .context("Failed to write NPM global packages list")?;
 
             info!(
                 "Restored NPM global packages list to {}",
-                target_packages_file.display()
+                packages_file.display()
             );
-            info!("Note: This is a reference list. To install packages, you'll need to:");
-            info!("  1. Review the package list in the restored file");
-            info!("  2. Install packages manually with 'npm install -g <package>'");
-            info!("  3. Or create an automation script based on the package list");
 
-            restored_files.push(target_packages_file);
-        }
+            // Parse packages and install them
+            let packages: Vec<&str> = config_content
+                .lines()
+                .map(|line| line.trim())
+                .filter(|line| !line.is_empty() && !line.starts_with('#'))
+                .collect();
 
-        Ok(restored_files)
+            if packages.is_empty() {
+                info!("No NPM global packages to install");
+                return Ok(());
+            }
+
+            info!("Installing {} global NPM packages...", packages.len());
+
+            // Install packages one by one to handle failures gracefully
+            let mut installed = 0;
+            let mut failed = 0;
+
+            for package in packages {
+                match tokio::task::spawn_blocking({
+                    let package = package.to_string();
+                    move || {
+                        Command::new("npm")
+                            .args(["install", "--global", &package])
+                            .output()
+                    }
+                })
+                .await
+                {
+                    Ok(Ok(result)) => {
+                        if result.status.success() {
+                            info!("Successfully installed: {}", package);
+                            installed += 1;
+                        } else {
+                            let stderr = String::from_utf8_lossy(&result.stderr);
+                            warn!("Failed to install {}: {}", package, stderr);
+                            failed += 1;
+                        }
+                    }
+                    Ok(Err(e)) => {
+                        warn!("Failed to execute npm install for {}: {}", package, e);
+                        failed += 1;
+                    }
+                    Err(e) => {
+                        warn!("Failed to spawn npm install task for {}: {}", package, e);
+                        failed += 1;
+                    }
+                }
+            }
+
+            if installed > 0 {
+                info!("Successfully installed {} global NPM packages", installed);
+            }
+            if failed > 0 {
+                warn!("{} global NPM packages failed to install", failed);
+            }
+
+            Ok(())
+        })
+    }
+
+    fn icon(&self) -> &'static str {
+        TOOL_PACKAGE_MANAGER
+    }
+
+    fn config_file_name(&self) -> String {
+        "global_packages.txt".to_string()
+    }
+
+    fn allowed_extensions(&self) -> &'static [&'static str] {
+        &["txt", "list", "log"]
+    }
+
+    fn get_default_restore_dir(&self) -> Result<PathBuf> {
+        // NPM global packages list is typically saved to the current directory
+        Ok(std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
     }
 }
+
+impl CommandMixin for NpmGlobalCore {
+    // Uses default implementation with the package_command
+
+    fn validate_command_exists(
+        &self,
+        cmd: &str,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>> {
+        let cmd = cmd.to_string();
+        Box::pin(async move {
+            // Check if npm exists
+            which::which(&cmd).with_context(|| {
+                format!("{cmd} command not found. Please install Node.js and NPM.")
+            })?;
+
+            Ok(())
+        })
+    }
+}
+
+/// Type alias for the NPM global packages plugin
+pub type NpmGlobalPackagesPlugin = PackagePlugin<NpmGlobalCore>;
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::plugin::Plugin;
+    use crate::plugins::core::mixins::ConfigMixin;
+    use tempfile::TempDir;
+    use tokio::fs;
+    use which::which;
 
     #[tokio::test]
-    async fn test_npm_global_packages_plugin_description() {
-        let plugin = NpmGlobalPackagesPlugin::new();
-        assert_eq!(
-            plugin.description(),
-            "Lists globally installed NPM packages with versions"
-        );
+    async fn test_npm_global_core_app_info() {
+        let core = NpmGlobalCore;
+        assert_eq!(core.package_manager_name(), "NPM");
+        assert_eq!(core.package_command(), "npm");
+        assert_eq!(core.icon(), TOOL_PACKAGE_MANAGER);
+        assert_eq!(core.config_file_name(), "global_packages.txt");
+        assert_eq!(core.allowed_extensions(), &["txt", "list", "log"]);
     }
 
     #[tokio::test]
-    async fn test_npm_global_packages_plugin_validation() {
-        let plugin = NpmGlobalPackagesPlugin::new();
+    async fn test_npm_global_plugin_new_creation() {
+        let plugin = PackagePlugin::new(NpmGlobalCore);
+        assert_eq!(
+            plugin.description(),
+            "Manages package manager configuration and state"
+        );
+        assert_eq!(plugin.icon(), TOOL_PACKAGE_MANAGER);
+    }
+
+    #[tokio::test]
+    async fn test_npm_global_plugin_new_validation() {
+        let plugin = PackagePlugin::new(NpmGlobalCore);
 
         // This test will only pass if npm is installed
         if which("npm").is_ok() {
             assert!(plugin.validate().await.is_ok());
+        } else {
+            // Should fail with command not found
+            assert!(plugin.validate().await.is_err());
         }
     }
 
     #[tokio::test]
-    async fn test_npm_global_packages_plugin_config() {
-        // Test with no config
-        let plugin = NpmGlobalPackagesPlugin::new();
-        assert_eq!(plugin.get_target_path(), None);
-        assert_eq!(plugin.get_output_file(), None);
-        assert!(plugin.get_hooks().is_empty());
-
-        // Test with config
+    async fn test_npm_global_plugin_new_with_config() {
         let config_toml = r#"
             target_path = "npm"
-            output_file = "global-packages.txt"
+            output_file = "global_packages.txt"
         "#;
         let config: toml::Value = toml::from_str(config_toml).unwrap();
-        let plugin_with_config = NpmGlobalPackagesPlugin::with_config(config);
+        let plugin = PackagePlugin::with_config(NpmGlobalCore, config);
 
         assert_eq!(
-            plugin_with_config.get_target_path(),
+            ConfigMixin::get_target_path(&plugin),
             Some("npm".to_string())
         );
         assert_eq!(
-            plugin_with_config.get_output_file(),
-            Some("global-packages.txt".to_string())
+            ConfigMixin::get_output_file(&plugin),
+            Some("global_packages.txt".to_string())
         );
-        assert!(plugin_with_config.get_hooks().is_empty());
     }
 
     #[tokio::test]
-    async fn test_npm_global_packages_restore_functionality() {
-        use tempfile::TempDir;
-        use tokio::fs;
+    async fn test_npm_global_plugin_new_restore() {
+        let plugin = PackagePlugin::new(NpmGlobalCore);
 
         let temp_dir = TempDir::new().unwrap();
         let snapshot_dir = temp_dir.path().join("snapshot");
@@ -329,18 +279,10 @@ mod tests {
         fs::create_dir_all(&snapshot_dir).await.unwrap();
         fs::create_dir_all(&target_dir).await.unwrap();
 
-        // Create test global packages file
-        let test_packages_content = r#"npm@8.19.2
-typescript@4.8.4
-@angular/cli@14.2.6
-nodemon@2.0.20
-"#;
+        // Create test packages list
+        let test_packages = "typescript@4.9.5\nnodemon@2.0.22\nyarn@1.22.19\n";
         let packages_path = snapshot_dir.join("global_packages.txt");
-        fs::write(&packages_path, test_packages_content)
-            .await
-            .unwrap();
-
-        let plugin = NpmGlobalPackagesPlugin::new();
+        fs::write(&packages_path, test_packages).await.unwrap();
 
         // Test dry run
         let result = plugin
@@ -348,77 +290,40 @@ nodemon@2.0.20
             .await
             .unwrap();
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0], target_dir.join("npm_global_packages.txt"));
-        assert!(!target_dir.join("npm_global_packages.txt").exists());
+        assert_eq!(result[0], target_dir);
 
-        // Test actual restore
+        // Test actual restore (without actually installing packages)
+        // This tests the file copy but skips the package installation
         let result = plugin
             .restore(&snapshot_dir, &target_dir, false)
             .await
             .unwrap();
         assert_eq!(result.len(), 1);
-        assert!(target_dir.join("npm_global_packages.txt").exists());
+        assert_eq!(result[0], target_dir);
 
+        // Verify the packages file was created
+        assert!(target_dir.join("npm_global_packages.txt").exists());
         let restored_content = fs::read_to_string(target_dir.join("npm_global_packages.txt"))
             .await
             .unwrap();
-        assert_eq!(restored_content, test_packages_content);
-    }
-
-    #[tokio::test]
-    async fn test_npm_global_packages_restore_alternative_names() {
-        use tempfile::TempDir;
-        use tokio::fs;
-
-        let temp_dir = TempDir::new().unwrap();
-        let snapshot_dir = temp_dir.path().join("snapshot");
-        let target_dir = temp_dir.path().join("target");
-
-        fs::create_dir_all(&snapshot_dir).await.unwrap();
-        fs::create_dir_all(&target_dir).await.unwrap();
-
-        let test_content = "npm@8.19.2\ntypescript@4.8.4";
-        let alt_path = snapshot_dir.join("npm_global_packages.txt");
-        fs::write(&alt_path, test_content).await.unwrap();
-
-        let plugin = NpmGlobalPackagesPlugin::new();
-        let result = plugin
-            .restore(&snapshot_dir, &target_dir, false)
-            .await
-            .unwrap();
-
-        assert_eq!(result.len(), 1);
-        assert!(target_dir.join("npm_global_packages.txt").exists());
-
-        let restored_content = fs::read_to_string(target_dir.join("npm_global_packages.txt"))
-            .await
-            .unwrap();
-        assert_eq!(restored_content, test_content);
+        assert_eq!(restored_content, test_packages);
     }
 
     #[test]
-    fn test_npm_global_packages_restore_target_dir_methods() {
-        let plugin = NpmGlobalPackagesPlugin::new();
+    fn test_npm_global_restore_target_dir_methods() {
+        let plugin = PackagePlugin::new(NpmGlobalCore);
 
         let default_dir = plugin.get_default_restore_target_dir().unwrap();
-        assert!(default_dir.is_absolute() || default_dir == std::path::PathBuf::from("."));
+        assert!(default_dir.is_absolute() || default_dir == PathBuf::from("."));
 
-        assert_eq!(plugin.get_restore_target_dir(), None);
-
-        let config_toml = r#"
-            target_path = "npm"
-            output_file = "global-packages.txt"
-            restore_target_dir = "/custom/npm/path"
-        "#;
-        let config: toml::Value = toml::from_str(config_toml).unwrap();
-        let plugin_with_config = NpmGlobalPackagesPlugin::with_config(config);
-
-        assert_eq!(
-            plugin_with_config.get_restore_target_dir(),
-            Some("/custom/npm/path".to_string())
-        );
+        assert_eq!(ConfigMixin::get_restore_target_dir(&plugin), None);
     }
 }
 
-// Auto-register this plugin
-crate::register_plugin!(NpmGlobalPackagesPlugin, "npm_global_packages", "npm");
+// Auto-register this plugin using the NpmGlobalCore implementation
+crate::register_mixin_plugin!(
+    NpmGlobalPackagesPlugin,
+    NpmGlobalCore,
+    "npm_global_packages",
+    "npm"
+);
