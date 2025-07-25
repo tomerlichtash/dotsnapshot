@@ -1,108 +1,25 @@
 use anyhow::{Context, Result};
-use async_trait::async_trait;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::fs;
-use tracing::warn;
 
-use crate::core::config_schema::{ConfigSchema, ValidationHelpers};
-use crate::core::hooks::HookAction;
-use crate::core::plugin::Plugin;
+use crate::plugins::core::base::settings::{SettingsCore, SettingsPlugin};
+use crate::plugins::core::mixins::CommandMixin;
 use crate::symbols::*;
 
-/// Plugin for capturing VSCode settings
-pub struct VSCodeSettingsPlugin {
-    config: Option<toml::Value>,
-}
+/// VSCode-specific settings implementation using the mixin architecture
+#[derive(Default)]
+pub struct VSCodeCore;
 
-#[derive(Debug, Deserialize, Serialize, JsonSchema)]
-struct VSCodeSettingsConfig {
-    #[schemars(description = "Custom directory path within the snapshot for this plugin's output")]
-    target_path: Option<String>,
-
-    #[schemars(description = "Custom filename for the settings output (default: settings.json)")]
-    output_file: Option<String>,
-
-    #[schemars(
-        description = "Custom target directory for restoration (default: VSCode settings directory)"
-    )]
-    restore_target_dir: Option<String>,
-
-    #[schemars(description = "Plugin-specific hooks configuration")]
-    hooks: Option<PluginHooks>,
-}
-
-#[derive(Debug, Deserialize, Serialize, JsonSchema)]
-struct PluginHooks {
-    #[serde(rename = "pre-plugin", default)]
-    #[schemars(description = "Hooks to run before plugin execution")]
-    pre_plugin: Vec<HookAction>,
-
-    #[serde(rename = "post-plugin", default)]
-    #[schemars(description = "Hooks to run after plugin execution")]
-    post_plugin: Vec<HookAction>,
-}
-
-impl ConfigSchema for VSCodeSettingsConfig {
-    fn schema_name() -> &'static str {
-        "VSCodeSettingsConfig"
+impl SettingsCore for VSCodeCore {
+    fn app_name(&self) -> &'static str {
+        "VSCode"
     }
 
-    fn validate(&self) -> Result<()> {
-        // Validate output file extension if specified
-        if let Some(output_file) = &self.output_file {
-            // Settings file should be JSON
-            ValidationHelpers::validate_file_extension(output_file, &["json", "jsonc"])?;
-        }
-
-        Ok(())
-    }
-}
-
-impl VSCodeSettingsPlugin {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        Self { config: None }
+    fn settings_file_name(&self) -> &'static str {
+        "settings.json"
     }
 
-    pub fn with_config(config: toml::Value) -> Self {
-        // Validate configuration using schema validation
-        match VSCodeSettingsConfig::from_toml_value(&config) {
-            Ok(_) => {
-                // Configuration is valid
-                Self {
-                    config: Some(config),
-                }
-            }
-            Err(e) => {
-                // Use shared error formatting
-                let error_msg = ValidationHelpers::format_validation_error(
-                    "VSCode Settings plugin",
-                    "vscode_settings",
-                    "target_path (string), output_file (string), hooks (object)",
-                    "target_path = \"vscode\", output_file = \"settings.json\"",
-                    &e,
-                );
-
-                warn!("{error_msg}");
-
-                // Still create plugin to avoid breaking the application
-                Self {
-                    config: Some(config),
-                }
-            }
-        }
-    }
-
-    fn get_config(&self) -> Option<VSCodeSettingsConfig> {
-        self.config
-            .as_ref()
-            .and_then(|c| VSCodeSettingsConfig::from_toml_value(c).ok())
-    }
-
-    /// Gets the VSCode settings directory based on OS
-    fn get_vscode_settings_dir(&self) -> Result<PathBuf> {
+    fn get_settings_dir(&self) -> Result<PathBuf> {
         let home_dir = dirs::home_dir().context("Could not determine home directory")?;
 
         let settings_dir = if cfg!(target_os = "macos") {
@@ -117,242 +34,146 @@ impl VSCodeSettingsPlugin {
         Ok(settings_dir)
     }
 
-    /// Reads VSCode settings.json file
-    async fn get_settings(&self) -> Result<String> {
-        let settings_path = self.get_vscode_settings_dir()?.join("settings.json");
+    fn read_settings(
+        &self,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send + '_>> {
+        Box::pin(async move {
+            let settings_dir = self.get_settings_dir()?;
+            let settings_path = settings_dir.join("settings.json");
 
-        if !settings_path.exists() {
-            return Ok("{}".to_string());
-        }
+            if !settings_path.exists() {
+                return Ok("{}".to_string());
+            }
 
-        let content = fs::read_to_string(&settings_path)
-            .await
-            .context("Failed to read VSCode settings.json")?;
+            let content = fs::read_to_string(&settings_path)
+                .await
+                .context("Failed to read VSCode settings.json")?;
 
-        Ok(content)
-    }
-}
-
-#[async_trait]
-impl Plugin for VSCodeSettingsPlugin {
-    fn description(&self) -> &str {
-        "Captures VSCode user settings configuration"
+            Ok(content)
+        })
     }
 
-    fn icon(&self) -> &str {
+    fn icon(&self) -> &'static str {
         TOOL_COMPUTER
     }
 
-    async fn execute(&self) -> Result<String> {
-        self.get_settings().await
-    }
-
-    async fn validate(&self) -> Result<()> {
-        // Check if settings directory exists
-        let settings_dir = self.get_vscode_settings_dir()?;
-        if !settings_dir.exists() {
-            return Err(anyhow::anyhow!(
-                "VSCode settings directory not found: {}",
-                settings_dir.display()
-            ));
-        }
-
-        Ok(())
-    }
-
-    fn get_target_path(&self) -> Option<String> {
-        self.get_config()?.target_path
-    }
-
-    fn get_output_file(&self) -> Option<String> {
-        self.get_config()?.output_file
-    }
-
-    fn get_restore_target_dir(&self) -> Option<String> {
-        self.get_config()?.restore_target_dir
-    }
-
-    fn get_default_restore_target_dir(&self) -> Result<PathBuf> {
-        self.get_vscode_settings_dir()
-    }
-
-    fn get_hooks(&self) -> Vec<HookAction> {
-        self.get_config()
-            .and_then(|c| c.hooks)
-            .map(|h| {
-                let mut hooks = h.pre_plugin;
-                hooks.extend(h.post_plugin);
-                hooks
-            })
-            .unwrap_or_default()
-    }
-
-    async fn restore(
-        &self,
-        snapshot_path: &std::path::Path,
-        target_path: &std::path::Path,
-        dry_run: bool,
-    ) -> Result<Vec<PathBuf>> {
-        let mut restored_files = Vec::new();
-
-        // Find settings.json in the snapshot
-        let settings_file = snapshot_path.join("settings.json");
-        if !settings_file.exists() {
-            return Ok(restored_files);
-        }
-
-        // Use the target directory provided by RestoreManager
-        // (RestoreManager handles CLI override > plugin config > default precedence)
-        let target_settings_file = target_path.join("settings.json");
-
-        if dry_run {
-            warn!(
-                "DRY RUN: Would restore VSCode settings to {}",
-                target_settings_file.display()
-            );
-            restored_files.push(target_settings_file);
-        } else {
-            // Create VSCode settings directory if it doesn't exist
-            if let Some(parent) = target_settings_file.parent() {
-                fs::create_dir_all(parent)
-                    .await
-                    .context("Failed to create VSCode settings directory")?;
-            }
-
-            // Copy settings file
-            fs::copy(&settings_file, &target_settings_file)
-                .await
-                .with_context(|| {
-                    format!(
-                        "Failed to restore VSCode settings from {}",
-                        settings_file.display()
-                    )
-                })?;
-
-            warn!(
-                "Restored VSCode settings to {}",
-                target_settings_file.display()
-            );
-            restored_files.push(target_settings_file);
-        }
-
-        Ok(restored_files)
+    fn allowed_extensions(&self) -> &'static [&'static str] {
+        &["json", "jsonc"]
     }
 }
+
+impl CommandMixin for VSCodeCore {
+    // Uses default implementation - no custom command behavior needed
+}
+
+/// Type alias for the VSCode settings plugin
+pub type VSCodeSettingsPlugin = SettingsPlugin<VSCodeCore>;
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::plugin::Plugin;
+    use crate::plugins::core::mixins::ConfigMixin;
+    use tempfile::TempDir;
+    use tokio::fs;
 
     #[tokio::test]
-    async fn test_vscode_settings_plugin_description() {
-        let plugin = VSCodeSettingsPlugin::new();
+    async fn test_vscode_core_app_info() {
+        let core = VSCodeCore;
+        assert_eq!(core.app_name(), "VSCode");
+        assert_eq!(core.settings_file_name(), "settings.json");
+        assert_eq!(core.icon(), TOOL_COMPUTER);
+        assert_eq!(core.allowed_extensions(), &["json", "jsonc"]);
+    }
+
+    #[tokio::test]
+    async fn test_vscode_settings_plugin_creation() {
+        let plugin = SettingsPlugin::new(VSCodeCore);
         assert_eq!(
             plugin.description(),
-            "Captures VSCode user settings configuration"
+            "Captures application settings configuration"
         );
+        assert_eq!(plugin.icon(), TOOL_COMPUTER);
     }
 
     #[tokio::test]
-    async fn test_vscode_settings_dir() {
-        let plugin = VSCodeSettingsPlugin::new();
-        let settings_dir = plugin.get_vscode_settings_dir().unwrap();
-
-        // Just check that we get a valid path
-        assert!(settings_dir.is_absolute());
-    }
-
-    #[tokio::test]
-    async fn test_vscode_settings_plugin_config() {
-        // Test with no config
-        let plugin = VSCodeSettingsPlugin::new();
-        assert_eq!(plugin.get_target_path(), None);
-        assert_eq!(plugin.get_output_file(), None);
-        assert!(plugin.get_hooks().is_empty());
-
-        // Test with config
+    async fn test_vscode_settings_plugin_with_config() {
         let config_toml = r#"
             target_path = "vscode"
             output_file = "settings.json"
         "#;
         let config: toml::Value = toml::from_str(config_toml).unwrap();
-        let plugin_with_config = VSCodeSettingsPlugin::with_config(config);
+        let plugin = SettingsPlugin::with_config(VSCodeCore, config);
 
         assert_eq!(
-            plugin_with_config.get_target_path(),
+            ConfigMixin::get_target_path(&plugin),
             Some("vscode".to_string())
         );
         assert_eq!(
-            plugin_with_config.get_output_file(),
+            ConfigMixin::get_output_file(&plugin),
             Some("settings.json".to_string())
         );
-        assert!(plugin_with_config.get_hooks().is_empty());
     }
 
     #[tokio::test]
-    async fn test_vscode_settings_schema_validation() {
-        // Test with invalid JSON extension
-        let invalid_config_toml = r#"
-            target_path = "vscode"
-            output_file = "settings.txt"
-        "#;
-        let invalid_config: toml::Value = toml::from_str(invalid_config_toml).unwrap();
-        let plugin_invalid = VSCodeSettingsPlugin::with_config(invalid_config);
+    async fn test_vscode_settings_plugin_restore() {
+        let plugin = SettingsPlugin::new(VSCodeCore);
 
-        // Should fail validation
-        assert!(plugin_invalid.get_config().is_none());
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        let target_dir = temp_dir.path().join("target");
 
-        // Test with valid JSON extensions
-        let valid_extensions = vec!["json", "jsonc"];
-        for ext in valid_extensions {
-            let config_toml = format!(
-                r#"
-                target_path = "vscode"
-                output_file = "settings.{ext}"
-                "#
-            );
-            let config: toml::Value = toml::from_str(&config_toml).unwrap();
-            let plugin = VSCodeSettingsPlugin::with_config(config);
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+        fs::create_dir_all(&target_dir).await.unwrap();
 
-            assert!(
-                plugin.get_config().is_some(),
-                "Extension .{ext} should be valid for VSCode settings"
-            );
-        }
+        // Create test settings file
+        let test_settings = r#"{"theme": "dark", "fontSize": 14}"#;
+        let settings_path = snapshot_dir.join("settings.json");
+        fs::write(&settings_path, test_settings).await.unwrap();
+
+        // Test dry run
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, true)
+            .await
+            .unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(!target_dir.join("settings.json").exists());
+
+        // Test actual restore
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, false)
+            .await
+            .unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(target_dir.join("settings.json").exists());
+
+        let restored_content = fs::read_to_string(target_dir.join("settings.json"))
+            .await
+            .unwrap();
+        assert_eq!(restored_content, test_settings);
     }
 
-    #[test]
-    fn test_vscode_settings_config_schema_direct() {
-        use crate::core::config_schema::ConfigSchema;
+    #[tokio::test]
+    async fn test_vscode_settings_validation() {
+        let plugin = SettingsPlugin::new(VSCodeCore);
 
-        // Test invalid config
-        let invalid_config = VSCodeSettingsConfig {
-            target_path: Some("vscode".to_string()),
-            output_file: Some("settings.yaml".to_string()), // Wrong extension
-            restore_target_dir: None,
-            hooks: None,
-        };
+        // Note: This test will only pass if VSCode is actually installed
+        // In CI/CD, this might fail, but that's expected behavior
+        let validation_result = plugin.validate().await;
 
-        assert!(invalid_config.validate().is_err());
-
-        // Test valid configs
-        let valid_json = VSCodeSettingsConfig {
-            target_path: Some("vscode".to_string()),
-            output_file: Some("settings.json".to_string()),
-            restore_target_dir: None,
-            hooks: None,
-        };
-        assert!(valid_json.validate().is_ok());
-
-        let valid_jsonc = VSCodeSettingsConfig {
-            target_path: Some("vscode".to_string()),
-            output_file: Some("settings.jsonc".to_string()),
-            restore_target_dir: None,
-            hooks: None,
-        };
-        assert!(valid_jsonc.validate().is_ok());
+        // The validation should either succeed (VSCode installed) or fail with directory not found
+        if let Err(e) = validation_result {
+            assert!(e
+                .to_string()
+                .contains("VSCode settings directory not found"));
+        }
     }
 }
 
-// Auto-register this plugin
-crate::register_plugin!(VSCodeSettingsPlugin, "vscode_settings", "vscode");
+// Auto-register this plugin using the VSCodeCore implementation
+crate::register_mixin_plugin!(
+    VSCodeSettingsPlugin,
+    VSCodeCore,
+    "vscode_settings",
+    "vscode"
+);

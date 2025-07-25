@@ -1,327 +1,176 @@
 use anyhow::{Context, Result};
-use async_trait::async_trait;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::process::Command;
-use tracing::warn;
-use which::which;
 
-use crate::core::config_schema::{ConfigSchema, ValidationHelpers};
-use crate::core::hooks::HookAction;
-use crate::core::plugin::Plugin;
+use crate::plugins::core::base::settings::{SettingsCore, SettingsPlugin};
+use crate::plugins::core::mixins::CommandMixin;
 use crate::symbols::*;
 
-/// Plugin for capturing NPM configuration
-pub struct NpmConfigPlugin {
-    config: Option<toml::Value>,
-}
+/// NPM-specific configuration implementation using the mixin architecture
+#[derive(Default)]
+pub struct NpmConfigCore;
 
-#[derive(Debug, Deserialize, Serialize, JsonSchema)]
-struct NpmConfigConfig {
-    #[schemars(description = "Custom directory path within the snapshot for this plugin's output")]
-    target_path: Option<String>,
-
-    #[schemars(description = "Custom filename for the NPM config output (default: npmrc.txt)")]
-    output_file: Option<String>,
-
-    #[schemars(
-        description = "Custom target directory for restoration (default: home directory for .npmrc)"
-    )]
-    restore_target_dir: Option<String>,
-
-    #[schemars(description = "Plugin-specific hooks configuration")]
-    hooks: Option<PluginHooks>,
-}
-
-#[derive(Debug, Deserialize, Serialize, JsonSchema)]
-struct PluginHooks {
-    #[serde(rename = "pre-plugin", default)]
-    #[schemars(description = "Hooks to run before plugin execution")]
-    pre_plugin: Vec<HookAction>,
-
-    #[serde(rename = "post-plugin", default)]
-    #[schemars(description = "Hooks to run after plugin execution")]
-    post_plugin: Vec<HookAction>,
-}
-
-impl ConfigSchema for NpmConfigConfig {
-    fn schema_name() -> &'static str {
-        "NpmConfigConfig"
+impl SettingsCore for NpmConfigCore {
+    fn app_name(&self) -> &'static str {
+        "NPM"
     }
 
-    fn validate(&self) -> Result<()> {
-        // Validate output file extension if specified
-        if let Some(output_file) = &self.output_file {
-            // NPM config is typically text-based, but allow files without extension (like npmrc)
-            // Hidden files starting with . are considered as having no extension
-            if output_file.contains('.') && !output_file.starts_with('.') {
-                ValidationHelpers::validate_file_extension(
-                    output_file,
-                    &["txt", "log", "rc", "npmrc"],
-                )?;
-            }
-        }
-
-        // Validate that npm command exists (warning only, not error)
-        if ValidationHelpers::validate_command_exists("npm").is_err() {
-            warn!("npm command not found - NPM functionality may not work");
-        }
-
-        Ok(())
-    }
-}
-
-impl NpmConfigPlugin {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        Self { config: None }
+    fn settings_file_name(&self) -> &'static str {
+        "npmrc.txt"
     }
 
-    pub fn with_config(config: toml::Value) -> Self {
-        // Validate configuration using schema validation
-        match NpmConfigConfig::from_toml_value(&config) {
-            Ok(_) => {
-                // Configuration is valid
-                Self {
-                    config: Some(config),
-                }
-            }
-            Err(e) => {
-                // Use shared error formatting
-                let error_msg = ValidationHelpers::format_validation_error(
-                    "NPM Config plugin",
-                    "npm_config",
-                    "target_path (string), output_file (string), hooks (object)",
-                    "target_path = \"npm\", output_file = \"npmrc.txt\"",
-                    &e,
-                );
-
-                warn!("{error_msg}");
-
-                // Still create plugin to avoid breaking the application
-                Self {
-                    config: Some(config),
-                }
-            }
-        }
+    fn get_settings_dir(&self) -> Result<PathBuf> {
+        let home_dir = dirs::home_dir().context("Could not determine home directory")?;
+        Ok(home_dir)
     }
 
-    fn get_config(&self) -> Option<NpmConfigConfig> {
-        self.config
-            .as_ref()
-            .and_then(|c| NpmConfigConfig::from_toml_value(c).ok())
-    }
-
-    /// Gets NPM configuration
-    async fn get_npm_config(&self) -> Result<String> {
-        let output =
-            tokio::task::spawn_blocking(|| Command::new("npm").args(["config", "list"]).output())
-                .await??;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(anyhow::anyhow!("npm config list failed: {stderr}"));
-        }
-
-        let config = String::from_utf8(output.stdout)
-            .context("Failed to parse npm config list output as UTF-8")?;
-
-        // Filter out sensitive information
-        let filtered_config = config
-            .lines()
-            .filter(|line| {
-                !line.contains("password")
-                    && !line.contains("token")
-                    && !line.contains("auth")
-                    && !line.contains("key")
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
-
-        Ok(filtered_config)
-    }
-}
-
-#[async_trait]
-impl Plugin for NpmConfigPlugin {
-    // Uses default "txt" extension
-
-    fn description(&self) -> &str {
-        "Captures NPM configuration settings"
-    }
-
-    fn icon(&self) -> &str {
-        CONTENT_PACKAGE
-    }
-
-    async fn execute(&self) -> Result<String> {
-        self.get_npm_config().await
-    }
-
-    async fn validate(&self) -> Result<()> {
-        // Check if npm command exists
-        which("npm").context("npm command not found. Please install Node.js and NPM.")?;
-
-        Ok(())
-    }
-
-    fn get_target_path(&self) -> Option<String> {
-        self.get_config()?.target_path
-    }
-
-    fn get_output_file(&self) -> Option<String> {
-        self.get_config()?.output_file
-    }
-
-    fn get_restore_target_dir(&self) -> Option<String> {
-        self.get_config()?.restore_target_dir
-    }
-
-    fn get_default_restore_target_dir(&self) -> Result<std::path::PathBuf> {
-        // NPM config is typically restored to the home directory as .npmrc
-        Ok(dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from(".")))
-    }
-
-    fn get_hooks(&self) -> Vec<HookAction> {
-        self.get_config()
-            .and_then(|c| c.hooks)
-            .map(|h| {
-                let mut hooks = h.pre_plugin;
-                hooks.extend(h.post_plugin);
-                hooks
-            })
-            .unwrap_or_default()
-    }
-
-    async fn restore(
+    fn read_settings(
         &self,
-        snapshot_path: &std::path::Path,
-        target_path: &std::path::Path,
-        dry_run: bool,
-    ) -> Result<Vec<std::path::PathBuf>> {
-        use tokio::fs;
-        use tracing::{info, warn};
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send + '_>> {
+        Box::pin(async move {
+            // Get NPM configuration using npm config list
+            let output = tokio::task::spawn_blocking(|| {
+                Command::new("npm")
+                    .args(["config", "list", "--long"])
+                    .output()
+            })
+            .await??;
 
-        let mut restored_files = Vec::new();
-
-        // Find NPM config file in the snapshot
-        let config_filename = self
-            .get_output_file()
-            .unwrap_or_else(|| "npmrc.txt".to_string());
-        let mut source_config = snapshot_path.join(&config_filename);
-
-        if !source_config.exists() {
-            // Try alternative common names
-            let alternative_names = ["npmrc.txt", "npm_config.txt", ".npmrc", "config.txt"];
-            let mut found = false;
-
-            for name in &alternative_names {
-                let alt_path = snapshot_path.join(name);
-                if alt_path.exists() {
-                    source_config = alt_path;
-                    info!(
-                        "Found NPM config file at alternative path: {}",
-                        source_config.display()
-                    );
-                    found = true;
-                    break;
-                }
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(anyhow::anyhow!("npm config list failed: {}", stderr));
             }
 
-            if !found {
-                return Ok(restored_files); // No config file found
+            let config_output = String::from_utf8_lossy(&output.stdout);
+
+            // Filter out sensitive information and system paths for security
+            let filtered_config: Vec<&str> = config_output
+                .lines()
+                .filter(|line| {
+                    let line = line.trim();
+                    // Skip empty lines and comments
+                    if line.is_empty() || line.starts_with(';') || line.starts_with('#') {
+                        return false;
+                    }
+                    // Skip sensitive information
+                    if line.contains("password") || line.contains("token") || line.contains("auth")
+                    {
+                        return false;
+                    }
+                    // Skip system-specific paths that shouldn't be restored
+                    if line.contains("prefix =")
+                        || line.contains("cache =")
+                        || line.contains("tmp =")
+                    {
+                        return false;
+                    }
+                    true
+                })
+                .collect();
+
+            if filtered_config.is_empty() {
+                Ok("# No NPM configuration found\n".to_string())
+            } else {
+                Ok(filtered_config.join("\n") + "\n")
             }
-        }
+        })
+    }
 
-        let target_npmrc = target_path.join(".npmrc");
+    fn icon(&self) -> &'static str {
+        TOOL_PACKAGE_MANAGER
+    }
 
-        if dry_run {
-            warn!(
-                "DRY RUN: Would restore NPM config to {}",
-                target_npmrc.display()
-            );
-            warn!("DRY RUN: This is a reference config. Review and apply settings manually.");
-            restored_files.push(target_npmrc);
-        } else {
-            // Create target directory if it doesn't exist
-            if let Some(parent) = target_npmrc.parent() {
-                fs::create_dir_all(parent)
-                    .await
-                    .context("Failed to create target directory for NPM config")?;
-            }
-
-            // Copy config file to target location as .npmrc
-            fs::copy(&source_config, &target_npmrc)
-                .await
-                .with_context(|| {
-                    format!(
-                        "Failed to restore NPM config from {}",
-                        source_config.display()
-                    )
-                })?;
-
-            info!("Restored NPM config to {}", target_npmrc.display());
-            info!("Note: This is a reference config from the snapshot.");
-            info!("Review the settings and manually apply any sensitive configurations that were filtered out.");
-
-            restored_files.push(target_npmrc);
-        }
-
-        Ok(restored_files)
+    fn allowed_extensions(&self) -> &'static [&'static str] {
+        &["txt", "npmrc", "config"]
     }
 }
+
+impl CommandMixin for NpmConfigCore {
+    // Uses default implementation - no custom command behavior needed
+
+    fn validate_command_exists(
+        &self,
+        cmd: &str,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>> {
+        let cmd = cmd.to_string();
+        Box::pin(async move {
+            // Check if npm exists
+            which::which(&cmd).with_context(|| {
+                format!("{cmd} command not found. Please install Node.js and NPM.")
+            })?;
+
+            Ok(())
+        })
+    }
+}
+
+/// Type alias for the NPM config plugin
+pub type NpmConfigPlugin = SettingsPlugin<NpmConfigCore>;
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::plugin::Plugin;
+    use crate::plugins::core::mixins::ConfigMixin;
+    use tempfile::TempDir;
+    use tokio::fs;
+    use which::which;
 
     #[tokio::test]
-    async fn test_npm_config_plugin_description() {
-        let plugin = NpmConfigPlugin::new();
-        assert_eq!(plugin.description(), "Captures NPM configuration settings");
+    async fn test_npm_config_core_app_info() {
+        let core = NpmConfigCore;
+        assert_eq!(core.app_name(), "NPM");
+        assert_eq!(core.settings_file_name(), "npmrc.txt");
+        assert_eq!(core.icon(), TOOL_PACKAGE_MANAGER);
+        assert_eq!(core.allowed_extensions(), &["txt", "npmrc", "config"]);
+    }
+
+    #[tokio::test]
+    async fn test_npm_config_plugin_creation() {
+        let plugin = SettingsPlugin::new(NpmConfigCore);
+        assert_eq!(
+            plugin.description(),
+            "Captures application settings configuration"
+        );
+        assert_eq!(plugin.icon(), TOOL_PACKAGE_MANAGER);
     }
 
     #[tokio::test]
     async fn test_npm_config_plugin_validation() {
-        let plugin = NpmConfigPlugin::new();
+        let plugin = SettingsPlugin::new(NpmConfigCore);
 
         // This test will only pass if npm is installed
         if which("npm").is_ok() {
+            // The validation should succeed if npm exists
             assert!(plugin.validate().await.is_ok());
+        } else {
+            // Should fail with command not found
+            assert!(plugin.validate().await.is_err());
         }
     }
 
     #[tokio::test]
-    async fn test_npm_config_plugin_config() {
-        // Test with no config
-        let plugin = NpmConfigPlugin::new();
-        assert_eq!(plugin.get_target_path(), None);
-        assert_eq!(plugin.get_output_file(), None);
-        assert!(plugin.get_hooks().is_empty());
-
-        // Test with config
+    async fn test_npm_config_plugin_with_config() {
         let config_toml = r#"
             target_path = "npm"
-            output_file = "npmrc"
+            output_file = "npmrc.txt"
         "#;
         let config: toml::Value = toml::from_str(config_toml).unwrap();
-        let plugin_with_config = NpmConfigPlugin::with_config(config);
+        let plugin = SettingsPlugin::with_config(NpmConfigCore, config);
 
         assert_eq!(
-            plugin_with_config.get_target_path(),
+            ConfigMixin::get_target_path(&plugin),
             Some("npm".to_string())
         );
         assert_eq!(
-            plugin_with_config.get_output_file(),
-            Some("npmrc".to_string())
+            ConfigMixin::get_output_file(&plugin),
+            Some("npmrc.txt".to_string())
         );
-        assert!(plugin_with_config.get_hooks().is_empty());
     }
 
     #[tokio::test]
-    async fn test_npm_config_restore_functionality() {
-        use tempfile::TempDir;
-        use tokio::fs;
+    async fn test_npm_config_plugin_restore() {
+        let plugin = SettingsPlugin::new(NpmConfigCore);
 
         let temp_dir = TempDir::new().unwrap();
         let snapshot_dir = temp_dir.path().join("snapshot");
@@ -330,15 +179,14 @@ mod tests {
         fs::create_dir_all(&snapshot_dir).await.unwrap();
         fs::create_dir_all(&target_dir).await.unwrap();
 
-        // Create test npmrc file
-        let test_npmrc_content = r#"registry=https://registry.npmjs.org/
+        // Create test NPM config
+        let test_config = r#"registry=https://registry.npmjs.org/
 save-exact=true
-engine-strict=true
+fund=false
+audit=false
 "#;
-        let npmrc_path = snapshot_dir.join("npmrc.txt");
-        fs::write(&npmrc_path, test_npmrc_content).await.unwrap();
-
-        let plugin = NpmConfigPlugin::new();
+        let config_path = snapshot_dir.join("npmrc.txt");
+        fs::write(&config_path, test_config).await.unwrap();
 
         // Test dry run
         let result = plugin
@@ -346,8 +194,7 @@ engine-strict=true
             .await
             .unwrap();
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0], target_dir.join(".npmrc"));
-        assert!(!target_dir.join(".npmrc").exists());
+        assert!(!target_dir.join("npmrc.txt").exists());
 
         // Test actual restore
         let result = plugin
@@ -355,16 +202,17 @@ engine-strict=true
             .await
             .unwrap();
         assert_eq!(result.len(), 1);
-        assert!(target_dir.join(".npmrc").exists());
+        assert!(target_dir.join("npmrc.txt").exists());
 
-        let restored_content = fs::read_to_string(target_dir.join(".npmrc")).await.unwrap();
-        assert_eq!(restored_content, test_npmrc_content);
+        let restored_content = fs::read_to_string(target_dir.join("npmrc.txt"))
+            .await
+            .unwrap();
+        assert_eq!(restored_content, test_config);
     }
 
     #[tokio::test]
-    async fn test_npm_config_restore_alternative_names() {
-        use tempfile::TempDir;
-        use tokio::fs;
+    async fn test_npm_config_restore_no_file() {
+        let plugin = SettingsPlugin::new(NpmConfigCore);
 
         let temp_dir = TempDir::new().unwrap();
         let snapshot_dir = temp_dir.path().join("snapshot");
@@ -373,46 +221,37 @@ engine-strict=true
         fs::create_dir_all(&snapshot_dir).await.unwrap();
         fs::create_dir_all(&target_dir).await.unwrap();
 
-        let test_content = "registry=https://registry.npmjs.org/";
-        let alt_path = snapshot_dir.join(".npmrc");
-        fs::write(&alt_path, test_content).await.unwrap();
-
-        let plugin = NpmConfigPlugin::new();
         let result = plugin
             .restore(&snapshot_dir, &target_dir, false)
             .await
             .unwrap();
 
-        assert_eq!(result.len(), 1);
-        assert!(target_dir.join(".npmrc").exists());
-
-        let restored_content = fs::read_to_string(target_dir.join(".npmrc")).await.unwrap();
-        assert_eq!(restored_content, test_content);
+        assert!(result.is_empty());
     }
 
-    #[test]
-    fn test_npm_config_restore_target_dir_methods() {
-        let plugin = NpmConfigPlugin::new();
+    #[tokio::test]
+    async fn test_npm_config_restore_target_dir_methods() {
+        let plugin = SettingsPlugin::new(NpmConfigCore);
 
         let default_dir = plugin.get_default_restore_target_dir().unwrap();
-        assert!(default_dir.is_absolute() || default_dir == std::path::PathBuf::from("."));
+        assert!(default_dir.is_absolute());
 
-        assert_eq!(plugin.get_restore_target_dir(), None);
+        assert_eq!(ConfigMixin::get_restore_target_dir(&plugin), None);
 
         let config_toml = r#"
             target_path = "npm"
-            output_file = ".npmrc"
-            restore_target_dir = "/home/user"
+            output_file = "npmrc.txt"
+            restore_target_dir = "/custom/npm/path"
         "#;
         let config: toml::Value = toml::from_str(config_toml).unwrap();
-        let plugin_with_config = NpmConfigPlugin::with_config(config);
+        let plugin_with_config = SettingsPlugin::with_config(NpmConfigCore, config);
 
         assert_eq!(
-            plugin_with_config.get_restore_target_dir(),
-            Some("/home/user".to_string())
+            ConfigMixin::get_restore_target_dir(&plugin_with_config),
+            Some("/custom/npm/path".to_string())
         );
     }
 }
 
-// Auto-register this plugin
-crate::register_plugin!(NpmConfigPlugin, "npm_config", "npm");
+// Auto-register this plugin using the NpmConfigCore implementation
+crate::register_mixin_plugin!(NpmConfigPlugin, NpmConfigCore, "npm_config", "npm");
