@@ -349,6 +349,124 @@ impl StaticFilesPlugin {
             Ok(())
         })
     }
+
+    /// Restores static files from snapshot back to their original locations
+    async fn restore_static_files(
+        &self,
+        static_snapshot_dir: &Path,
+        target_base_path: &Path,
+    ) -> Result<Vec<PathBuf>> {
+        use tracing::warn;
+        let mut restored_files = Vec::new();
+
+        // Read the static directory structure and restore files
+        let mut entries = tokio::fs::read_dir(static_snapshot_dir)
+            .await
+            .context("Failed to read static snapshot directory")?;
+
+        while let Some(entry) = entries
+            .next_entry()
+            .await
+            .context("Failed to read directory entry")?
+        {
+            let entry_path = entry.path();
+            let entry_name = entry.file_name();
+
+            // Handle special directory structures
+            if entry_path.is_dir() && entry_name == "home" {
+                // Restore files from home directory
+                if let Some(home_dir) = dirs::home_dir() {
+                    let files =
+                        Self::restore_directory_recursive_static(&entry_path, &home_dir).await?;
+                    restored_files.extend(files);
+                } else {
+                    warn!("Could not determine home directory for restoring files");
+                }
+            } else {
+                // For other directories, restore to filesystem root or target path
+                let target_path = if target_base_path == Path::new("/") {
+                    // Restore to filesystem root
+                    Path::new("/").join(&entry_name)
+                } else {
+                    // Restore relative to target path
+                    target_base_path.join(&entry_name)
+                };
+
+                if entry_path.is_dir() {
+                    let files =
+                        Self::restore_directory_recursive_static(&entry_path, &target_path).await?;
+                    restored_files.extend(files);
+                } else {
+                    // Create parent directories if needed
+                    if let Some(parent) = target_path.parent() {
+                        tokio::fs::create_dir_all(parent)
+                            .await
+                            .context("Failed to create parent directories for static file")?;
+                    }
+
+                    // Copy the file
+                    tokio::fs::copy(&entry_path, &target_path)
+                        .await
+                        .context(format!(
+                            "Failed to restore static file to {}",
+                            target_path.display()
+                        ))?;
+
+                    restored_files.push(target_path);
+                }
+            }
+        }
+
+        Ok(restored_files)
+    }
+
+    /// Recursively restores a directory and its contents
+    fn restore_directory_recursive_static<'a>(
+        src_dir: &'a Path,
+        dest_dir: &'a Path,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<PathBuf>>> + Send + 'a>>
+    {
+        Box::pin(async move {
+            let mut restored_files = Vec::new();
+
+            // Create the destination directory
+            tokio::fs::create_dir_all(dest_dir).await.context(format!(
+                "Failed to create directory: {}",
+                dest_dir.display()
+            ))?;
+
+            let mut entries = tokio::fs::read_dir(src_dir)
+                .await
+                .context("Failed to read source directory")?;
+
+            while let Some(entry) = entries
+                .next_entry()
+                .await
+                .context("Failed to read directory entry")?
+            {
+                let src_path = entry.path();
+                let file_name = src_path
+                    .file_name()
+                    .ok_or_else(|| anyhow::anyhow!("Invalid file name"))?;
+                let dest_path = dest_dir.join(file_name);
+
+                if src_path.is_dir() {
+                    // Recursively restore subdirectory
+                    let files =
+                        Self::restore_directory_recursive_static(&src_path, &dest_path).await?;
+                    restored_files.extend(files);
+                } else {
+                    // Copy file
+                    tokio::fs::copy(&src_path, &dest_path)
+                        .await
+                        .context(format!("Failed to restore file: {}", dest_path.display()))?;
+                    restored_files.push(dest_path);
+                }
+            }
+
+            Ok(restored_files)
+        })
+    }
 }
 
 #[async_trait]
@@ -446,6 +564,75 @@ impl Plugin for StaticFilesPlugin {
 
     fn creates_own_output_files(&self) -> bool {
         true // Static files plugin handles its own file operations
+    }
+
+    fn get_restore_target_dir(&self) -> Option<String> {
+        // Static files plugin doesn't use standard config pattern,
+        // so this returns None and restoration uses default target
+        None
+    }
+
+    fn get_default_restore_target_dir(&self) -> Result<std::path::PathBuf> {
+        // Static files are restored to their original locations,
+        // preserving the directory structure from the snapshot
+        Ok(std::path::PathBuf::from("/"))
+    }
+
+    async fn restore(
+        &self,
+        snapshot_path: &std::path::Path,
+        target_path: &std::path::Path,
+        dry_run: bool,
+    ) -> Result<Vec<std::path::PathBuf>> {
+        use tracing::{info, warn};
+
+        let mut restored_files = Vec::new();
+
+        // Look for static directory in the snapshot
+        let static_snapshot_dir = snapshot_path.join("static");
+        if !static_snapshot_dir.exists() {
+            return Ok(restored_files);
+        }
+
+        if dry_run {
+            warn!(
+                "DRY RUN: Would restore static files from {} to {}",
+                static_snapshot_dir.display(),
+                target_path.display()
+            );
+            warn!("DRY RUN: Static files would be restored to their original locations");
+
+            // In dry run, just count what would be restored
+            if let Ok(_entries) = tokio::fs::read_dir(&static_snapshot_dir).await {
+                warn!("DRY RUN: Static directory found with files to restore");
+                restored_files.push(target_path.to_path_buf());
+            }
+        } else {
+            // Restore static files by copying them back to their original locations
+            match self
+                .restore_static_files(&static_snapshot_dir, target_path)
+                .await
+            {
+                Ok(files) => {
+                    restored_files.extend(files);
+                    if !restored_files.is_empty() {
+                        info!(
+                            "Restored {} static files from snapshot",
+                            restored_files.len()
+                        );
+                        info!("Note: Static files have been restored to their original locations");
+                        info!(
+                            "Review the restored files and ensure they are in the correct places"
+                        );
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to restore static files: {}", e);
+                }
+            }
+        }
+
+        Ok(restored_files)
     }
 }
 
@@ -563,6 +750,80 @@ mod tests {
         // Test nested paths
         assert!(plugin.should_ignore(&PathBuf::from("/project/.git/config"), &ignore_patterns));
         assert!(plugin.should_ignore(&PathBuf::from("/deep/path/to/secret.key"), &ignore_patterns));
+    }
+
+    #[tokio::test]
+    async fn test_static_files_restore_functionality() {
+        use tempfile::TempDir;
+        use tokio::fs;
+
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        let target_dir = temp_dir.path().join("target");
+        let static_snapshot_dir = snapshot_dir.join("static");
+
+        fs::create_dir_all(&static_snapshot_dir).await.unwrap();
+        fs::create_dir_all(&target_dir).await.unwrap();
+
+        // Create test static files structure
+        let home_dir = static_snapshot_dir.join("home");
+        fs::create_dir_all(&home_dir).await.unwrap();
+
+        let test_file_content = "# Test config file";
+        let test_file_path = home_dir.join("test_config.txt");
+        fs::write(&test_file_path, test_file_content).await.unwrap();
+
+        let plugin = StaticFilesPlugin::new();
+
+        // Test dry run
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, true)
+            .await
+            .unwrap();
+        assert_eq!(result.len(), 1);
+
+        // Test actual restore
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, false)
+            .await
+            .unwrap();
+
+        // Should have restored at least one file
+        assert!(!result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_static_files_restore_no_static_dir() {
+        use tempfile::TempDir;
+        use tokio::fs;
+
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        let target_dir = temp_dir.path().join("target");
+
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+        fs::create_dir_all(&target_dir).await.unwrap();
+
+        let plugin = StaticFilesPlugin::new();
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, false)
+            .await
+            .unwrap();
+
+        // Should return empty result when no static directory exists
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_static_files_restore_target_dir_methods() {
+        let plugin = StaticFilesPlugin::new();
+
+        // Static files plugin returns None for restore_target_dir (uses special logic)
+        assert_eq!(plugin.get_restore_target_dir(), None);
+
+        // Default restore target is filesystem root
+        let default_dir = plugin.get_default_restore_target_dir().unwrap();
+        assert_eq!(default_dir, std::path::PathBuf::from("/"));
     }
 }
 

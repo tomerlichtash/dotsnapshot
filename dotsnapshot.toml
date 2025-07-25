@@ -65,16 +65,30 @@ title = "dotsnapshot"                       # Optional notification title
 
 # ==============================================================================
 # Plugin Configurations
-# Each plugin can have custom target_path, output_file, and hooks
+# Each plugin can have custom target_path, output_file, restore_target_dir, and hooks
+#
+# Configuration options:
+# - target_path: Directory within snapshot where plugin output is stored
+# - output_file: Custom filename for plugin output (overrides default)
+# - restore_target_dir: Custom directory where files are restored (supports ~ expansion)
+# - hooks: Custom scripts to run before/after plugin execution
+#
+# Restore target precedence (highest to lowest):
+# 1. CLI --target-dir flag (overrides everything)
+# 2. Plugin's restore_target_dir setting (from this config)  
+# 3. Plugin's default directory (e.g., VSCode settings directory)
+# 4. General default directory (usually home directory)
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
 # Homebrew Package Manager
 # Captures installed packages and taps in Brewfile format
+# Automatically installs packages during restore
 # ------------------------------------------------------------------------------
 [plugins.homebrew_brewfile]
 target_path = "homebrew"                    # Directory within snapshot
 output_file = "Brewfile"                    # Custom filename (default: homebrew_brewfile.txt)
+restore_target_dir = "."                    # Restore Brewfile to current directory and install packages
 
 [plugins.homebrew_brewfile.hooks]
 post-plugin = []                            # No post-plugin hooks
@@ -95,6 +109,10 @@ timeout = 30
 [plugins.vscode_settings]
 target_path = "vscode"                      # All VSCode files go in 'vscode' directory
 output_file = "settings.json"              # Keep original JSON format
+restore_target_dir = "~/Library/Application Support/Code/User"  # Custom restore target (macOS default shown)
+# restore_target_dir = "~/.config/Code/User"                     # Linux/Unix default
+# restore_target_dir = "~/AppData/Roaming/Code/User"             # Windows default  
+# restore_target_dir = "~/custom-vscode-config"                  # Custom directory
 
 [plugins.vscode_settings.hooks]
 pre-plugin = []                             # No pre-plugin hooks
@@ -111,10 +129,14 @@ timeout = 30
 [plugins.vscode_keybindings]
 target_path = "vscode"                      # Same directory as settings
 output_file = "keybindings.json"           # Keep original JSON format
+restore_target_dir = "~/Library/Application Support/Code/User"  # Custom restore target (macOS default shown)
+# restore_target_dir = "~/.config/Code/User"                     # Linux/Unix default
+# restore_target_dir = "~/AppData/Roaming/Code/User"             # Windows default
 
 [plugins.vscode_extensions]
 target_path = "vscode"                      # Same directory as other VSCode files
 output_file = "extensions.txt"             # List of installed extensions
+restore_target_dir = "."                    # Restore extensions list to current directory
 
 # ------------------------------------------------------------------------------
 # Cursor Editor
@@ -123,14 +145,21 @@ output_file = "extensions.txt"             # List of installed extensions
 [plugins.cursor_settings]
 target_path = "cursor"                      # All Cursor files go in 'cursor' directory
 output_file = "settings.json"
+restore_target_dir = "~/Library/Application Support/Cursor/User"  # Custom restore target (macOS default shown)
+# restore_target_dir = "~/.config/Cursor/User"                     # Linux/Unix default
+# restore_target_dir = "~/AppData/Roaming/Cursor/User"             # Windows default
 
 [plugins.cursor_keybindings]
 target_path = "cursor"
 output_file = "keybindings.json"
+restore_target_dir = "~/Library/Application Support/Cursor/User"  # Custom restore target (macOS default shown)
+# restore_target_dir = "~/.config/Cursor/User"                     # Linux/Unix default
+# restore_target_dir = "~/AppData/Roaming/Cursor/User"             # Windows default
 
 [plugins.cursor_extensions]
 target_path = "cursor"
 output_file = "extensions.txt"
+restore_target_dir = "."                    # Restore extensions list to current directory
 
 # ------------------------------------------------------------------------------
 # NPM Package Manager
@@ -139,14 +168,17 @@ output_file = "extensions.txt"
 [plugins.npm_global_packages]
 target_path = "npm"                         # Both npm plugins share directory
 output_file = "global-packages.txt"        # Custom filename for clarity
+restore_target_dir = "."                    # Restore packages list to current directory
 
 [plugins.npm_config]
 target_path = "npm"                         # Same directory as global packages
 output_file = ".npmrc"                      # Keep original config file name
+restore_target_dir = "~"                    # Restore .npmrc to home directory
 
 # ------------------------------------------------------------------------------
 # Static Files Plugin (handles direct file/directory copying)
 # Copies important dotfiles and configuration files directly
+# Note: Static files are automatically restored to their original locations
 # ------------------------------------------------------------------------------
 [plugins.static]
 files = [

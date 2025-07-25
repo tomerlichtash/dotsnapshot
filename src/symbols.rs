@@ -17,6 +17,7 @@ pub const ACTION_LAUNCH: &str = "🚀";
 pub const ACTION_HOOK: &str = "🪝";
 pub const ACTION_TEST: &str = "🧪";
 pub const ACTION_BLOCK: &str = "🚫";
+pub const ACTION_RESTORE: &str = "♻️";
 
 /// Content and data symbols
 pub const CONTENT_FILE: &str = "📄";
@@ -26,6 +27,9 @@ pub const CONTENT_SNAPSHOT: &str = "📸";
 pub const CONTENT_STATS: &str = "📊";
 pub const CONTENT_STORAGE: &str = "💾";
 pub const CONTENT_TRASH: &str = "🗑️";
+pub const CONTENT_ARROW_RIGHT: &str = "→";
+pub const CONTENT_BACKUP: &str = "💾";
+pub const CONTENT_SKIP: &str = "⏭️";
 
 /// Tool and platform symbols
 pub const TOOL_CONFIG: &str = "🔧";
@@ -48,6 +52,8 @@ pub const EXPERIENCE_IDEA: &str = "💡";
 pub const EXPERIENCE_HEART: &str = "❤️";
 pub const EXPERIENCE_SPEED: &str = "⚡";
 pub const EXPERIENCE_TIME: &str = "⏱️";
+pub const EXPERIENCE_SUCCESS: &str = "🎯";
+pub const EXPERIENCE_QUESTION: &str = "❓";
 
 /// Connectivity and scope symbols
 pub const SCOPE_GLOBAL: &str = "🌐";
