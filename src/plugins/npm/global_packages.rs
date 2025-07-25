@@ -227,7 +227,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_npm_global_plugin_new_creation() {
+    async fn test_npm_global_plugin_creation() {
         let plugin = PackagePlugin::new(NpmGlobalCore);
         assert_eq!(
             plugin.description(),
@@ -237,7 +237,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_npm_global_plugin_new_validation() {
+    async fn test_npm_global_plugin_validation() {
         let plugin = PackagePlugin::new(NpmGlobalCore);
 
         // This test will only pass if npm is installed
@@ -250,7 +250,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_npm_global_plugin_new_with_config() {
+    async fn test_npm_global_plugin_with_config() {
         let config_toml = r#"
             target_path = "npm"
             output_file = "global_packages.txt"
@@ -269,7 +269,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_npm_global_plugin_new_restore() {
+    async fn test_npm_global_plugin_restore() {
         let plugin = PackagePlugin::new(NpmGlobalCore);
 
         let temp_dir = TempDir::new().unwrap();

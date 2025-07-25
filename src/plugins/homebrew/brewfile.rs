@@ -200,7 +200,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_homebrew_plugin_new_creation() {
+    async fn test_homebrew_plugin_creation() {
         let plugin = PackagePlugin::new(HomebrewCore);
         assert_eq!(
             plugin.description(),
@@ -210,7 +210,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_homebrew_plugin_new_validation() {
+    async fn test_homebrew_plugin_validation() {
         let plugin = PackagePlugin::new(HomebrewCore);
 
         // This test will only pass if Homebrew is installed
@@ -228,7 +228,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_homebrew_plugin_new_with_config() {
+    async fn test_homebrew_plugin_with_config() {
         let config_toml = r#"
             target_path = "homebrew"
             output_file = "Brewfile"
@@ -247,7 +247,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_homebrew_plugin_new_restore() {
+    async fn test_homebrew_plugin_restore() {
         let plugin = PackagePlugin::new(HomebrewCore);
 
         let temp_dir = TempDir::new().unwrap();

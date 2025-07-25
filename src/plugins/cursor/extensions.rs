@@ -76,7 +76,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_cursor_extensions_plugin_new_creation() {
+    async fn test_cursor_extensions_plugin_creation() {
         let plugin = ExtensionsPlugin::new(CursorExtensionsCore);
         assert_eq!(
             plugin.description(),
@@ -86,7 +86,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_cursor_extensions_plugin_new_validation() {
+    async fn test_cursor_extensions_plugin_validation() {
         let plugin = ExtensionsPlugin::new(CursorExtensionsCore);
 
         // This test will only pass if Cursor CLI is installed
@@ -99,7 +99,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_cursor_extensions_plugin_new_with_config() {
+    async fn test_cursor_extensions_plugin_with_config() {
         let config_toml = r#"
             target_path = "cursor"
             output_file = "extensions.txt"
@@ -118,7 +118,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_cursor_extensions_plugin_new_restore() {
+    async fn test_cursor_extensions_plugin_restore() {
         let plugin = ExtensionsPlugin::new(CursorExtensionsCore);
 
         let temp_dir = TempDir::new().unwrap();

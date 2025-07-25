@@ -126,7 +126,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_npm_config_plugin_new_creation() {
+    async fn test_npm_config_plugin_creation() {
         let plugin = SettingsPlugin::new(NpmConfigCore);
         assert_eq!(
             plugin.description(),
@@ -136,7 +136,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_npm_config_plugin_new_validation() {
+    async fn test_npm_config_plugin_validation() {
         let plugin = SettingsPlugin::new(NpmConfigCore);
 
         // This test will only pass if npm is installed
@@ -150,7 +150,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_npm_config_plugin_new_with_config() {
+    async fn test_npm_config_plugin_with_config() {
         let config_toml = r#"
             target_path = "npm"
             output_file = "npmrc.txt"
@@ -169,7 +169,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_npm_config_plugin_new_restore() {
+    async fn test_npm_config_plugin_restore() {
         let plugin = SettingsPlugin::new(NpmConfigCore);
 
         let temp_dir = TempDir::new().unwrap();

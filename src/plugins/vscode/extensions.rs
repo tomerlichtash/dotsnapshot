@@ -48,8 +48,8 @@ impl CommandMixin for VSCodeExtensionsCore {
     // Uses default implementation with the extensions_command
 }
 
-/// Type alias for the new VSCode extensions plugin
-pub type VSCodeExtensionsPluginNew = ExtensionsPlugin<VSCodeExtensionsCore>;
+/// Type alias for the VSCode extensions plugin
+pub type VSCodeExtensionsPlugin = ExtensionsPlugin<VSCodeExtensionsCore>;
 
 #[cfg(test)]
 mod tests {
@@ -76,7 +76,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_vscode_extensions_plugin_new_creation() {
+    async fn test_vscode_extensions_plugin_creation() {
         let plugin = ExtensionsPlugin::new(VSCodeExtensionsCore);
         assert_eq!(
             plugin.description(),
@@ -86,7 +86,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_vscode_extensions_plugin_new_validation() {
+    async fn test_vscode_extensions_plugin_validation() {
         let plugin = ExtensionsPlugin::new(VSCodeExtensionsCore);
 
         // This test will only pass if VSCode CLI is installed
@@ -99,7 +99,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_vscode_extensions_plugin_new_with_config() {
+    async fn test_vscode_extensions_plugin_with_config() {
         let config_toml = r#"
             target_path = "vscode"
             output_file = "extensions.txt"
@@ -118,7 +118,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_vscode_extensions_plugin_new_restore() {
+    async fn test_vscode_extensions_plugin_restore() {
         let plugin = ExtensionsPlugin::new(VSCodeExtensionsCore);
 
         let temp_dir = TempDir::new().unwrap();
@@ -160,7 +160,7 @@ mod tests {
 
 // Auto-register this plugin using the VSCodeExtensionsCore implementation
 crate::register_mixin_plugin!(
-    VSCodeExtensionsPluginNew,
+    VSCodeExtensionsPlugin,
     VSCodeExtensionsCore,
     "vscode_extensions",
     "vscode"

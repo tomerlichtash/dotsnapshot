@@ -87,7 +87,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_vscode_settings_plugin_new_creation() {
+    async fn test_vscode_settings_plugin_creation() {
         let plugin = SettingsPlugin::new(VSCodeCore);
         assert_eq!(
             plugin.description(),
@@ -97,7 +97,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_vscode_settings_plugin_new_with_config() {
+    async fn test_vscode_settings_plugin_with_config() {
         let config_toml = r#"
             target_path = "vscode"
             output_file = "settings.json"
@@ -116,7 +116,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_vscode_settings_plugin_new_restore() {
+    async fn test_vscode_settings_plugin_restore() {
         let plugin = SettingsPlugin::new(VSCodeCore);
 
         let temp_dir = TempDir::new().unwrap();
