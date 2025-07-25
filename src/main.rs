@@ -72,7 +72,11 @@ enum Commands {
     /// Restore configuration from a snapshot
     Restore {
         /// Path to the snapshot directory to restore from
-        snapshot_path: PathBuf,
+        snapshot_path: Option<PathBuf>,
+
+        /// Use the latest snapshot from the default snapshot directory
+        #[arg(long)]
+        latest: bool,
 
         /// Restore only specific plugins (comma-separated)
         #[arg(short, long)]
@@ -412,6 +416,7 @@ async fn main() -> Result<()> {
             }
             Commands::Restore {
                 snapshot_path,
+                latest,
                 plugins,
                 dry_run,
                 backup,
@@ -420,6 +425,7 @@ async fn main() -> Result<()> {
             } => {
                 return cli::restore::handle_restore_command(
                     snapshot_path,
+                    latest,
                     plugins,
                     dry_run,
                     backup,
