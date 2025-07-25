@@ -58,6 +58,7 @@
 - Always run lint and typecheck commands before committing  
 - Test commands: Check README or ask user for project-specific commands
 - Never commit if tests are failing or coverage is below 90%
+- When adding tests, always add a comment that explains the test
 
 **Coverage Tools:**
 - Primary: `cargo llvm-cov` for accurate coverage analysis
@@ -130,6 +131,12 @@ Releases are fully automated using semantic-release based on conventional commit
   - ✅ "Detailed implementation"
   - ❌ "Comprehensive restore functionality"
   - ❌ "Comprehensive test coverage"
+
+## Code Organization and Design Principles
+
+- **Test-Specific Symbols and Code**
+  - When something is used only in tests, it should not be part of the main code base logic
+  - For example, if you use `SYMBOL_ACTION_TEST` only in tests - it should be part of the tests, not part of the code base symbols file
 
 ---
 

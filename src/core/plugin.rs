@@ -148,6 +148,12 @@ impl PluginRegistry {
         self.find_plugin(name)
     }
 
+    /// Add a plugin directly (for testing only)
+    #[cfg(test)]
+    pub fn add_plugin(&mut self, name: String, plugin: Arc<dyn Plugin>) {
+        self.plugins.push((name, plugin));
+    }
+
     /// Lists all available plugins with detailed information including display names and icons
     pub fn list_plugins_detailed(
         &self,
