@@ -1,3 +1,4 @@
+pub mod core;
 pub mod cursor;
 pub mod homebrew;
 pub mod npm;
