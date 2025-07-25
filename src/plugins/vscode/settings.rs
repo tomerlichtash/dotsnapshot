@@ -54,7 +54,7 @@ impl SettingsCore for VSCodeCore {
     }
 
     fn icon(&self) -> &'static str {
-        TOOL_COMPUTER
+        SYMBOL_TOOL_COMPUTER
     }
 
     fn allowed_extensions(&self) -> &'static [&'static str] {
@@ -82,7 +82,7 @@ mod tests {
         let core = VSCodeCore;
         assert_eq!(core.app_name(), "VSCode");
         assert_eq!(core.settings_file_name(), "settings.json");
-        assert_eq!(core.icon(), TOOL_COMPUTER);
+        assert_eq!(core.icon(), SYMBOL_TOOL_COMPUTER);
         assert_eq!(core.allowed_extensions(), &["json", "jsonc"]);
     }
 
@@ -93,7 +93,7 @@ mod tests {
             plugin.description(),
             "Captures application settings configuration"
         );
-        assert_eq!(plugin.icon(), TOOL_COMPUTER);
+        assert_eq!(plugin.icon(), SYMBOL_TOOL_COMPUTER);
     }
 
     #[tokio::test]

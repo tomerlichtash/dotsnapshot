@@ -14,12 +14,8 @@ use crate::symbols::*;
 pub struct StaticFilesAppCore;
 
 impl StaticFilesCore for StaticFilesAppCore {
-    fn app_name(&self) -> &'static str {
-        "StaticFiles"
-    }
-
     fn icon(&self) -> &'static str {
-        CONTENT_FILE
+        SYMBOL_CONTENT_FILE
     }
 
     fn read_config<'a>(
@@ -169,7 +165,7 @@ impl StaticFilesCore for StaticFilesAppCore {
                 if self.should_ignore(&file_path, ignore_patterns) {
                     info!(
                         "{} Ignoring static item: {} (matches ignore pattern)",
-                        ACTION_BLOCK,
+                        SYMBOL_ACTION_BLOCK,
                         file_path.display()
                     );
                     ignored_files.push(file_path.display().to_string());
@@ -188,7 +184,7 @@ impl StaticFilesCore for StaticFilesAppCore {
                         };
                         info!(
                             "{} Copied static {}: {} -> {}",
-                            CONTENT_FILE,
+                            SYMBOL_CONTENT_FILE,
                             item_type,
                             file_path.display(),
                             dest_path.display()
@@ -199,7 +195,7 @@ impl StaticFilesCore for StaticFilesAppCore {
                         let error_msg = format!("{}: {}", file_path.display(), e);
                         info!(
                             "{} Failed to copy static item: {}",
-                            INDICATOR_ERROR, error_msg
+                            SYMBOL_INDICATOR_ERROR, error_msg
                         );
                         failed_files.push(error_msg);
                     }
@@ -382,7 +378,7 @@ impl StaticFilesAppCore {
                 if self.should_ignore(&src_path, ignore_patterns) {
                     info!(
                         "{} Ignoring static item: {} (matches ignore pattern)",
-                        ACTION_BLOCK,
+                        SYMBOL_ACTION_BLOCK,
                         src_path.display()
                     );
                     continue;
@@ -458,10 +454,6 @@ impl StaticFilesAppCore {
     }
 }
 
-/// Type alias for the static files plugin (used for external references)
-#[allow(dead_code)]
-pub type StaticFilesPluginApp = StaticFilesPlugin<StaticFilesAppCore>;
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -474,8 +466,7 @@ mod tests {
     #[tokio::test]
     async fn test_static_files_core_app_info() {
         let core = StaticFilesAppCore;
-        assert_eq!(core.app_name(), "StaticFiles");
-        assert_eq!(core.icon(), CONTENT_FILE);
+        assert_eq!(core.icon(), SYMBOL_CONTENT_FILE);
     }
 
     #[tokio::test]
@@ -485,7 +476,7 @@ mod tests {
             plugin.description(),
             "Copies arbitrary static files and directories based on configuration"
         );
-        assert_eq!(plugin.icon(), CONTENT_FILE);
+        assert_eq!(plugin.icon(), SYMBOL_CONTENT_FILE);
     }
 
     #[tokio::test]

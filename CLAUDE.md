@@ -47,9 +47,23 @@
 
 ## Testing and Quality
 
-- Always run lint and typecheck commands before committing
+**MANDATORY COVERAGE REQUIREMENTS:**
+- **90% minimum code coverage** - NO EXCEPTIONS
+- Use `scripts/test-with-coverage.sh` for local testing
+- CI will FAIL if coverage falls below 90%
+- Focus on testing core functionality and edge cases
+
+**Testing Workflow:**
+- Always run `scripts/test-with-coverage.sh` before committing
+- Always run lint and typecheck commands before committing  
 - Test commands: Check README or ask user for project-specific commands
-- Never commit if tests are failing
+- Never commit if tests are failing or coverage is below 90%
+
+**Coverage Tools:**
+- Primary: `cargo llvm-cov` for accurate coverage analysis
+- Local script: `scripts/test-with-coverage.sh` enforces 90% threshold
+- CI enforcement: Coverage job in `.github/workflows/ci.yml`
+- HTML reports: Generated in `coverage-report/` directory
 
 ## Code Quality Rules
 

@@ -4,8 +4,7 @@ use std::path::PathBuf;
 
 use crate::core::plugin::Plugin;
 use crate::plugins::core::mixins::{
-    AllMixins, CommandMixin, ConfigMixin, FilesMixin, HooksMixin, StandardConfig,
-    StandardConfigMixin,
+    CommandMixin, ConfigMixin, FilesMixin, StandardConfig, StandardConfigMixin,
 };
 
 /// Core trait for keybindings-specific functionality
@@ -26,20 +25,14 @@ pub trait KeybindingsCore: Send + Sync {
 
     /// Get the icon for this keybindings implementation
     fn icon(&self) -> &'static str;
-
-    /// Get allowed file extensions for keybindings files
-    #[allow(dead_code)]
-    fn allowed_extensions(&self) -> &'static [&'static str];
 }
 
 /// Generic keybindings plugin that uses mixins for common functionality
-#[allow(dead_code)]
 pub struct KeybindingsPlugin<T: KeybindingsCore> {
     core: T,
     config: StandardConfig,
 }
 
-#[allow(dead_code)]
 impl<T: KeybindingsCore> KeybindingsPlugin<T> {
     /// Create a new keybindings plugin with the given core implementation
     pub fn new(core: T) -> Self {
@@ -60,12 +53,6 @@ impl<T: KeybindingsCore> KeybindingsPlugin<T> {
             config: parsed_config,
         }
     }
-
-    /// Get the default restore target directory for keybindings
-    #[allow(dead_code)]
-    pub fn get_default_restore_target_dir(&self) -> Result<PathBuf> {
-        self.core.get_keybindings_dir()
-    }
 }
 
 #[async_trait]
@@ -78,12 +65,10 @@ impl<T: KeybindingsCore> Plugin for KeybindingsPlugin<T> {
         self.core.icon()
     }
 
-    #[allow(dead_code)]
     async fn execute(&self) -> Result<String> {
         self.core.read_keybindings().await
     }
 
-    #[allow(dead_code)]
     async fn validate(&self) -> Result<()> {
         // Check if keybindings directory exists
         let keybindings_dir = self.core.get_keybindings_dir()?;
@@ -105,7 +90,6 @@ impl<T: KeybindingsCore> Plugin for KeybindingsPlugin<T> {
         ConfigMixin::get_output_file(self)
     }
 
-    #[allow(dead_code)]
     async fn restore(
         &self,
         snapshot_dir: &std::path::Path,
@@ -175,12 +159,6 @@ impl<T: KeybindingsCore> ConfigMixin for KeybindingsPlugin<T> {
 
 impl<T: KeybindingsCore> StandardConfigMixin for KeybindingsPlugin<T> {}
 
-impl<T: KeybindingsCore> HooksMixin for KeybindingsPlugin<T> {
-    fn get_hooks(&self) -> Vec<crate::core::hooks::HookAction> {
-        self.get_standard_hooks()
-    }
-}
-
 impl<T: KeybindingsCore> FilesMixin for KeybindingsPlugin<T> {
     // Uses default implementation
 }
@@ -189,14 +167,12 @@ impl<T: KeybindingsCore> CommandMixin for KeybindingsPlugin<T> {
     // Uses default implementation
 }
 
-impl<T: KeybindingsCore> AllMixins for KeybindingsPlugin<T> {}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::core::plugin::Plugin;
     use crate::plugins::core::mixins::ConfigMixin;
-    use crate::symbols::TOOL_COMPUTER;
+    use crate::symbols::SYMBOL_TOOL_COMPUTER;
     use tempfile::TempDir;
     use tokio::fs;
 
@@ -225,11 +201,7 @@ mod tests {
         }
 
         fn icon(&self) -> &'static str {
-            crate::symbols::TOOL_COMPUTER
-        }
-
-        fn allowed_extensions(&self) -> &'static [&'static str] {
-            &["json", "jsonc"]
+            crate::symbols::SYMBOL_TOOL_COMPUTER
         }
     }
 
@@ -240,7 +212,7 @@ mod tests {
             plugin.description(),
             "Captures application keybindings configuration"
         );
-        assert_eq!(plugin.icon(), TOOL_COMPUTER);
+        assert_eq!(plugin.icon(), SYMBOL_TOOL_COMPUTER);
     }
 
     #[tokio::test]

@@ -45,7 +45,6 @@ impl ConfigSchema for StandardConfig {
 }
 
 /// Mixin trait for common configuration handling
-#[allow(dead_code)]
 pub trait ConfigMixin {
     type Config: ConfigSchema + Default;
 
@@ -100,7 +99,6 @@ pub trait ConfigMixin {
 }
 
 /// Standard implementation of ConfigMixin for plugins using StandardConfig
-#[allow(dead_code)]
 pub trait StandardConfigMixin: ConfigMixin<Config = StandardConfig> {
     fn get_standard_target_path(&self) -> Option<String> {
         self.config()?.target_path.clone()
@@ -112,16 +110,5 @@ pub trait StandardConfigMixin: ConfigMixin<Config = StandardConfig> {
 
     fn get_standard_restore_target_dir(&self) -> Option<String> {
         self.config()?.restore_target_dir.clone()
-    }
-
-    fn get_standard_hooks(&self) -> Vec<HookAction> {
-        self.config()
-            .and_then(|c| c.hooks.as_ref())
-            .map(|h| {
-                let mut hooks = h.pre_plugin.clone();
-                hooks.extend(h.post_plugin.clone());
-                hooks
-            })
-            .unwrap_or_default()
     }
 }

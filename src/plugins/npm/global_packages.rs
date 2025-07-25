@@ -168,7 +168,7 @@ impl PackageCore for NpmGlobalCore {
     }
 
     fn icon(&self) -> &'static str {
-        TOOL_PACKAGE_MANAGER
+        SYMBOL_TOOL_PACKAGE_MANAGER
     }
 
     fn config_file_name(&self) -> String {
@@ -221,7 +221,7 @@ mod tests {
         let core = NpmGlobalCore;
         assert_eq!(core.package_manager_name(), "NPM");
         assert_eq!(core.package_command(), "npm");
-        assert_eq!(core.icon(), TOOL_PACKAGE_MANAGER);
+        assert_eq!(core.icon(), SYMBOL_TOOL_PACKAGE_MANAGER);
         assert_eq!(core.config_file_name(), "global_packages.txt");
         assert_eq!(core.allowed_extensions(), &["txt", "list", "log"]);
     }
@@ -233,7 +233,7 @@ mod tests {
             plugin.description(),
             "Manages package manager configuration and state"
         );
-        assert_eq!(plugin.icon(), TOOL_PACKAGE_MANAGER);
+        assert_eq!(plugin.icon(), SYMBOL_TOOL_PACKAGE_MANAGER);
     }
 
     #[tokio::test]

@@ -45,7 +45,7 @@ pub async fn handle_restore_command(
     if !actual_snapshot_path.exists() {
         error!(
             "{} Snapshot path does not exist: {}",
-            INDICATOR_ERROR,
+            SYMBOL_INDICATOR_ERROR,
             actual_snapshot_path.display()
         );
         return Err(anyhow::anyhow!(
@@ -57,7 +57,7 @@ pub async fn handle_restore_command(
     if !actual_snapshot_path.is_dir() {
         error!(
             "{} Snapshot path is not a directory: {}",
-            INDICATOR_ERROR,
+            SYMBOL_INDICATOR_ERROR,
             actual_snapshot_path.display()
         );
         return Err(anyhow::anyhow!(
@@ -78,33 +78,37 @@ pub async fn handle_restore_command(
 
     info!(
         "{} Starting restore from snapshot: {}",
-        ACTION_RESTORE,
+        SYMBOL_ACTION_RESTORE,
         actual_snapshot_path.display()
     );
     if let Some(ref target) = global_target_override {
         info!(
             "{} Global target directory: {}",
-            CONTENT_FOLDER,
+            SYMBOL_CONTENT_FOLDER,
             target.display()
         );
     } else {
         info!(
             "{} Target directory: per-plugin configuration or home directory",
-            CONTENT_FOLDER
+            SYMBOL_CONTENT_FOLDER
         );
     }
 
     if dry_run {
         info!(
             "{} DRY RUN MODE: No changes will be made",
-            INDICATOR_WARNING
+            SYMBOL_INDICATOR_WARNING
         );
     }
 
     if let Some(ref plugins) = selected_plugins {
-        info!("{} Restoring plugins: {}", TOOL_PLUGIN, plugins.join(", "));
+        info!(
+            "{} Restoring plugins: {}",
+            SYMBOL_TOOL_PLUGIN,
+            plugins.join(", ")
+        );
     } else {
-        info!("{} Restoring all plugins from snapshot", SCOPE_WORLD);
+        info!("{} Restoring all plugins from snapshot", SYMBOL_SCOPE_WORLD);
     }
 
     // Create restore manager
@@ -127,44 +131,50 @@ pub async fn handle_restore_command(
             if dry_run {
                 info!(
                     "{} DRY RUN: Would restore {} files",
-                    INDICATOR_SUCCESS,
+                    SYMBOL_INDICATOR_SUCCESS,
                     restored_files.len()
                 );
-                info!("{} Preview completed successfully", EXPERIENCE_SUCCESS);
+                info!(
+                    "{} Preview completed successfully",
+                    SYMBOL_EXPERIENCE_SUCCESS
+                );
             } else {
                 info!(
                     "{} Successfully restored {} files",
-                    INDICATOR_SUCCESS,
+                    SYMBOL_INDICATOR_SUCCESS,
                     restored_files.len()
                 );
-                info!("{} Restoration completed successfully", EXPERIENCE_SUCCESS);
+                info!(
+                    "{} Restoration completed successfully",
+                    SYMBOL_EXPERIENCE_SUCCESS
+                );
             }
 
             // Show summary of restored files
             if !restored_files.is_empty() {
-                info!("{} Restored files:", DOC_NOTE);
+                info!("{} Restored files:", SYMBOL_DOC_NOTE);
                 for file in restored_files.iter().take(10) {
-                    info!("   {} {}", CONTENT_FILE, file.display());
+                    info!("   {} {}", SYMBOL_CONTENT_FILE, file.display());
                 }
                 if restored_files.len() > 10 {
                     info!(
                         "   {} ... and {} more files",
-                        DOC_NOTE,
+                        SYMBOL_DOC_NOTE,
                         restored_files.len() - 10
                     );
                 }
             }
         }
         Err(e) => {
-            error!("{} Restoration failed: {}", INDICATOR_ERROR, e);
+            error!("{} Restoration failed: {}", SYMBOL_INDICATOR_ERROR, e);
             if !dry_run {
                 warn!(
                     "{} Some files may have been partially restored",
-                    INDICATOR_WARNING
+                    SYMBOL_INDICATOR_WARNING
                 );
                 warn!(
                     "{} Check the logs above for specific failures",
-                    EXPERIENCE_IDEA
+                    SYMBOL_EXPERIENCE_IDEA
                 );
             }
             return Err(e);
@@ -213,7 +223,7 @@ async fn find_latest_snapshot(config: &Config) -> Result<PathBuf> {
     let latest_snapshot_path = snapshot_dirs[0].1.clone();
     info!(
         "{} Found latest snapshot: {}",
-        EXPERIENCE_IDEA,
+        SYMBOL_EXPERIENCE_IDEA,
         latest_snapshot_path.display()
     );
 

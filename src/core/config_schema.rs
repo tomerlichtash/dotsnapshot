@@ -40,13 +40,6 @@ pub trait ConfigSchema: DeserializeOwned + JsonSchema {
 pub struct ValidationHelpers;
 
 impl ValidationHelpers {
-    /// Validate that a command exists in PATH
-    #[allow(dead_code)]
-    pub fn validate_command_exists(command: &str) -> Result<()> {
-        which::which(command).with_context(|| format!("Command '{command}' not found in PATH"))?;
-        Ok(())
-    }
-
     /// Validate file extension
     pub fn validate_file_extension(filename: &str, allowed_extensions: &[&str]) -> Result<()> {
         if let Some(extension) = std::path::Path::new(filename).extension() {
@@ -83,7 +76,7 @@ impl ValidationHelpers {
             .unwrap_or_else(|| error.to_string());
 
         format!(
-            "{INDICATOR_WARNING} Configuration validation failed for {plugin_display_name}\n\
+            "{SYMBOL_INDICATOR_WARNING} Configuration validation failed for {plugin_display_name}\n\
              Error: {root_error}\n\
              Check: [plugins.{plugin_config_key}] in dotsnapshot.toml\n\
              Valid fields: {valid_fields}\n\

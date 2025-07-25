@@ -274,25 +274,13 @@ pub trait HookExecutor: Send + Sync {
 /// Manager for executing hooks at various stages
 pub struct HookManager {
     executor: Box<dyn HookExecutor>,
-    #[allow(dead_code)]
-    hooks_config: HooksConfig,
 }
 
 impl HookManager {
     /// Create a new hook manager with the default executor
-    pub fn new(hooks_config: HooksConfig) -> Self {
+    pub fn new(_hooks_config: HooksConfig) -> Self {
         Self {
             executor: Box::new(DefaultHookExecutor),
-            hooks_config,
-        }
-    }
-
-    /// Create a hook manager with a custom executor
-    #[allow(dead_code)]
-    pub fn with_executor(hooks_config: HooksConfig, executor: Box<dyn HookExecutor>) -> Self {
-        Self {
-            executor,
-            hooks_config,
         }
     }
 
@@ -315,7 +303,7 @@ impl HookManager {
 
         info!(
             "{} Executing {} hooks{} ({} hooks)",
-            ACTION_HOOK,
+            SYMBOL_ACTION_HOOK,
             hook_type,
             plugin_context,
             hooks.len()
@@ -329,7 +317,7 @@ impl HookManager {
             // Log hook start with clear identification
             info!(
                 "  {} [{}/{}] Starting {hook_type} hook: {hook}",
-                ACTION_HOOK,
+                SYMBOL_ACTION_HOOK,
                 index + 1,
                 hooks.len()
             );
@@ -345,7 +333,7 @@ impl HookManager {
                     if hook_result.success {
                         info!(
                             "  {} [{}/{}] {hook_type} hook completed: {hook} ({}ms)",
-                            INDICATOR_SUCCESS,
+                            SYMBOL_INDICATOR_SUCCESS,
                             index + 1,
                             hooks.len(),
                             hook_result.execution_time_ms
@@ -360,7 +348,7 @@ impl HookManager {
                     } else {
                         error!(
                             "  {} [{}/{}] {hook_type} hook failed: {hook} ({}ms)",
-                            INDICATOR_ERROR,
+                            SYMBOL_INDICATOR_ERROR,
                             index + 1,
                             hooks.len(),
                             hook_result.execution_time_ms
@@ -377,7 +365,7 @@ impl HookManager {
                     let execution_time = start_time.elapsed().as_millis() as u64;
                     error!(
                         "  {} [{}/{}] {hook_type} hook execution failed: {hook} ({}ms)",
-                        INDICATOR_ERROR,
+                        SYMBOL_INDICATOR_ERROR,
                         index + 1,
                         hooks.len(),
                         execution_time
@@ -402,8 +390,8 @@ impl HookManager {
         if successful == results.len() {
             info!(
                 "{} {} All {} {hook_type} hooks{} completed successfully (total: {}ms)",
-                ACTION_HOOK,
-                INDICATOR_SUCCESS,
+                SYMBOL_ACTION_HOOK,
+                SYMBOL_INDICATOR_SUCCESS,
                 results.len(),
                 plugin_context,
                 total_time
@@ -411,8 +399,8 @@ impl HookManager {
         } else {
             warn!(
                 "{} {} {}/{} {hook_type} hooks{} completed successfully (total: {}ms)",
-                ACTION_HOOK,
-                INDICATOR_WARNING,
+                SYMBOL_ACTION_HOOK,
+                SYMBOL_INDICATOR_WARNING,
                 successful,
                 results.len(),
                 plugin_context,
@@ -710,7 +698,7 @@ impl DefaultHookExecutor {
         // For now, just log the notification. In the future, this could integrate with system notifications
         info!(
             "     {} {}: {}",
-            DOC_ANNOUNCEMENT,
+            SYMBOL_DOC_ANNOUNCEMENT,
             interpolated_title.unwrap_or_else(|| "dotsnapshot".to_string()),
             interpolated_message
         );

@@ -109,90 +109,6 @@ impl PluginRegistry {
         }
     }
 
-    /// Registers a new plugin with auto-derived name from type
-    ///
-    /// **Deprecated**: Use auto-registration system instead
-    #[deprecated(
-        since = "1.2.0",
-        note = "Use auto-registration system with register_plugin! macro instead. This method will be removed in version 2.0.0."
-    )]
-    #[allow(dead_code)]
-    #[allow(deprecated)]
-    pub fn register<T: Plugin + 'static>(&mut self, plugin: Arc<T>) {
-        let name = Self::derive_plugin_name_from_type::<T>();
-        let plugin_dyn: Arc<dyn Plugin> = plugin;
-        self.plugins.push((name, plugin_dyn));
-    }
-
-    /// Derives plugin name from type name based on folder structure
-    ///
-    /// **Deprecated**: Use auto-registration system instead
-    #[deprecated(
-        since = "1.2.0",
-        note = "Use auto-registration system with register_plugin! macro instead. This method will be removed in version 2.0.0."
-    )]
-    #[allow(dead_code)]
-    #[allow(deprecated)]
-    fn derive_plugin_name_from_type<T: 'static>() -> String {
-        let type_name = std::any::type_name::<T>();
-        Self::convert_type_name_to_plugin_name(type_name)
-    }
-
-    /// Converts type name to plugin name format using folder structure
-    ///
-    /// **Deprecated**: Use auto-registration system instead
-    #[deprecated(
-        since = "1.2.0",
-        note = "Use auto-registration system with register_plugin! macro instead. This method will be removed in version 2.0.0."
-    )]
-    #[allow(dead_code)]
-    #[allow(deprecated)]
-    fn convert_type_name_to_plugin_name(type_name: &str) -> String {
-        // Extract the module path: dotsnapshot::plugins::vscode::settings::VSCodeSettingsPlugin
-        // We want: vscode_settings
-
-        let parts: Vec<&str> = type_name.split("::").collect();
-
-        // Look for "plugins" in the path and extract folder + file name
-        if let Some(plugins_index) = parts.iter().position(|&p| p == "plugins") {
-            if plugins_index + 2 < parts.len() {
-                // Get folder name (e.g., "vscode") and file name (e.g., "settings")
-                let folder = parts[plugins_index + 1];
-                let file = parts[plugins_index + 2];
-
-                return format!("{folder}_{file}");
-            }
-        }
-
-        // Fallback: use the old approach for backward compatibility
-        let struct_name = parts.last().unwrap_or(&type_name);
-        let name_without_plugin = struct_name.strip_suffix("Plugin").unwrap_or(struct_name);
-        Self::simple_camel_to_snake(name_without_plugin)
-    }
-
-    /// Simple CamelCase to snake_case conversion for fallback cases
-    ///
-    /// **Deprecated**: Use auto-registration system instead
-    #[deprecated(
-        since = "1.2.0",
-        note = "Use auto-registration system with register_plugin! macro instead. This method will be removed in version 2.0.0."
-    )]
-    #[allow(dead_code)]
-    #[allow(deprecated)]
-    fn simple_camel_to_snake(s: &str) -> String {
-        let mut result = String::new();
-        let chars: Vec<char> = s.chars().collect();
-
-        for (i, &ch) in chars.iter().enumerate() {
-            if ch.is_uppercase() && i > 0 {
-                result.push('_');
-            }
-            result.push(ch.to_lowercase().next().unwrap());
-        }
-
-        result
-    }
-
     /// Returns all registered plugins with their names
     pub fn plugins(&self) -> &[(String, Arc<dyn Plugin>)] {
         &self.plugins
@@ -220,7 +136,6 @@ impl PluginRegistry {
     }
 
     /// Finds a plugin by name
-    #[allow(dead_code)]
     pub fn find_plugin(&self, name: &str) -> Option<&Arc<dyn Plugin>> {
         self.plugins
             .iter()
@@ -341,84 +256,6 @@ impl PluginRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    #[allow(deprecated)]
-    fn test_simple_camel_to_snake() {
-        // Basic CamelCase conversion for fallback cases
-        assert_eq!(
-            PluginRegistry::simple_camel_to_snake("SimpleCase"),
-            "simple_case"
-        );
-        assert_eq!(
-            PluginRegistry::simple_camel_to_snake("CamelCaseExample"),
-            "camel_case_example"
-        );
-        assert_eq!(
-            PluginRegistry::simple_camel_to_snake("Homebrew"),
-            "homebrew"
-        );
-        assert_eq!(PluginRegistry::simple_camel_to_snake("Static"), "static");
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn test_convert_type_name_to_plugin_name() {
-        // Full type paths with folder structure (primary approach)
-        assert_eq!(
-            PluginRegistry::convert_type_name_to_plugin_name(
-                "dotsnapshot::plugins::vscode::settings::VSCodeSettingsPlugin"
-            ),
-            "vscode_settings"
-        );
-        assert_eq!(
-            PluginRegistry::convert_type_name_to_plugin_name(
-                "dotsnapshot::plugins::cursor::extensions::CursorExtensionsPlugin"
-            ),
-            "cursor_extensions"
-        );
-        assert_eq!(
-            PluginRegistry::convert_type_name_to_plugin_name(
-                "dotsnapshot::plugins::homebrew::brewfile::HomebrewBrewfilePlugin"
-            ),
-            "homebrew_brewfile"
-        );
-        assert_eq!(
-            PluginRegistry::convert_type_name_to_plugin_name(
-                "dotsnapshot::plugins::npm::global_packages::NpmGlobalPackagesPlugin"
-            ),
-            "npm_global_packages"
-        );
-        assert_eq!(
-            PluginRegistry::convert_type_name_to_plugin_name(
-                "dotsnapshot::plugins::static::files::StaticFilesPlugin"
-            ),
-            "static_files"
-        );
-
-        // Fallback for type names without full paths (backward compatibility)
-        assert_eq!(
-            PluginRegistry::convert_type_name_to_plugin_name("TestVscodeSettingsPlugin"),
-            "test_vscode_settings"
-        );
-        assert_eq!(
-            PluginRegistry::convert_type_name_to_plugin_name("SimplePlugin"),
-            "simple"
-        );
-
-        // Edge cases
-        assert_eq!(
-            PluginRegistry::convert_type_name_to_plugin_name("Plugin"),
-            ""
-        );
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn test_derive_plugin_name_from_type() {
-        // This would test the actual type derivation, but we can't easily test std::any::type_name
-        // in unit tests since it requires actual types. The integration test in --list covers this.
-    }
 
     #[test]
     fn test_extract_category_from_plugin_name() {

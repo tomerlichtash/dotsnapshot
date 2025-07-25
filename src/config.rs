@@ -301,7 +301,6 @@ impl Config {
     }
 
     /// Save configuration to file
-    #[allow(dead_code)]
     pub async fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         let content = toml::to_string_pretty(self).context("Failed to serialize config to TOML")?;
 

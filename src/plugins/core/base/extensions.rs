@@ -5,11 +5,10 @@ use tracing::{info, warn};
 
 use crate::core::plugin::Plugin;
 use crate::plugins::core::mixins::{
-    AllMixins, CommandMixin, ConfigMixin, FilesMixin, StandardConfig, StandardConfigMixin,
+    CommandMixin, ConfigMixin, FilesMixin, StandardConfig, StandardConfigMixin,
 };
 
 /// Core trait that defines application-specific extensions behavior
-#[allow(dead_code)]
 pub trait ExtensionsCore: Send + Sync + CommandMixin {
     /// The name of the application (e.g., "VSCode", "Cursor")
     fn app_name(&self) -> &'static str;
@@ -63,7 +62,6 @@ pub trait ExtensionsCore: Send + Sync + CommandMixin {
 }
 
 /// Generic extensions plugin that can be used for any application
-#[allow(dead_code)]
 pub struct ExtensionsPlugin<T: ExtensionsCore + CommandMixin> {
     config: Option<StandardConfig>,
     core: T,
@@ -71,13 +69,11 @@ pub struct ExtensionsPlugin<T: ExtensionsCore + CommandMixin> {
 
 impl<T: ExtensionsCore + CommandMixin> ExtensionsPlugin<T> {
     /// Create a new extensions plugin without configuration
-    #[allow(dead_code)]
     pub fn new(core: T) -> Self {
         Self { config: None, core }
     }
 
     /// Create a new extensions plugin with configuration
-    #[allow(dead_code)]
     pub fn with_config(core: T, config: toml::Value) -> Self {
         let (parsed_config, is_valid) = Self::with_config_validation(
             config,
@@ -114,12 +110,6 @@ impl<T: ExtensionsCore + CommandMixin> ExtensionsPlugin<T> {
             config: Some(parsed_config),
             core,
         }
-    }
-
-    /// Get access to the core implementation
-    #[allow(dead_code)]
-    pub fn core(&self) -> &T {
-        &self.core
     }
 }
 
@@ -168,15 +158,6 @@ impl<T: ExtensionsCore + CommandMixin> CommandMixin for ExtensionsPlugin<T> {
     }
 }
 
-// Implement HooksMixin for the extensions plugin
-impl<T: ExtensionsCore + CommandMixin> crate::plugins::core::mixins::HooksMixin
-    for ExtensionsPlugin<T>
-{
-    fn get_hooks(&self) -> Vec<crate::core::hooks::HookAction> {
-        self.get_standard_hooks()
-    }
-}
-
 // Implement FilesMixin for the extensions plugin
 impl<T: ExtensionsCore + CommandMixin> crate::plugins::core::mixins::FilesMixin
     for ExtensionsPlugin<T>
@@ -184,7 +165,6 @@ impl<T: ExtensionsCore + CommandMixin> crate::plugins::core::mixins::FilesMixin
 }
 
 // The plugin trait implementation gets all the mixin functionality automatically
-impl<T: ExtensionsCore + CommandMixin> AllMixins for ExtensionsPlugin<T> {}
 
 #[async_trait]
 impl<T: ExtensionsCore + CommandMixin + Send + Sync> Plugin for ExtensionsPlugin<T> {
@@ -224,7 +204,8 @@ impl<T: ExtensionsCore + CommandMixin + Send + Sync> Plugin for ExtensionsPlugin
     }
 
     fn get_hooks(&self) -> Vec<crate::core::hooks::HookAction> {
-        self.get_standard_hooks()
+        // Extensions plugins don't have hooks by default
+        Vec::new()
     }
 
     async fn restore(

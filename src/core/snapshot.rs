@@ -87,12 +87,6 @@ impl SnapshotManager {
         Ok(metadata)
     }
 
-    /// Finds the most recent snapshot directory
-    #[allow(dead_code)]
-    pub fn find_latest_snapshot(&self) -> Result<Option<PathBuf>> {
-        self.find_latest_snapshot_excluding(&PathBuf::new())
-    }
-
     /// Finds the most recent snapshot directory excluding a specific directory
     pub fn find_latest_snapshot_excluding(&self, exclude_dir: &Path) -> Result<Option<PathBuf>> {
         if !self.base_path.exists() {

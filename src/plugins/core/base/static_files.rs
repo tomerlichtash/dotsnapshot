@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use crate::config::Config;
 use crate::core::plugin::Plugin;
-use crate::plugins::core::mixins::{CommandMixin, FilesMixin, HooksMixin};
+use crate::plugins::core::mixins::{CommandMixin, FilesMixin};
 
 /// Core trait for static files-specific functionality
 ///
@@ -14,10 +14,6 @@ use crate::plugins::core::mixins::{CommandMixin, FilesMixin, HooksMixin};
 /// - Handles complex file operations with ignore patterns
 /// - Manages custom directory structures and restoration logic
 pub trait StaticFilesCore: Send + Sync {
-    /// Get the application name for this static files implementation
-    #[allow(dead_code)]
-    fn app_name(&self) -> &'static str;
-
     /// Get the icon for this static files implementation
     fn icon(&self) -> &'static str;
 
@@ -56,14 +52,12 @@ pub trait StaticFilesCore: Send + Sync {
 ///
 /// Unlike other base plugins, this uses Arc<Config> instead of StandardConfig
 /// because static files plugins need access to the full application configuration.
-#[allow(dead_code)]
 pub struct StaticFilesPlugin<T: StaticFilesCore> {
     core: T,
     config: Option<Arc<Config>>,
     snapshot_dir: Option<PathBuf>,
 }
 
-#[allow(dead_code)]
 impl<T: StaticFilesCore> StaticFilesPlugin<T> {
     /// Create a new static files plugin with the given core implementation
     pub fn new(core: T) -> Self {
@@ -75,6 +69,7 @@ impl<T: StaticFilesCore> StaticFilesPlugin<T> {
     }
 
     /// Create a new static files plugin with configuration
+    #[cfg(test)]
     pub fn with_config(core: T, config: Arc<Config>) -> Self {
         Self {
             core,
@@ -83,15 +78,7 @@ impl<T: StaticFilesCore> StaticFilesPlugin<T> {
         }
     }
 
-    /// Set the snapshot directory for this plugin
-    #[allow(dead_code)]
-    pub fn with_snapshot_dir(mut self, snapshot_dir: PathBuf) -> Self {
-        self.snapshot_dir = Some(snapshot_dir);
-        self
-    }
-
     /// Get the default restore target directory for static files
-    #[allow(dead_code)]
     pub fn get_default_restore_target_dir(&self) -> Result<PathBuf> {
         // Static files are restored to their original locations,
         // preserving the directory structure from the snapshot
@@ -109,7 +96,6 @@ impl<T: StaticFilesCore> Plugin for StaticFilesPlugin<T> {
         self.core.icon()
     }
 
-    #[allow(dead_code)]
     async fn execute(&self) -> Result<String> {
         let file_paths = match self.core.read_config(self.config.as_ref()).await {
             Ok(paths) => paths,
@@ -181,7 +167,6 @@ impl<T: StaticFilesCore> Plugin for StaticFilesPlugin<T> {
         Ok(final_content)
     }
 
-    #[allow(dead_code)]
     async fn validate(&self) -> Result<()> {
         // Check if we can determine home directory for path expansion
         if dirs::home_dir().is_none() {
@@ -214,7 +199,6 @@ impl<T: StaticFilesCore> Plugin for StaticFilesPlugin<T> {
         self.get_default_restore_target_dir()
     }
 
-    #[allow(dead_code)]
     async fn restore(
         &self,
         snapshot_path: &std::path::Path,
@@ -278,13 +262,6 @@ impl<T: StaticFilesCore> Plugin for StaticFilesPlugin<T> {
 // because they need Arc<Config> access instead of toml::Value
 // They implement the Plugin trait methods directly instead of using ConfigMixin
 
-impl<T: StaticFilesCore> HooksMixin for StaticFilesPlugin<T> {
-    fn get_hooks(&self) -> Vec<crate::core::hooks::HookAction> {
-        // Static files plugins don't have standard hook configuration
-        Vec::new()
-    }
-}
-
 impl<T: StaticFilesCore> FilesMixin for StaticFilesPlugin<T> {
     // Uses default implementation
 }
@@ -300,7 +277,7 @@ impl<T: StaticFilesCore> CommandMixin for StaticFilesPlugin<T> {
 mod tests {
     use super::*;
     use crate::core::plugin::Plugin;
-    use crate::symbols::CONTENT_FILE;
+    use crate::symbols::SYMBOL_CONTENT_FILE;
     use tempfile::TempDir;
     use tokio::fs;
 
@@ -309,12 +286,8 @@ mod tests {
     struct MockStaticFilesCore;
 
     impl StaticFilesCore for MockStaticFilesCore {
-        fn app_name(&self) -> &'static str {
-            "TestStaticFiles"
-        }
-
         fn icon(&self) -> &'static str {
-            CONTENT_FILE
+            SYMBOL_CONTENT_FILE
         }
 
         fn read_config(
@@ -379,7 +352,7 @@ mod tests {
             plugin.description(),
             "Copies arbitrary static files and directories based on configuration"
         );
-        assert_eq!(plugin.icon(), CONTENT_FILE);
+        assert_eq!(plugin.icon(), SYMBOL_CONTENT_FILE);
     }
 
     #[tokio::test]

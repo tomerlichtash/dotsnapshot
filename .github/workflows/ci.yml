@@ -136,8 +136,24 @@ jobs:
     - name: Install cargo-llvm-cov
       uses: taiki-e/install-action@cargo-llvm-cov
 
-    - name: Generate code coverage
-      run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+    - name: Generate code coverage and enforce 90% threshold
+      run: |
+        echo "Running coverage analysis with 90% minimum threshold..."
+        cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+        
+        # Extract coverage percentage from summary
+        COVERAGE=$(cargo llvm-cov --all-features --workspace --summary-only | grep "TOTAL" | awk '{print $4}' | sed 's/%//')
+        echo "Current coverage: ${COVERAGE}%"
+        
+        # Check if coverage meets 90% threshold
+        if (( $(echo "$COVERAGE < 90" | bc -l) )); then
+          echo "❌ Coverage ${COVERAGE}% is below required 90% threshold"
+          echo "Current coverage breakdown:"
+          cargo llvm-cov --all-features --workspace --summary-only
+          exit 1
+        else
+          echo "✅ Coverage ${COVERAGE}% meets the 90% threshold requirement"
+        fi
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4

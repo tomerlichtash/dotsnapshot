@@ -5,11 +5,10 @@ use tracing::{info, warn};
 
 use crate::core::plugin::Plugin;
 use crate::plugins::core::mixins::{
-    AllMixins, CommandMixin, ConfigMixin, StandardConfig, StandardConfigMixin,
+    CommandMixin, ConfigMixin, StandardConfig, StandardConfigMixin,
 };
 
 /// Core trait that defines package manager-specific behavior
-#[allow(dead_code)]
 pub trait PackageCore: Send + Sync {
     /// The name of the package manager (e.g., "Homebrew", "NPM")
     fn package_manager_name(&self) -> &'static str;
@@ -62,7 +61,6 @@ pub trait PackageCore: Send + Sync {
 }
 
 /// Generic package plugin that can be used for any package manager
-#[allow(dead_code)]
 pub struct PackagePlugin<T: PackageCore + CommandMixin> {
     config: Option<StandardConfig>,
     core: T,
@@ -70,13 +68,11 @@ pub struct PackagePlugin<T: PackageCore + CommandMixin> {
 
 impl<T: PackageCore + CommandMixin> PackagePlugin<T> {
     /// Create a new package plugin without configuration
-    #[allow(dead_code)]
     pub fn new(core: T) -> Self {
         Self { config: None, core }
     }
 
     /// Create a new package plugin with configuration
-    #[allow(dead_code)]
     pub fn with_config(core: T, config: toml::Value) -> Self {
         let (parsed_config, is_valid) = Self::with_config_validation(
             config,
@@ -113,12 +109,6 @@ impl<T: PackageCore + CommandMixin> PackagePlugin<T> {
             config: Some(parsed_config),
             core,
         }
-    }
-
-    /// Get access to the core implementation
-    #[allow(dead_code)]
-    pub fn core(&self) -> &T {
-        &self.core
     }
 }
 
@@ -167,18 +157,10 @@ impl<T: PackageCore + CommandMixin> CommandMixin for PackagePlugin<T> {
     }
 }
 
-// Implement HooksMixin for the package plugin
-impl<T: PackageCore + CommandMixin> crate::plugins::core::mixins::HooksMixin for PackagePlugin<T> {
-    fn get_hooks(&self) -> Vec<crate::core::hooks::HookAction> {
-        self.get_standard_hooks()
-    }
-}
-
 // Implement FilesMixin for the package plugin
 impl<T: PackageCore + CommandMixin> crate::plugins::core::mixins::FilesMixin for PackagePlugin<T> {}
 
 // The plugin trait implementation gets all the mixin functionality automatically
-impl<T: PackageCore + CommandMixin> AllMixins for PackagePlugin<T> {}
 
 #[async_trait]
 impl<T: PackageCore + CommandMixin + Send + Sync> Plugin for PackagePlugin<T> {
@@ -217,7 +199,8 @@ impl<T: PackageCore + CommandMixin + Send + Sync> Plugin for PackagePlugin<T> {
     }
 
     fn get_hooks(&self) -> Vec<crate::core::hooks::HookAction> {
-        self.get_standard_hooks()
+        // Package plugins don't have hooks by default
+        Vec::new()
     }
 
     async fn restore(

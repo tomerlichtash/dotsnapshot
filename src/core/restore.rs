@@ -63,19 +63,22 @@ impl RestoreManager {
         &self,
         selected_plugins: Option<Vec<String>>,
     ) -> Result<Vec<PathBuf>> {
-        info!("{} Analyzing snapshot structure...", ACTION_SEARCH);
+        info!("{} Analyzing snapshot structure...", SYMBOL_ACTION_SEARCH);
 
         // Discover available plugins in the snapshot
         let available_plugins = self.discover_snapshot_plugins().await?;
 
         if available_plugins.is_empty() {
-            warn!("{} No plugin data found in snapshot", INDICATOR_WARNING);
+            warn!(
+                "{} No plugin data found in snapshot",
+                SYMBOL_INDICATOR_WARNING
+            );
             return Ok(vec![]);
         }
 
         info!(
             "{} Found {} plugin(s) in snapshot: {}",
-            INDICATOR_SUCCESS,
+            SYMBOL_INDICATOR_SUCCESS,
             available_plugins.len(),
             available_plugins.join(", ")
         );
@@ -88,13 +91,16 @@ impl RestoreManager {
         };
 
         if plugins_to_restore.is_empty() {
-            warn!("{} No plugins selected for restoration", INDICATOR_WARNING);
+            warn!(
+                "{} No plugins selected for restoration",
+                SYMBOL_INDICATOR_WARNING
+            );
             return Ok(vec![]);
         }
 
         info!(
             "{} Restoring {} plugin(s): {}",
-            ACTION_RESTORE,
+            SYMBOL_ACTION_RESTORE,
             plugins_to_restore.len(),
             plugins_to_restore.join(", ")
         );
@@ -103,13 +109,13 @@ impl RestoreManager {
         let operations = self.plan_restore_operations(&plugins_to_restore).await?;
 
         if operations.is_empty() {
-            warn!("{} No files to restore", INDICATOR_WARNING);
+            warn!("{} No files to restore", SYMBOL_INDICATOR_WARNING);
             return Ok(vec![]);
         }
 
         info!(
             "{} Planned {} restoration operation(s)",
-            INDICATOR_INFO,
+            SYMBOL_INDICATOR_INFO,
             operations.len()
         );
 
@@ -129,7 +135,7 @@ impl RestoreManager {
 
         info!(
             "{} Restoration completed: {} files restored",
-            INDICATOR_SUCCESS,
+            SYMBOL_INDICATOR_SUCCESS,
             restored_files.len()
         );
 
@@ -176,7 +182,7 @@ impl RestoreManager {
             } else {
                 warn!(
                     "{} Plugin '{}' not found in snapshot",
-                    INDICATOR_WARNING, selection
+                    SYMBOL_INDICATOR_WARNING, selection
                 );
             }
         }
@@ -361,7 +367,7 @@ impl RestoreManager {
 
     /// Show preview of restore operations
     async fn show_restore_preview(&self, operations: &[RestoreOperation]) -> Result<()> {
-        info!("{} RESTORE PREVIEW:", INDICATOR_INFO);
+        info!("{} RESTORE PREVIEW:", SYMBOL_INDICATOR_INFO);
         info!("");
 
         let mut by_plugin: HashMap<String, Vec<&RestoreOperation>> = HashMap::new();
@@ -373,12 +379,12 @@ impl RestoreManager {
         }
 
         for (plugin_name, plugin_ops) in by_plugin {
-            info!("{} {}:", TOOL_PLUGIN, plugin_name);
+            info!("{} {}:", SYMBOL_TOOL_PLUGIN, plugin_name);
 
             for op in plugin_ops {
                 let symbol = match op.operation_type {
-                    RestoreOperationType::Copy => CONTENT_ARROW_RIGHT,
-                    RestoreOperationType::Skip => CONTENT_SKIP,
+                    RestoreOperationType::Copy => SYMBOL_CONTENT_ARROW_RIGHT,
+                    RestoreOperationType::Skip => SYMBOL_CONTENT_SKIP,
                 };
 
                 info!(
@@ -408,22 +414,25 @@ impl RestoreManager {
             .count();
 
         info!("");
-        info!("{} RESTORE SUMMARY:", INDICATOR_WARNING);
+        info!("{} RESTORE SUMMARY:", SYMBOL_INDICATOR_WARNING);
         info!(
             "  {} Files to copy/overwrite: {}",
-            CONTENT_ARROW_RIGHT, copy_count
+            SYMBOL_CONTENT_ARROW_RIGHT, copy_count
         );
         info!(
             "  {} Files to skip (identical): {}",
-            CONTENT_SKIP, skip_count
+            SYMBOL_CONTENT_SKIP, skip_count
         );
 
         if self.backup && copy_count > 0 {
-            info!("  {} Existing files will be backed up", CONTENT_BACKUP);
+            info!(
+                "  {} Existing files will be backed up",
+                SYMBOL_CONTENT_BACKUP
+            );
         }
 
         info!("");
-        print!("{EXPERIENCE_QUESTION} Continue with restoration? [y/N]: ");
+        print!("{SYMBOL_EXPERIENCE_QUESTION} Continue with restoration? [y/N]: ");
         io::stdout().flush()?;
 
         let mut input = String::new();
@@ -431,7 +440,7 @@ impl RestoreManager {
 
         let answer = input.trim().to_lowercase();
         if !matches!(answer.as_str(), "y" | "yes") {
-            info!("{} Restoration cancelled by user", INDICATOR_INFO);
+            info!("{} Restoration cancelled by user", SYMBOL_INDICATOR_INFO);
             return Err(anyhow::anyhow!("Restoration cancelled by user"));
         }
 
@@ -448,7 +457,7 @@ impl RestoreManager {
                     if let Err(e) = self.execute_copy_operation(operation).await {
                         error!(
                             "{} Failed to restore {}: {}",
-                            INDICATOR_ERROR,
+                            SYMBOL_INDICATOR_ERROR,
                             operation.target_path.display(),
                             e
                         );

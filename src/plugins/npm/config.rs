@@ -77,7 +77,7 @@ impl SettingsCore for NpmConfigCore {
     }
 
     fn icon(&self) -> &'static str {
-        TOOL_PACKAGE_MANAGER
+        SYMBOL_TOOL_PACKAGE_MANAGER
     }
 
     fn allowed_extensions(&self) -> &'static [&'static str] {
@@ -121,7 +121,7 @@ mod tests {
         let core = NpmConfigCore;
         assert_eq!(core.app_name(), "NPM");
         assert_eq!(core.settings_file_name(), "npmrc.txt");
-        assert_eq!(core.icon(), TOOL_PACKAGE_MANAGER);
+        assert_eq!(core.icon(), SYMBOL_TOOL_PACKAGE_MANAGER);
         assert_eq!(core.allowed_extensions(), &["txt", "npmrc", "config"]);
     }
 
@@ -132,7 +132,7 @@ mod tests {
             plugin.description(),
             "Captures application settings configuration"
         );
-        assert_eq!(plugin.icon(), TOOL_PACKAGE_MANAGER);
+        assert_eq!(plugin.icon(), SYMBOL_TOOL_PACKAGE_MANAGER);
     }
 
     #[tokio::test]
