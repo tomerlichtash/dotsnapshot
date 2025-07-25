@@ -66,8 +66,8 @@ impl CommandMixin for VSCodeCore {
     // Uses default implementation - no custom command behavior needed
 }
 
-/// Type alias for the new VSCode settings plugin
-pub type VSCodeSettingsPluginNew = SettingsPlugin<VSCodeCore>;
+/// Type alias for the VSCode settings plugin
+pub type VSCodeSettingsPlugin = SettingsPlugin<VSCodeCore>;
 
 #[cfg(test)]
 mod tests {
@@ -172,7 +172,7 @@ mod tests {
 
 // Auto-register this plugin using the VSCodeCore implementation
 crate::register_mixin_plugin!(
-    VSCodeSettingsPluginNew,
+    VSCodeSettingsPlugin,
     VSCodeCore,
     "vscode_settings",
     "vscode"

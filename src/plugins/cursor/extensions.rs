@@ -48,8 +48,8 @@ impl CommandMixin for CursorExtensionsCore {
     // Uses default implementation with the extensions_command
 }
 
-/// Type alias for the new Cursor extensions plugin
-pub type CursorExtensionsPluginNew = ExtensionsPlugin<CursorExtensionsCore>;
+/// Type alias for the Cursor extensions plugin
+pub type CursorExtensionsPlugin = ExtensionsPlugin<CursorExtensionsCore>;
 
 #[cfg(test)]
 mod tests {
@@ -160,7 +160,7 @@ mod tests {
 
 // Auto-register this plugin using the CursorExtensionsCore implementation
 crate::register_mixin_plugin!(
-    CursorExtensionsPluginNew,
+    CursorExtensionsPlugin,
     CursorExtensionsCore,
     "cursor_extensions",
     "cursor"

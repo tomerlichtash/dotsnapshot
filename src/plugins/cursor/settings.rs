@@ -66,8 +66,8 @@ impl CommandMixin for CursorCore {
     // Uses default implementation - no custom command behavior needed
 }
 
-/// Type alias for the new Cursor settings plugin
-pub type CursorSettingsPluginNew = SettingsPlugin<CursorCore>;
+/// Type alias for the Cursor settings plugin
+pub type CursorSettingsPlugin = SettingsPlugin<CursorCore>;
 
 #[cfg(test)]
 mod tests {
@@ -218,7 +218,7 @@ mod tests {
 
 // Auto-register this plugin using the CursorCore implementation
 crate::register_mixin_plugin!(
-    CursorSettingsPluginNew,
+    CursorSettingsPlugin,
     CursorCore,
     "cursor_settings",
     "cursor"
