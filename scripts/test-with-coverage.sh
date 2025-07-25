@@ -18,11 +18,11 @@ if ! command -v cargo-llvm-cov &> /dev/null; then
     cargo install cargo-llvm-cov
 fi
 
-# Check if llvm-tools-preview is installed
+# Check if llvm-tools is installed (not llvm-tools-preview)
 if ! rustup component list --installed | grep -q llvm-tools; then
-    echo "❌ llvm-tools-preview is not installed"
-    echo "Installing llvm-tools-preview..."
-    rustup component add llvm-tools-preview
+    echo "❌ llvm-tools is not installed"
+    echo "Installing llvm-tools..."
+    rustup component add llvm-tools
 fi
 
 echo "🔍 Running comprehensive test suite with coverage..."
