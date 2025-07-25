@@ -524,7 +524,8 @@ mod tests {
     #[test]
     fn test_get_plugin_output_file_from_plugin() {
         use crate::plugins::core::base::settings::SettingsPlugin;
-        use crate::plugins::r#static::files::StaticFilesPlugin;
+        use crate::plugins::core::base::static_files::StaticFilesPlugin;
+        use crate::plugins::r#static::files::StaticFilesAppCore;
         use crate::plugins::vscode::settings::VSCodeCore;
 
         // Test plugin that doesn't specify a custom output file - should use auto-derived
@@ -535,7 +536,7 @@ mod tests {
         );
 
         // Test static files plugin special handling
-        let static_plugin = StaticFilesPlugin::new();
+        let static_plugin = StaticFilesPlugin::new(StaticFilesAppCore);
         assert_eq!(
             PluginRegistry::get_plugin_output_file_from_plugin(&static_plugin, "static_files"),
             "N/A (copies files directly)"
