@@ -19,30 +19,26 @@ impl SettingsCore for VSCodeCore {
         "settings.json"
     }
 
-    fn get_settings_dir(
-        &self,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf>> + Send + '_>> {
-        Box::pin(async move {
-            let home_dir = dirs::home_dir().context("Could not determine home directory")?;
+    fn get_settings_dir(&self) -> Result<PathBuf> {
+        let home_dir = dirs::home_dir().context("Could not determine home directory")?;
 
-            let settings_dir = if cfg!(target_os = "macos") {
-                home_dir.join("Library/Application Support/Code/User")
-            } else if cfg!(target_os = "windows") {
-                home_dir.join("AppData/Roaming/Code/User")
-            } else {
-                // Linux and other Unix-like systems
-                home_dir.join(".config/Code/User")
-            };
+        let settings_dir = if cfg!(target_os = "macos") {
+            home_dir.join("Library/Application Support/Code/User")
+        } else if cfg!(target_os = "windows") {
+            home_dir.join("AppData/Roaming/Code/User")
+        } else {
+            // Linux and other Unix-like systems
+            home_dir.join(".config/Code/User")
+        };
 
-            Ok(settings_dir)
-        })
+        Ok(settings_dir)
     }
 
     fn read_settings(
         &self,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send + '_>> {
         Box::pin(async move {
-            let settings_dir = self.get_settings_dir().await?;
+            let settings_dir = self.get_settings_dir()?;
             let settings_path = settings_dir.join("settings.json");
 
             if !settings_path.exists() {

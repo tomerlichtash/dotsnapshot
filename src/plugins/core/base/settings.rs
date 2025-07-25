@@ -17,10 +17,8 @@ pub trait SettingsCore: Send + Sync {
     /// The default filename for settings (e.g., "settings.json")
     fn settings_file_name(&self) -> &'static str;
 
-    /// Get the application's settings directory
-    fn get_settings_dir(
-        &self,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf>> + Send + '_>>;
+    /// Get the application's settings directory (sync version for path resolution)
+    fn get_settings_dir(&self) -> Result<PathBuf>;
 
     /// Read the current settings from the application  
     fn read_settings(
@@ -155,7 +153,7 @@ impl<T: SettingsCore + Send + Sync> Plugin for SettingsPlugin<T> {
     }
 
     async fn validate(&self) -> Result<()> {
-        let settings_dir = self.core.get_settings_dir().await?;
+        let settings_dir = self.core.get_settings_dir()?;
         if !self.is_dir_accessible(&settings_dir).await {
             return Err(anyhow::anyhow!(
                 "{} settings directory not found: {}",
@@ -180,9 +178,7 @@ impl<T: SettingsCore + Send + Sync> Plugin for SettingsPlugin<T> {
 
     fn get_default_restore_target_dir(&self) -> Result<PathBuf> {
         // Use the application's settings directory as the default restore target
-        // This is async, but we need to return synchronously, so we'll use a blocking call
-        // In practice, get_settings_dir implementations should be lightweight
-        tokio::runtime::Handle::current().block_on(self.core.get_settings_dir())
+        self.core.get_settings_dir()
     }
 
     fn get_hooks(&self) -> Vec<crate::core::hooks::HookAction> {
@@ -253,11 +249,8 @@ mod tests {
             "settings.json"
         }
 
-        fn get_settings_dir(
-            &self,
-        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<PathBuf>> + Send + '_>>
-        {
-            Box::pin(async { Ok(PathBuf::from("/test/settings")) })
+        fn get_settings_dir(&self) -> Result<PathBuf> {
+            Ok(PathBuf::from("/test/settings"))
         }
 
         fn read_settings(
