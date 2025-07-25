@@ -38,3 +38,23 @@ macro_rules! register_simple_plugin {
         }
     };
 }
+
+/// Auto-register mixin-based plugins that require a core parameter
+#[macro_export]
+macro_rules! register_mixin_plugin {
+    ($plugin_type:ty, $core_type:ty, $name:literal, $category:literal) => {
+        inventory::submit! {
+            $crate::core::plugin::PluginDescriptor {
+                name: $name,
+                category: $category,
+                factory: |config| {
+                    std::sync::Arc::new(if let Some(config) = config {
+                        <$plugin_type>::with_config(<$core_type>::default(), config)
+                    } else {
+                        <$plugin_type>::new(<$core_type>::default())
+                    })
+                },
+            }
+        }
+    };
+}

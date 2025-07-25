@@ -523,11 +523,12 @@ mod tests {
 
     #[test]
     fn test_get_plugin_output_file_from_plugin() {
+        use crate::plugins::core::base::settings::SettingsPlugin;
         use crate::plugins::r#static::files::StaticFilesPlugin;
-        use crate::plugins::vscode::settings::VSCodeSettingsPlugin;
+        use crate::plugins::vscode::settings::VSCodeCore;
 
         // Test plugin that doesn't specify a custom output file - should use auto-derived
-        let vscode_plugin = VSCodeSettingsPlugin::new();
+        let vscode_plugin = SettingsPlugin::new(VSCodeCore);
         assert_eq!(
             PluginRegistry::get_plugin_output_file_from_plugin(&vscode_plugin, "vscode_settings"),
             "vscode_settings.txt"
