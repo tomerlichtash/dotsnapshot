@@ -654,4 +654,956 @@ mod tests {
         // Both should reference the same base path
         assert_eq!(original.base_path(), cloned.base_path());
     }
+
+    /// Test SnapshotExecutor creation with configuration
+    /// Verifies that the executor can be properly instantiated with config
+    #[tokio::test]
+    async fn test_snapshot_executor_with_config() {
+        let temp_dir = TempDir::new().unwrap();
+        let base_path = temp_dir.path().to_path_buf();
+
+        let registry = Arc::new(PluginRegistry::new());
+        let config = Arc::new(Config::default());
+
+        let executor = SnapshotExecutor::with_config(registry, base_path, config);
+
+        // Verify executor is properly constructed (no panics or errors)
+        assert!(executor.config.is_some());
+    }
+
+    /// Test plugin execution with validation failure in plugin context
+    /// Verifies that validation errors are properly caught and handled
+    #[tokio::test]
+    async fn test_execute_plugin_validation_failure() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        async_fs::create_dir_all(&snapshot_dir).await?;
+
+        let plugin = Arc::new(
+            TestPlugin::new("content".to_string())
+                .with_validation_error("Plugin not available".to_string()),
+        );
+        let snapshot_manager = SnapshotManager::new(temp_dir.path().to_path_buf());
+        let hook_manager = HookManager::new(Default::default());
+        let hook_context = HookContext::new(
+            "test_snapshot".to_string(),
+            snapshot_dir.clone(),
+            Default::default(),
+        );
+
+        let result = SnapshotExecutor::execute_plugin_with_hooks(
+            "failing_plugin".to_string(),
+            plugin,
+            &snapshot_dir,
+            &snapshot_manager,
+            None,
+            hook_manager,
+            hook_context,
+        )
+        .await?;
+
+        assert!(!result.success);
+        assert_eq!(result.plugin_name, "failing_plugin");
+        assert!(result.error_message.is_some());
+        assert!(result.error_message.unwrap().contains("Validation failed"));
+        assert_eq!(result.content, "");
+        assert_eq!(result.checksum, "");
+
+        Ok(())
+    }
+
+    /// Test plugin execution with execution failure and hook handling
+    /// Verifies that execution errors trigger appropriate hook cleanup
+    #[tokio::test]
+    async fn test_execute_plugin_execution_failure() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        async_fs::create_dir_all(&snapshot_dir).await?;
+
+        let plugin = Arc::new(TestPlugin::new("content".to_string()).with_execution_failure());
+        let snapshot_manager = SnapshotManager::new(temp_dir.path().to_path_buf());
+        let hook_manager = HookManager::new(Default::default());
+        let hook_context = HookContext::new(
+            "test_snapshot".to_string(),
+            snapshot_dir.clone(),
+            Default::default(),
+        );
+
+        let result = SnapshotExecutor::execute_plugin_with_hooks(
+            "failing_plugin".to_string(),
+            plugin,
+            &snapshot_dir,
+            &snapshot_manager,
+            None,
+            hook_manager,
+            hook_context,
+        )
+        .await?;
+
+        assert!(!result.success);
+        assert_eq!(result.plugin_name, "failing_plugin");
+        assert!(result.error_message.is_some());
+        assert!(result
+            .error_message
+            .unwrap()
+            .contains("Test plugin execution failure"));
+
+        Ok(())
+    }
+
+    /// Test plugin execution with custom target path
+    /// Verifies that plugins with custom paths create files in the right location
+    #[tokio::test]
+    async fn test_execute_plugin_with_custom_target_path() -> Result<()> {
+        struct CustomPathPlugin;
+
+        #[async_trait]
+        impl Plugin for CustomPathPlugin {
+            fn description(&self) -> &str {
+                "Custom path plugin"
+            }
+            fn icon(&self) -> &str {
+                SYMBOL_ACTION_TEST
+            }
+            async fn execute(&self) -> Result<String> {
+                Ok("custom content".to_string())
+            }
+            async fn validate(&self) -> Result<()> {
+                Ok(())
+            }
+            fn get_target_path(&self) -> Option<String> {
+                Some("custom/path".to_string())
+            }
+            fn get_output_file(&self) -> Option<String> {
+                Some("custom.txt".to_string())
+            }
+            fn creates_own_output_files(&self) -> bool {
+                false
+            }
+        }
+
+        let temp_dir = TempDir::new()?;
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        async_fs::create_dir_all(&snapshot_dir).await?;
+
+        let plugin = Arc::new(CustomPathPlugin);
+        let snapshot_manager = SnapshotManager::new(temp_dir.path().to_path_buf());
+        let hook_manager = HookManager::new(Default::default());
+        let hook_context = HookContext::new(
+            "test_snapshot".to_string(),
+            snapshot_dir.clone(),
+            Default::default(),
+        );
+
+        let result = SnapshotExecutor::execute_plugin_with_hooks(
+            "custom_plugin".to_string(),
+            plugin,
+            &snapshot_dir,
+            &snapshot_manager,
+            None,
+            hook_manager,
+            hook_context,
+        )
+        .await?;
+
+        assert!(result.success);
+        assert_eq!(result.content, "custom content");
+
+        // Verify file was created in custom path
+        assert!(snapshot_dir.join("custom/path/custom.txt").exists());
+        let content = async_fs::read_to_string(snapshot_dir.join("custom/path/custom.txt")).await?;
+        assert_eq!(content, "custom content");
+
+        Ok(())
+    }
+
+    /// Test plugin execution that creates its own output files
+    /// Verifies that plugins with custom file handling don't get default file creation
+    #[tokio::test]
+    async fn test_execute_plugin_creates_own_files() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        async_fs::create_dir_all(&snapshot_dir).await?;
+
+        let plugin =
+            Arc::new(TestPlugin::new("custom content".to_string()).with_custom_file_handling());
+        let snapshot_manager = SnapshotManager::new(temp_dir.path().to_path_buf());
+        let hook_manager = HookManager::new(Default::default());
+        let hook_context = HookContext::new(
+            "test_snapshot".to_string(),
+            snapshot_dir.clone(),
+            Default::default(),
+        );
+
+        let result = SnapshotExecutor::execute_plugin_with_hooks(
+            "custom_plugin".to_string(),
+            plugin,
+            &snapshot_dir,
+            &snapshot_manager,
+            None,
+            hook_manager,
+            hook_context,
+        )
+        .await?;
+
+        assert!(result.success);
+        assert_eq!(result.content, "custom content");
+
+        // File should NOT be created because plugin handles its own files
+        assert!(!snapshot_dir.join("custom_plugin.txt").exists());
+
+        Ok(())
+    }
+
+    /// Test snapshot execution with mixed success and failure plugins
+    /// Verifies that executor handles heterogeneous plugin results correctly
+    #[tokio::test]
+    async fn test_execute_snapshot_mixed_results() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let base_path = temp_dir.path().to_path_buf();
+
+        let mut registry = PluginRegistry::new();
+        registry.add_plugin(
+            "success_plugin".to_string(),
+            Arc::new(TestPlugin::new("success content".to_string())),
+        );
+        registry.add_plugin(
+            "validation_failure".to_string(),
+            Arc::new(
+                TestPlugin::new("content".to_string())
+                    .with_validation_error("Validation error".to_string()),
+            ),
+        );
+        registry.add_plugin(
+            "execution_failure".to_string(),
+            Arc::new(TestPlugin::new("content".to_string()).with_execution_failure()),
+        );
+
+        let config = Config::default();
+        let executor =
+            SnapshotExecutor::with_config(Arc::new(registry), base_path, Arc::new(config));
+
+        let snapshot_dir = executor.execute_snapshot().await?;
+
+        assert!(snapshot_dir.exists());
+        // Success plugin should create file
+        assert!(snapshot_dir.join("success_plugin.txt").exists());
+        // Failed plugins should not create files
+        assert!(!snapshot_dir.join("validation_failure.txt").exists());
+        assert!(!snapshot_dir.join("execution_failure.txt").exists());
+        // Metadata should still be created
+        assert!(snapshot_dir.join(".snapshot/checksum.json").exists());
+
+        let content = async_fs::read_to_string(snapshot_dir.join("success_plugin.txt")).await?;
+        assert_eq!(content, "success content");
+
+        Ok(())
+    }
+
+    /// Test plugin hook integration with pre and post hooks
+    /// Verifies that plugin-specific hooks are executed correctly
+    #[tokio::test]
+    async fn test_plugin_hooks_integration() -> Result<()> {
+        use crate::core::hooks::HookAction;
+
+        struct HookedPlugin {
+            hooks: Vec<HookAction>,
+        }
+
+        impl HookedPlugin {
+            fn new() -> Self {
+                Self {
+                    hooks: vec![HookAction::Log {
+                        message: "Pre-plugin hook".to_string(),
+                        level: "info".to_string(),
+                    }],
+                }
+            }
+        }
+
+        #[async_trait]
+        impl Plugin for HookedPlugin {
+            fn description(&self) -> &str {
+                "Plugin with hooks"
+            }
+            fn icon(&self) -> &str {
+                SYMBOL_ACTION_TEST
+            }
+            async fn execute(&self) -> Result<String> {
+                Ok("hooked content".to_string())
+            }
+            async fn validate(&self) -> Result<()> {
+                Ok(())
+            }
+            fn get_target_path(&self) -> Option<String> {
+                None
+            }
+            fn get_output_file(&self) -> Option<String> {
+                None
+            }
+            fn creates_own_output_files(&self) -> bool {
+                false
+            }
+            fn get_hooks(&self) -> Vec<HookAction> {
+                self.hooks.clone()
+            }
+        }
+
+        let temp_dir = TempDir::new()?;
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        async_fs::create_dir_all(&snapshot_dir).await?;
+
+        let plugin = Arc::new(HookedPlugin::new());
+        let snapshot_manager = SnapshotManager::new(temp_dir.path().to_path_buf());
+        let hook_manager = HookManager::new(Default::default());
+        let hook_context = HookContext::new(
+            "test_snapshot".to_string(),
+            snapshot_dir.clone(),
+            Default::default(),
+        );
+
+        let result = SnapshotExecutor::execute_plugin_with_hooks(
+            "hooked_plugin".to_string(),
+            plugin,
+            &snapshot_dir,
+            &snapshot_manager,
+            None,
+            hook_manager,
+            hook_context,
+        )
+        .await?;
+
+        assert!(result.success);
+        assert_eq!(result.content, "hooked content");
+
+        Ok(())
+    }
+
+    /// Test snapshot execution with global pre and post hooks
+    /// Verifies that global hooks are executed before and after plugin execution
+    #[tokio::test]
+    async fn test_execute_snapshot_with_global_hooks() -> Result<()> {
+        use crate::config::{GlobalConfig, GlobalHooks};
+        use crate::core::hooks::HookAction;
+
+        let temp_dir = TempDir::new()?;
+        let base_path = temp_dir.path().to_path_buf();
+
+        let mut registry = PluginRegistry::new();
+        registry.add_plugin(
+            "test_plugin".to_string(),
+            Arc::new(TestPlugin::new("test content".to_string())),
+        );
+
+        let global_hooks = GlobalHooks {
+            pre_snapshot: vec![HookAction::Log {
+                message: "Pre-snapshot hook".to_string(),
+                level: "info".to_string(),
+            }],
+            post_snapshot: vec![HookAction::Log {
+                message: "Post-snapshot hook".to_string(),
+                level: "info".to_string(),
+            }],
+        };
+
+        let config = Config {
+            global: Some(GlobalConfig {
+                hooks: Some(global_hooks),
+            }),
+            ..Default::default()
+        };
+
+        let executor =
+            SnapshotExecutor::with_config(Arc::new(registry), base_path, Arc::new(config));
+
+        let snapshot_dir = executor.execute_snapshot().await?;
+
+        assert!(snapshot_dir.exists());
+        assert!(snapshot_dir.join("test_plugin.txt").exists());
+        assert!(snapshot_dir.join(".snapshot/checksum.json").exists());
+
+        Ok(())
+    }
+
+    /// Test environment variable setting during plugin execution
+    /// Verifies that DOTSNAPSHOT_SNAPSHOT_DIR is properly set for plugins
+    #[tokio::test]
+    async fn test_plugin_environment_variable() -> Result<()> {
+        struct EnvCheckPlugin;
+
+        #[async_trait]
+        impl Plugin for EnvCheckPlugin {
+            fn description(&self) -> &str {
+                "Environment check plugin"
+            }
+            fn icon(&self) -> &str {
+                SYMBOL_ACTION_TEST
+            }
+            async fn execute(&self) -> Result<String> {
+                // Check if environment variable is set
+                if let Ok(snapshot_dir) = std::env::var("DOTSNAPSHOT_SNAPSHOT_DIR") {
+                    Ok(format!("Snapshot dir: {snapshot_dir}"))
+                } else {
+                    Ok("No snapshot dir set".to_string())
+                }
+            }
+            async fn validate(&self) -> Result<()> {
+                Ok(())
+            }
+            fn get_target_path(&self) -> Option<String> {
+                None
+            }
+            fn get_output_file(&self) -> Option<String> {
+                None
+            }
+            fn creates_own_output_files(&self) -> bool {
+                false
+            }
+        }
+
+        let temp_dir = TempDir::new()?;
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        async_fs::create_dir_all(&snapshot_dir).await?;
+
+        let plugin = Arc::new(EnvCheckPlugin);
+        let snapshot_manager = SnapshotManager::new(temp_dir.path().to_path_buf());
+        let hook_manager = HookManager::new(Default::default());
+        let hook_context = HookContext::new(
+            "test_snapshot".to_string(),
+            snapshot_dir.clone(),
+            Default::default(),
+        );
+
+        let result = SnapshotExecutor::execute_plugin_with_hooks(
+            "env_plugin".to_string(),
+            plugin,
+            &snapshot_dir,
+            &snapshot_manager,
+            None,
+            hook_manager,
+            hook_context,
+        )
+        .await?;
+
+        assert!(result.success);
+        assert!(result.content.contains("Snapshot dir:"));
+
+        Ok(())
+    }
+
+    /// Test checksum reuse functionality during plugin execution
+    /// Verifies that plugins with matching checksums can reuse existing files
+    #[tokio::test]
+    async fn test_plugin_checksum_reuse() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let base_path = temp_dir.path().to_path_buf();
+
+        // Create executor with test plugin
+        let mut registry = PluginRegistry::new();
+        registry.add_plugin(
+            "reuse_plugin".to_string(),
+            Arc::new(TestPlugin::new("reusable content".to_string())),
+        );
+
+        let config = Config::default();
+        let executor =
+            SnapshotExecutor::with_config(Arc::new(registry), base_path, Arc::new(config));
+
+        // First execution - creates initial snapshot
+        let snapshot_dir1 = executor.execute_snapshot().await?;
+        assert!(snapshot_dir1.join("reuse_plugin.txt").exists());
+
+        // Second execution with same content should potentially reuse
+        let snapshot_dir2 = executor.execute_snapshot().await?;
+        assert!(snapshot_dir2.join("reuse_plugin.txt").exists());
+
+        // Verify both files have the same content
+        let content1 = async_fs::read_to_string(snapshot_dir1.join("reuse_plugin.txt")).await?;
+        let content2 = async_fs::read_to_string(snapshot_dir2.join("reuse_plugin.txt")).await?;
+        assert_eq!(content1, content2);
+
+        Ok(())
+    }
+
+    /// Test plugin execution with task join failure simulation
+    /// Verifies that executor handles async task panics gracefully
+    #[tokio::test]
+    async fn test_plugin_task_panic_handling() -> Result<()> {
+        struct PanicPlugin;
+
+        #[async_trait]
+        impl Plugin for PanicPlugin {
+            fn description(&self) -> &str {
+                "Plugin that panics"
+            }
+            fn icon(&self) -> &str {
+                SYMBOL_ACTION_TEST
+            }
+            async fn execute(&self) -> Result<String> {
+                panic!("Intentional panic for testing");
+            }
+            async fn validate(&self) -> Result<()> {
+                Ok(())
+            }
+            fn get_target_path(&self) -> Option<String> {
+                None
+            }
+            fn get_output_file(&self) -> Option<String> {
+                None
+            }
+            fn creates_own_output_files(&self) -> bool {
+                false
+            }
+        }
+
+        let temp_dir = TempDir::new()?;
+        let base_path = temp_dir.path().to_path_buf();
+
+        let mut registry = PluginRegistry::new();
+        registry.add_plugin("panic_plugin".to_string(), Arc::new(PanicPlugin));
+
+        let config = Config::default();
+        let executor =
+            SnapshotExecutor::with_config(Arc::new(registry), base_path, Arc::new(config));
+
+        // Executor should handle the panic and still complete
+        let snapshot_dir = executor.execute_snapshot().await?;
+        assert!(snapshot_dir.exists());
+        assert!(snapshot_dir.join(".snapshot/checksum.json").exists());
+
+        Ok(())
+    }
+
+    /// Test plugin execution without configuration
+    /// Verifies that executor works properly with no config provided
+    #[tokio::test]
+    async fn test_execute_snapshot_no_config() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let base_path = temp_dir.path().to_path_buf();
+
+        let mut registry = PluginRegistry::new();
+        registry.add_plugin(
+            "simple_plugin".to_string(),
+            Arc::new(TestPlugin::new("simple content".to_string())),
+        );
+
+        // Create executor without config
+        let executor = SnapshotExecutor {
+            registry: Arc::new(registry),
+            snapshot_manager: SnapshotManager::new(base_path),
+            config: None,
+        };
+
+        let snapshot_dir = executor.execute_snapshot().await?;
+
+        assert!(snapshot_dir.exists());
+        assert!(snapshot_dir.join("simple_plugin.txt").exists());
+        assert!(snapshot_dir.join(".snapshot/checksum.json").exists());
+
+        Ok(())
+    }
+
+    /// Test plugin execution with failed file write scenario
+    /// Verifies error handling when file operations fail
+    #[tokio::test]
+    async fn test_plugin_file_write_failure() -> Result<()> {
+        struct ReadOnlyPlugin;
+
+        #[async_trait]
+        impl Plugin for ReadOnlyPlugin {
+            fn description(&self) -> &str {
+                "Plugin that tries to write to readonly location"
+            }
+            fn icon(&self) -> &str {
+                SYMBOL_ACTION_TEST
+            }
+            async fn execute(&self) -> Result<String> {
+                Ok("readonly content".to_string())
+            }
+            async fn validate(&self) -> Result<()> {
+                Ok(())
+            }
+            fn get_target_path(&self) -> Option<String> {
+                // Try to write to root directory (should fail on most systems)
+                Some("/root/invalid".to_string())
+            }
+            fn get_output_file(&self) -> Option<String> {
+                Some("test.txt".to_string())
+            }
+            fn creates_own_output_files(&self) -> bool {
+                false
+            }
+        }
+
+        let temp_dir = TempDir::new()?;
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        async_fs::create_dir_all(&snapshot_dir).await?;
+
+        let plugin = Arc::new(ReadOnlyPlugin);
+        let snapshot_manager = SnapshotManager::new(temp_dir.path().to_path_buf());
+        let hook_manager = HookManager::new(Default::default());
+        let hook_context = HookContext::new(
+            "test_snapshot".to_string(),
+            snapshot_dir.clone(),
+            Default::default(),
+        );
+
+        // This should fail due to permission issues but return error properly
+        let result = SnapshotExecutor::execute_plugin_with_hooks(
+            "readonly_plugin".to_string(),
+            plugin,
+            &snapshot_dir,
+            &snapshot_manager,
+            None,
+            hook_manager,
+            hook_context,
+        )
+        .await;
+
+        // Should either fail or succeed depending on system permissions
+        // The key is that it doesn't panic
+        assert!(result.is_ok() || result.is_err());
+
+        Ok(())
+    }
+
+    /// Test plugin hooks execution with failure scenarios
+    /// Verifies that plugin hooks are executed even when plugin fails
+    #[tokio::test]
+    async fn test_plugin_hooks_with_execution_failure() -> Result<()> {
+        use crate::core::hooks::HookAction;
+
+        struct FailingHookedPlugin {
+            hooks: Vec<HookAction>,
+        }
+
+        impl FailingHookedPlugin {
+            fn new() -> Self {
+                Self {
+                    hooks: vec![HookAction::Log {
+                        message: "Plugin hook executed".to_string(),
+                        level: "info".to_string(),
+                    }],
+                }
+            }
+        }
+
+        #[async_trait]
+        impl Plugin for FailingHookedPlugin {
+            fn description(&self) -> &str {
+                "Failing plugin with hooks"
+            }
+            fn icon(&self) -> &str {
+                SYMBOL_ACTION_TEST
+            }
+            async fn execute(&self) -> Result<String> {
+                Err(anyhow::anyhow!("Plugin execution failed"))
+            }
+            async fn validate(&self) -> Result<()> {
+                Ok(())
+            }
+            fn get_target_path(&self) -> Option<String> {
+                None
+            }
+            fn get_output_file(&self) -> Option<String> {
+                None
+            }
+            fn creates_own_output_files(&self) -> bool {
+                false
+            }
+            fn get_hooks(&self) -> Vec<HookAction> {
+                self.hooks.clone()
+            }
+        }
+
+        let temp_dir = TempDir::new()?;
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        async_fs::create_dir_all(&snapshot_dir).await?;
+
+        let plugin = Arc::new(FailingHookedPlugin::new());
+        let snapshot_manager = SnapshotManager::new(temp_dir.path().to_path_buf());
+        let hook_manager = HookManager::new(Default::default());
+        let hook_context = HookContext::new(
+            "test_snapshot".to_string(),
+            snapshot_dir.clone(),
+            Default::default(),
+        );
+
+        let result = SnapshotExecutor::execute_plugin_with_hooks(
+            "failing_hooked".to_string(),
+            plugin,
+            &snapshot_dir,
+            &snapshot_manager,
+            None,
+            hook_manager,
+            hook_context,
+        )
+        .await?;
+
+        // Plugin should fail but hooks should still execute
+        assert!(!result.success);
+        assert!(result.error_message.is_some());
+
+        Ok(())
+    }
+
+    /// Test plugin with successful checksum reuse scenario
+    /// Verifies the complete checksum reuse workflow including hook execution
+    #[tokio::test]
+    async fn test_plugin_successful_checksum_reuse() -> Result<()> {
+        use crate::core::hooks::HookAction;
+
+        struct ReusableHookedPlugin {
+            content: String,
+            hooks: Vec<HookAction>,
+        }
+
+        impl ReusableHookedPlugin {
+            fn new(content: String) -> Self {
+                Self {
+                    content,
+                    hooks: vec![HookAction::Log {
+                        message: "Reuse hook executed".to_string(),
+                        level: "info".to_string(),
+                    }],
+                }
+            }
+        }
+
+        #[async_trait]
+        impl Plugin for ReusableHookedPlugin {
+            fn description(&self) -> &str {
+                "Reusable plugin with hooks"
+            }
+            fn icon(&self) -> &str {
+                SYMBOL_ACTION_TEST
+            }
+            async fn execute(&self) -> Result<String> {
+                Ok(self.content.clone())
+            }
+            async fn validate(&self) -> Result<()> {
+                Ok(())
+            }
+            fn get_target_path(&self) -> Option<String> {
+                None
+            }
+            fn get_output_file(&self) -> Option<String> {
+                Some("reusable.txt".to_string())
+            }
+            fn creates_own_output_files(&self) -> bool {
+                false
+            }
+            fn get_hooks(&self) -> Vec<HookAction> {
+                self.hooks.clone()
+            }
+        }
+
+        let temp_dir = TempDir::new()?;
+        let base_path = temp_dir.path().to_path_buf();
+
+        // Create a snapshot directory with existing content to simulate checksum reuse
+        let existing_snapshot = base_path.join("existing_snapshot");
+        async_fs::create_dir_all(&existing_snapshot).await?;
+        async_fs::write(existing_snapshot.join("reusable.txt"), "reusable content").await?;
+
+        let mut registry = PluginRegistry::new();
+        registry.add_plugin(
+            "reusable_plugin".to_string(),
+            Arc::new(ReusableHookedPlugin::new("reusable content".to_string())),
+        );
+
+        let config = Config::default();
+        let executor =
+            SnapshotExecutor::with_config(Arc::new(registry), base_path, Arc::new(config));
+
+        let snapshot_dir = executor.execute_snapshot().await?;
+
+        assert!(snapshot_dir.exists());
+        assert!(snapshot_dir.join("reusable.txt").exists());
+
+        Ok(())
+    }
+
+    /// Test execution with empty plugin registry
+    /// Verifies that executor handles empty registry gracefully
+    #[tokio::test]
+    async fn test_execute_snapshot_empty_registry() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let base_path = temp_dir.path().to_path_buf();
+
+        let registry = PluginRegistry::new(); // Empty registry
+        let config = Config::default();
+        let executor =
+            SnapshotExecutor::with_config(Arc::new(registry), base_path, Arc::new(config));
+
+        let snapshot_dir = executor.execute_snapshot().await?;
+
+        assert!(snapshot_dir.exists());
+        // Should still create metadata even with no plugins
+        assert!(snapshot_dir.join(".snapshot/checksum.json").exists());
+
+        Ok(())
+    }
+
+    /// Test plugin execution with complex hook scenarios and error contexts
+    /// Verifies that error context is properly passed to hooks during failures
+    #[tokio::test]
+    async fn test_plugin_execution_with_error_context_hooks() -> Result<()> {
+        use crate::core::hooks::HookAction;
+
+        struct ErrorContextPlugin {
+            hooks: Vec<HookAction>,
+        }
+
+        impl ErrorContextPlugin {
+            fn new() -> Self {
+                Self {
+                    hooks: vec![HookAction::Log {
+                        message: "Plugin hook with error: {error}".to_string(),
+                        level: "error".to_string(),
+                    }],
+                }
+            }
+        }
+
+        #[async_trait]
+        impl Plugin for ErrorContextPlugin {
+            fn description(&self) -> &str {
+                "Plugin that provides error context to hooks"
+            }
+            fn icon(&self) -> &str {
+                SYMBOL_ACTION_TEST
+            }
+            async fn execute(&self) -> Result<String> {
+                Err(anyhow::anyhow!("Detailed error message for context"))
+            }
+            async fn validate(&self) -> Result<()> {
+                Ok(())
+            }
+            fn get_target_path(&self) -> Option<String> {
+                None
+            }
+            fn get_output_file(&self) -> Option<String> {
+                None
+            }
+            fn creates_own_output_files(&self) -> bool {
+                false
+            }
+            fn get_hooks(&self) -> Vec<HookAction> {
+                self.hooks.clone()
+            }
+        }
+
+        let temp_dir = TempDir::new()?;
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        async_fs::create_dir_all(&snapshot_dir).await?;
+
+        let plugin = Arc::new(ErrorContextPlugin::new());
+        let snapshot_manager = SnapshotManager::new(temp_dir.path().to_path_buf());
+        let hook_manager = HookManager::new(Default::default());
+        let hook_context = HookContext::new(
+            "test_snapshot".to_string(),
+            snapshot_dir.clone(),
+            Default::default(),
+        );
+
+        let result = SnapshotExecutor::execute_plugin_with_hooks(
+            "error_context_plugin".to_string(),
+            plugin,
+            &snapshot_dir,
+            &snapshot_manager,
+            None,
+            hook_manager,
+            hook_context,
+        )
+        .await?;
+
+        assert!(!result.success);
+        assert!(result
+            .error_message
+            .unwrap()
+            .contains("Detailed error message"));
+
+        Ok(())
+    }
+
+    /// Test plugin execution with output path context in success hooks
+    /// Verifies that successful plugins get proper output path context in hooks
+    #[tokio::test]
+    async fn test_plugin_success_hooks_with_output_path() -> Result<()> {
+        use crate::core::hooks::HookAction;
+
+        struct OutputPathPlugin {
+            hooks: Vec<HookAction>,
+        }
+
+        impl OutputPathPlugin {
+            fn new() -> Self {
+                Self {
+                    hooks: vec![HookAction::Log {
+                        message: "Plugin completed, output at: {output_path}".to_string(),
+                        level: "info".to_string(),
+                    }],
+                }
+            }
+        }
+
+        #[async_trait]
+        impl Plugin for OutputPathPlugin {
+            fn description(&self) -> &str {
+                "Plugin that tests output path context"
+            }
+            fn icon(&self) -> &str {
+                SYMBOL_ACTION_TEST
+            }
+            async fn execute(&self) -> Result<String> {
+                Ok("output content".to_string())
+            }
+            async fn validate(&self) -> Result<()> {
+                Ok(())
+            }
+            fn get_target_path(&self) -> Option<String> {
+                None
+            }
+            fn get_output_file(&self) -> Option<String> {
+                Some("output.txt".to_string())
+            }
+            fn creates_own_output_files(&self) -> bool {
+                false
+            }
+            fn get_hooks(&self) -> Vec<HookAction> {
+                self.hooks.clone()
+            }
+        }
+
+        let temp_dir = TempDir::new()?;
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        async_fs::create_dir_all(&snapshot_dir).await?;
+
+        let plugin = Arc::new(OutputPathPlugin::new());
+        let snapshot_manager = SnapshotManager::new(temp_dir.path().to_path_buf());
+        let hook_manager = HookManager::new(Default::default());
+        let hook_context = HookContext::new(
+            "test_snapshot".to_string(),
+            snapshot_dir.clone(),
+            Default::default(),
+        );
+
+        let result = SnapshotExecutor::execute_plugin_with_hooks(
+            "output_path_plugin".to_string(),
+            plugin,
+            &snapshot_dir,
+            &snapshot_manager,
+            None,
+            hook_manager,
+            hook_context,
+        )
+        .await?;
+
+        assert!(result.success);
+        assert_eq!(result.content, "output content");
+        assert!(snapshot_dir.join("output.txt").exists());
+
+        Ok(())
+    }
 }

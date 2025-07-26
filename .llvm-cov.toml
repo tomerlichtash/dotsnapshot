@@ -12,6 +12,14 @@ summary = true
 
 # Exclusions (use sparingly and justify)
 exclude = [
+    # Exclude Rust standard library source code paths
+    "*/rustc-*-src/*",
+    "*/.cargo/registry/*",
+    "*/target/debug/deps/*",
+    "*/rustlib/*",
+    "/private/tmp/rust-*",
+    "/usr/local/Cellar/rust/*",
+    "/opt/homebrew/Cellar/rust/*",
     # Example: Exclude generated code or external dependencies
     # "src/generated/*",
 ]

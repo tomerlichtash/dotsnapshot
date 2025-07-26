@@ -381,4 +381,317 @@ mod tests {
             .iter()
             .any(|p| p.file_name().unwrap() == "dotsnapshot.toml"));
     }
+
+    /// Test comprehensive hook configuration functionality
+    /// Verifies all hook-related configuration methods work correctly
+    #[tokio::test]
+    async fn test_config_hooks_comprehensive() {
+        use std::collections::HashMap;
+
+        let config = Config {
+            output_dir: Some(PathBuf::from("/test/output")),
+            include_plugins: None,
+            logging: None,
+            hooks: Some(HooksConfig {
+                scripts_dir: PathBuf::from("/test/scripts"),
+            }),
+            global: Some(GlobalConfig {
+                hooks: Some(GlobalHooks {
+                    pre_snapshot: vec![HookAction::Notify {
+                        message: "Starting global snapshot".to_string(),
+                        title: Some("Dotsnapshot".to_string()),
+                    }],
+                    post_snapshot: vec![HookAction::Script {
+                        command: "echo".to_string(),
+                        args: vec!["Global post-snapshot hook".to_string()],
+                        timeout: 60,
+                        working_dir: None,
+                        env_vars: HashMap::new(),
+                    }],
+                }),
+            }),
+            static_files: None,
+            plugins: Some(PluginsConfig {
+                plugins: {
+                    let mut plugins_map = std::collections::HashMap::new();
+
+                    let mut vscode_config = toml::value::Table::new();
+                    vscode_config.insert(
+                        "target_path".to_string(),
+                        toml::Value::String("~/vscode".to_string()),
+                    );
+                    plugins_map.insert("vscode".to_string(), toml::Value::Table(vscode_config));
+
+                    let mut homebrew_config = toml::value::Table::new();
+                    homebrew_config.insert(
+                        "output_file".to_string(),
+                        toml::Value::String("brewfile.txt".to_string()),
+                    );
+                    plugins_map.insert("homebrew".to_string(), toml::Value::Table(homebrew_config));
+
+                    plugins_map
+                },
+            }),
+            ui: Some(UiConfig {
+                plugin_categories: Some({
+                    let mut categories = HashMap::new();
+                    categories.insert("vscode".to_string(), "VS Code Editor".to_string());
+                    categories.insert("homebrew".to_string(), "Package Manager".to_string());
+                    categories
+                }),
+            }),
+        };
+
+        // Test hook configuration methods
+        let hooks_config = config.get_hooks_config();
+        assert_eq!(hooks_config.scripts_dir, PathBuf::from("/test/scripts"));
+
+        // Test global hooks
+        let global_pre = config.get_global_pre_snapshot_hooks();
+        assert_eq!(global_pre.len(), 1);
+
+        let global_post = config.get_global_post_snapshot_hooks();
+        assert_eq!(global_post.len(), 1);
+
+        // Test plugin-specific hooks (should be empty for plugins without hooks config)
+        let plugin_pre = config.get_plugin_pre_hooks("vscode");
+        assert_eq!(plugin_pre.len(), 0);
+
+        let plugin_post = config.get_plugin_post_hooks("vscode");
+        assert_eq!(plugin_post.len(), 0);
+
+        // Test plugin-specific hooks for non-existent plugin
+        let no_plugin_pre = config.get_plugin_pre_hooks("nonexistent");
+        assert_eq!(no_plugin_pre.len(), 0);
+
+        let no_plugin_post = config.get_plugin_post_hooks("nonexistent");
+        assert_eq!(no_plugin_post.len(), 0);
+
+        // Test plugin configuration retrieval
+        let vscode_config = config.get_raw_plugin_config("vscode");
+        assert!(vscode_config.is_some());
+
+        let homebrew_config = config.get_raw_plugin_config("homebrew");
+        assert!(homebrew_config.is_some());
+
+        let nonexistent_config = config.get_raw_plugin_config("nonexistent");
+        assert!(nonexistent_config.is_none());
+
+        // Test time format
+        let time_format = config.get_time_format();
+        assert!(!time_format.is_empty());
+
+        // Test verbose setting (should be false by default)
+        assert!(!config.is_verbose_default());
+    }
+
+    /// Test config with minimal settings and edge cases
+    /// Verifies that missing configurations are handled correctly
+    #[tokio::test]
+    async fn test_config_minimal_and_edge_cases() {
+        // Test with completely minimal config
+        let minimal_config = Config {
+            output_dir: None,
+            include_plugins: None,
+            logging: None,
+            hooks: None,
+            global: None,
+            static_files: None,
+            plugins: None,
+            ui: None,
+        };
+
+        // Test default behaviors
+        assert_eq!(
+            minimal_config.get_output_dir(),
+            PathBuf::from("./snapshots")
+        );
+        assert_eq!(minimal_config.get_include_plugins(), None);
+        assert!(!minimal_config.is_verbose_default());
+
+        // Test default time format
+        let default_time_format = minimal_config.get_time_format();
+        assert_eq!(
+            default_time_format,
+            "[year]-[month]-[day] [hour]:[minute]:[second]"
+        );
+
+        // Test empty hooks (HooksConfig has scripts_dir field, which gets default value)
+        let hooks_config = minimal_config.get_hooks_config();
+        assert!(hooks_config
+            .scripts_dir
+            .to_string_lossy()
+            .contains("dotsnapshot"));
+
+        let global_pre = minimal_config.get_global_pre_snapshot_hooks();
+        assert_eq!(global_pre.len(), 0);
+
+        let global_post = minimal_config.get_global_post_snapshot_hooks();
+        assert_eq!(global_post.len(), 0);
+
+        // Test plugin hooks with no configuration
+        let plugin_pre = minimal_config.get_plugin_pre_hooks("any_plugin");
+        assert_eq!(plugin_pre.len(), 0);
+
+        let plugin_post = minimal_config.get_plugin_post_hooks("any_plugin");
+        assert_eq!(plugin_post.len(), 0);
+
+        // Test plugin config retrieval with no plugins configured
+        let no_config = minimal_config.get_raw_plugin_config("any_plugin");
+        assert!(no_config.is_none());
+
+        // Test with logging config but no verbose setting
+        let config_with_logging = Config {
+            output_dir: None,
+            include_plugins: None,
+            logging: Some(LoggingConfig {
+                verbose: None, // No explicit verbose setting
+                time_format: Some("[hour]:[minute]".to_string()),
+            }),
+            hooks: None,
+            global: None,
+            static_files: None,
+            plugins: None,
+            ui: None,
+        };
+
+        // Should still return false for verbose when not set
+        assert!(!config_with_logging.is_verbose_default());
+
+        // Should use custom time format
+        assert_eq!(config_with_logging.get_time_format(), "[hour]:[minute]");
+    }
+
+    /// Test config serialization and deserialization edge cases
+    /// Verifies that complex configurations can be properly saved and loaded
+    #[tokio::test]
+    async fn test_config_serialization_edge_cases() -> Result<()> {
+        use std::collections::HashMap;
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new()?;
+        let config_path = temp_dir.path().join("complex_config.toml");
+
+        // Create a complex configuration with all features
+        let complex_config = Config {
+            output_dir: Some(PathBuf::from("/complex/output")),
+            include_plugins: Some(vec![
+                "vscode".to_string(),
+                "homebrew".to_string(),
+                "npm".to_string(),
+            ]),
+            logging: Some(LoggingConfig {
+                verbose: Some(true),
+                time_format: Some(
+                    "[year]-[month padding:zero]-[day padding:zero]T[hour]:[minute]:[second]Z"
+                        .to_string(),
+                ),
+            }),
+            hooks: Some(HooksConfig {
+                scripts_dir: PathBuf::from("/usr/local/bin/scripts"),
+            }),
+            global: Some(GlobalConfig {
+                hooks: Some(GlobalHooks {
+                    pre_snapshot: vec![HookAction::Script {
+                        command: "systemctl".to_string(),
+                        args: vec!["is-active".to_string(), "docker".to_string()],
+                        timeout: 10,
+                        working_dir: None,
+                        env_vars: HashMap::new(),
+                    }],
+                    post_snapshot: vec![HookAction::Notify {
+                        message: "All backups completed".to_string(),
+                        title: Some("Dotsnapshot".to_string()),
+                    }],
+                }),
+            }),
+            static_files: Some(StaticFilesConfig {
+                files: Some(vec![
+                    "~/.vimrc".to_string(),
+                    "~/.zshrc".to_string(),
+                    "/etc/hosts".to_string(),
+                ]),
+                ignore: Some(vec![
+                    "*.log".to_string(),
+                    "*.tmp".to_string(),
+                    ".DS_Store".to_string(),
+                ]),
+            }),
+            plugins: Some(PluginsConfig {
+                plugins: {
+                    let mut plugins_map = std::collections::HashMap::new();
+
+                    let mut vscode_config = toml::value::Table::new();
+                    vscode_config.insert(
+                        "target_path".to_string(),
+                        toml::Value::String("~/vscode-settings".to_string()),
+                    );
+                    vscode_config.insert(
+                        "output_file".to_string(),
+                        toml::Value::String("vscode_config.json".to_string()),
+                    );
+                    plugins_map.insert("vscode".to_string(), toml::Value::Table(vscode_config));
+
+                    let mut homebrew_config = toml::value::Table::new();
+                    homebrew_config.insert(
+                        "output_file".to_string(),
+                        toml::Value::String("Brewfile".to_string()),
+                    );
+                    homebrew_config.insert("include_casks".to_string(), toml::Value::Boolean(true));
+                    plugins_map.insert("homebrew".to_string(), toml::Value::Table(homebrew_config));
+
+                    let mut npm_config = toml::value::Table::new();
+                    npm_config.insert("global_only".to_string(), toml::Value::Boolean(false));
+                    plugins_map.insert("npm".to_string(), toml::Value::Table(npm_config));
+
+                    plugins_map
+                },
+            }),
+            ui: Some(UiConfig {
+                plugin_categories: Some({
+                    let mut categories = HashMap::new();
+                    categories.insert("vscode".to_string(), "Editors".to_string());
+                    categories.insert("homebrew".to_string(), "Package Managers".to_string());
+                    categories.insert("npm".to_string(), "Development Tools".to_string());
+                    categories
+                }),
+            }),
+        };
+
+        // Save the complex configuration
+        complex_config.save_to_file(&config_path).await?;
+
+        // Load and verify the configuration
+        let loaded_config = Config::load_from_file(&config_path).await?;
+
+        // Verify all aspects were preserved
+        assert_eq!(
+            loaded_config.get_output_dir(),
+            PathBuf::from("/complex/output")
+        );
+        assert!(loaded_config.is_verbose_default());
+        assert_eq!(loaded_config.get_include_plugins().unwrap().len(), 3);
+
+        // Verify hooks were preserved
+        let hooks = loaded_config.get_hooks_config();
+        assert_eq!(hooks.scripts_dir, PathBuf::from("/usr/local/bin/scripts"));
+
+        let global_pre = loaded_config.get_global_pre_snapshot_hooks();
+        assert_eq!(global_pre.len(), 1);
+
+        let vscode_pre = loaded_config.get_plugin_pre_hooks("vscode");
+        assert_eq!(vscode_pre.len(), 0); // No plugin-level hooks configured
+
+        // Verify plugin configurations were preserved
+        let vscode_config = loaded_config.get_raw_plugin_config("vscode");
+        assert!(vscode_config.is_some());
+
+        let homebrew_config = loaded_config.get_raw_plugin_config("homebrew");
+        assert!(homebrew_config.is_some());
+
+        let npm_config = loaded_config.get_raw_plugin_config("npm");
+        assert!(npm_config.is_some());
+
+        Ok(())
+    }
 }

@@ -30,29 +30,43 @@ echo ""
 
 # Set up LLVM tools paths if not already set
 if [[ -z "$LLVM_COV" || -z "$LLVM_PROFDATA" ]]; then
-    TOOLCHAIN_PATH=$(rustup toolchain list | grep default | awk '{print $1}' | head -1)
-    if [[ -z "$TOOLCHAIN_PATH" ]]; then
-        TOOLCHAIN_PATH="stable-$(rustc -vV | grep host | cut -d' ' -f2)"
-    fi
-    
-    LLVM_TOOLS_DIR="$HOME/.rustup/toolchains/$TOOLCHAIN_PATH/lib/rustlib/$(rustc -vV | grep host | cut -d' ' -f2)/bin"
-    
-    if [[ -f "$LLVM_TOOLS_DIR/llvm-cov" ]]; then
-        export LLVM_COV="$LLVM_TOOLS_DIR/llvm-cov"
-        export LLVM_PROFDATA="$LLVM_TOOLS_DIR/llvm-profdata"
-        echo "📍 Found LLVM tools at: $LLVM_TOOLS_DIR"
+    # First try homebrew LLVM installation
+    if [[ -f "/opt/homebrew/Cellar/llvm/20.1.8/bin/llvm-cov" ]]; then
+        export LLVM_COV="/opt/homebrew/Cellar/llvm/20.1.8/bin/llvm-cov"
+        export LLVM_PROFDATA="/opt/homebrew/Cellar/llvm/20.1.8/bin/llvm-profdata"
+        echo "📍 Using Homebrew LLVM tools at: /opt/homebrew/Cellar/llvm/20.1.8/bin/"
+    else
+        # Fallback to rustup toolchain LLVM tools
+        TOOLCHAIN_PATH=$(rustup toolchain list | grep default | awk '{print $1}' | head -1)
+        if [[ -z "$TOOLCHAIN_PATH" ]]; then
+            TOOLCHAIN_PATH="stable-$(rustc -vV | grep host | cut -d' ' -f2)"
+        fi
+        
+        LLVM_TOOLS_DIR="$HOME/.rustup/toolchains/$TOOLCHAIN_PATH/lib/rustlib/$(rustc -vV | grep host | cut -d' ' -f2)/bin"
+        
+        if [[ -f "$LLVM_TOOLS_DIR/llvm-cov" ]]; then
+            export LLVM_COV="$LLVM_TOOLS_DIR/llvm-cov"
+            export LLVM_PROFDATA="$LLVM_TOOLS_DIR/llvm-profdata"
+            echo "📍 Found LLVM tools at: $LLVM_TOOLS_DIR"
+        else
+            echo "❌ Could not find LLVM tools. Please install with:"
+            echo "   brew install llvm"
+            echo "   - or -"
+            echo "   rustup component add llvm-tools-preview"
+            exit 1
+        fi
     fi
 fi
 
 # Run tests with coverage
-cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+cargo llvm-cov --lib --all-features --lcov --output-path lcov.info --color always
 
 echo ""
 echo "📈 Coverage Analysis Results:"
 echo "================================"
 
 # Get coverage summary
-COVERAGE_OUTPUT=$(cargo llvm-cov --all-features --workspace --summary-only)
+COVERAGE_OUTPUT=$(cargo llvm-cov --lib --all-features --summary-only --color always)
 echo "$COVERAGE_OUTPUT"
 
 # Extract total coverage percentage
@@ -90,7 +104,7 @@ fi
 
 # Generate HTML report for detailed analysis
 echo "📄 Generating detailed HTML coverage report..."
-cargo llvm-cov --all-features --workspace --html --output-dir coverage-report
+cargo llvm-cov --lib --all-features --html --output-dir coverage-report --color always
 
 echo "🔗 View detailed coverage report:"
 echo "   open coverage-report/index.html"

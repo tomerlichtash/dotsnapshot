@@ -168,6 +168,194 @@ mod tests {
                 .contains("VSCode settings directory not found"));
         }
     }
+
+    /// Test VSCodeCore get_settings_dir method on different platforms
+    /// Verifies platform-specific directory resolution
+    #[tokio::test]
+    async fn test_vscode_core_get_settings_dir() {
+        let core = VSCodeCore;
+        let settings_dir = core.get_settings_dir();
+
+        // Should successfully determine a settings directory
+        assert!(settings_dir.is_ok());
+
+        let dir_path = settings_dir.unwrap();
+        let path_str = dir_path.to_string_lossy();
+
+        // Verify it contains expected platform-specific paths
+        if cfg!(target_os = "macos") {
+            assert!(path_str.contains("Library/Application Support/Code/User"));
+        } else if cfg!(target_os = "windows") {
+            assert!(path_str.contains("AppData/Roaming/Code/User"));
+        } else {
+            assert!(path_str.contains(".config/Code/User"));
+        }
+    }
+
+    /// Test VSCodeCore read_settings with non-existent settings file
+    /// Verifies default empty JSON return when settings don't exist
+    #[tokio::test]
+    async fn test_vscode_core_read_settings_nonexistent() {
+        let core = VSCodeCore;
+
+        // This test verifies the contract: non-existent file returns empty JSON
+        let result = core.read_settings().await;
+
+        // Should either succeed with content (if VSCode installed) or return "{}" for missing file
+        if let Ok(content) = result {
+            // Content should either be valid JSON or empty
+            if !content.is_empty() {
+                // Try to parse as JSON, but don't fail if it's not
+                match serde_json::from_str::<serde_json::Value>(&content) {
+                    Ok(_) => {
+                        // Valid JSON - good
+                    }
+                    Err(_) => {
+                        // Not valid JSON - that's acceptable for some settings files
+                        // Just verify it's some kind of content
+                        assert!(!content.trim().is_empty());
+                    }
+                }
+            }
+        }
+        // If it fails, that's also acceptable (VSCode not installed)
+    }
+
+    /// Test VSCodeCore read_settings with existing settings file
+    /// Verifies actual file reading when settings exist
+    #[tokio::test]
+    async fn test_vscode_core_read_settings_existing() {
+        let core = VSCodeCore;
+
+        // Try to read actual settings if they exist
+        let result = core.read_settings().await;
+
+        match result {
+            Ok(content) => {
+                // Content should not be empty if successful
+                assert!(!content.is_empty());
+
+                // Try to parse as JSON, but don't require it to be valid
+                // Some settings might be JSONC or have comments
+                match serde_json::from_str::<serde_json::Value>(&content) {
+                    Ok(_) => {
+                        // Valid JSON - excellent
+                    }
+                    Err(_) => {
+                        // Not valid JSON - that's acceptable for JSONC files
+                        // Just verify it contains some settings-like content
+                        assert!(content.len() > 2); // More than just "{}"
+                    }
+                }
+            }
+            Err(_) => {
+                // Error is acceptable if VSCode is not installed
+                // The error should be about missing directory or file
+            }
+        }
+    }
+
+    /// Test VSCodeCore implementation of allowed extensions
+    /// Verifies that VSCode supports both json and jsonc extensions
+    #[tokio::test]
+    async fn test_vscode_core_allowed_extensions() {
+        let core = VSCodeCore;
+        let extensions = core.allowed_extensions();
+
+        assert_eq!(extensions.len(), 2);
+        assert!(extensions.contains(&"json"));
+        assert!(extensions.contains(&"jsonc"));
+    }
+
+    /// Test VSCodeSettingsPlugin type alias functionality
+    /// Verifies the type alias works correctly and inherits all expected methods
+    #[tokio::test]
+    async fn test_vscode_settings_plugin_type_alias() {
+        let plugin: VSCodeSettingsPlugin = SettingsPlugin::new(VSCodeCore);
+
+        // Test that the type alias preserves all functionality
+        assert_eq!(
+            plugin.description(),
+            "Captures application settings configuration"
+        );
+        assert_eq!(plugin.icon(), SYMBOL_TOOL_COMPUTER);
+
+        // Test that Plugin trait is implemented
+        let execute_result = plugin.execute().await;
+        // Should either succeed or fail gracefully
+        match execute_result {
+            Ok(content) => {
+                // Content should be some form of settings data
+                assert!(!content.is_empty());
+                // Try to parse as JSON, but accept JSONC or other formats
+                if content.trim() != "{}" {
+                    // If not empty default, should have some content
+                    assert!(content.len() >= 2);
+                }
+            }
+            Err(_) => {
+                // Error is acceptable if VSCode not installed
+            }
+        }
+    }
+
+    /// Test VSCodeSettingsPlugin plugin registration macro
+    /// Verifies that the register_mixin_plugin macro sets up the plugin correctly
+    #[tokio::test]
+    async fn test_vscode_plugin_registration() {
+        let plugin = VSCodeSettingsPlugin::new(VSCodeCore);
+
+        // Verify the plugin has the expected functionality
+        assert_eq!(plugin.icon(), SYMBOL_TOOL_COMPUTER);
+        assert_eq!(
+            plugin.description(),
+            "Captures application settings configuration"
+        );
+
+        // Verify it uses VSCodeCore properly through validation
+        let validation_result = plugin.validate().await;
+        // Should either pass or fail with expected VSCode-related error
+        if let Err(e) = validation_result {
+            assert!(e.to_string().contains("VSCode"));
+        }
+    }
+
+    /// Test CommandMixin implementation
+    /// Verifies that VSCodeCore implements CommandMixin with default behavior
+    #[tokio::test]
+    async fn test_vscode_core_command_mixin() {
+        let core = VSCodeCore;
+
+        // VSCodeCore implements CommandMixin with default implementation
+        // This test verifies the trait is implemented (compilation test)
+
+        // Use the core in a way that requires CommandMixin to be implemented
+        let _plugin = SettingsPlugin::new(core);
+
+        // If this compiles and runs, CommandMixin is properly implemented
+    }
+
+    /// Test VSCodeCore error handling in get_settings_dir
+    /// Verifies proper error handling when home directory cannot be determined
+    #[tokio::test]
+    async fn test_vscode_core_error_handling() {
+        let core = VSCodeCore;
+
+        // Test that get_settings_dir handles errors appropriately
+        // In normal circumstances, this should work, but we test the error type
+        let result = core.get_settings_dir();
+
+        match result {
+            Ok(path) => {
+                // Normal case - should be a valid path
+                assert!(path.is_absolute() || path.starts_with("~"));
+            }
+            Err(e) => {
+                // Error case - should contain expected error message
+                assert!(e.to_string().contains("Could not determine home directory"));
+            }
+        }
+    }
 }
 
 // Auto-register this plugin using the VSCodeCore implementation

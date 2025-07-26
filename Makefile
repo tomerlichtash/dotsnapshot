@@ -21,12 +21,16 @@ test:
 # Generate coverage report in terminal
 coverage:
 	@echo "🔍 Generating coverage report..."
-	@cargo llvm-cov --all-features --workspace
+	@export LLVM_COV=/opt/homebrew/Cellar/llvm/20.1.8/bin/llvm-cov && \
+	 export LLVM_PROFDATA=/opt/homebrew/Cellar/llvm/20.1.8/bin/llvm-profdata && \
+	 cargo llvm-cov --lib --all-features --color always
 
 # Generate HTML coverage report
 coverage-html:
 	@echo "📄 Generating HTML coverage report..."
-	@cargo llvm-cov --all-features --workspace --html --output-dir coverage-report
+	@export LLVM_COV=/opt/homebrew/Cellar/llvm/20.1.8/bin/llvm-cov && \
+	 export LLVM_PROFDATA=/opt/homebrew/Cellar/llvm/20.1.8/bin/llvm-profdata && \
+	 cargo llvm-cov --lib --all-features --html --output-dir coverage-report
 	@echo "🔗 Open coverage-report/index.html to view detailed report"
 
 # Clean build artifacts and coverage reports

@@ -277,4 +277,217 @@ mod tests {
             .unwrap();
         assert_eq!(restored_content, test_keybindings);
     }
+
+    /// Test keybindings plugin restore with dry run
+    /// Verifies that dry run mode doesn't actually copy files
+    #[tokio::test]
+    async fn test_keybindings_plugin_restore_dry_run() {
+        let plugin = KeybindingsPlugin::new(MockKeybindingsCore);
+
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        let target_dir = temp_dir.path().join("target");
+
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+        fs::create_dir_all(&target_dir).await.unwrap();
+
+        // Create test keybindings file
+        let keybindings_path = snapshot_dir.join("keybindings.json");
+        fs::write(&keybindings_path, "test content").await.unwrap();
+
+        // Test dry run restore
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, true)
+            .await
+            .unwrap();
+        assert_eq!(result.len(), 1);
+        // File should not exist after dry run
+        assert!(!target_dir.join("keybindings.json").exists());
+    }
+
+    /// Test keybindings plugin restore with no source file
+    /// Verifies that restore returns empty vector when source doesn't exist
+    #[tokio::test]
+    async fn test_keybindings_plugin_restore_no_file() {
+        let plugin = KeybindingsPlugin::new(MockKeybindingsCore);
+
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        let target_dir = temp_dir.path().join("target");
+
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+        fs::create_dir_all(&target_dir).await.unwrap();
+
+        // No keybindings file exists
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, false)
+            .await
+            .unwrap();
+        assert_eq!(result.len(), 0);
+    }
+
+    /// Test keybindings plugin validation success
+    /// Verifies that validation passes when keybindings directory exists
+    #[tokio::test]
+    async fn test_keybindings_plugin_validation() {
+        let plugin = KeybindingsPlugin::new(MockKeybindingsCore);
+
+        // Create the keybindings directory
+        let keybindings_dir = std::env::temp_dir().join("test_keybindings");
+        fs::create_dir_all(&keybindings_dir).await.unwrap();
+
+        let result = plugin.validate().await;
+        assert!(result.is_ok());
+
+        // Clean up
+        if let Err(_) = fs::remove_dir_all(&keybindings_dir).await {
+            // If we can't remove it, that's ok - might be a permission issue
+        }
+    }
+
+    /// Test keybindings plugin validation failure
+    /// Verifies that validation fails when keybindings directory doesn't exist
+    #[tokio::test]
+    async fn test_keybindings_plugin_validation_failure() {
+        let plugin = KeybindingsPlugin::new(MockKeybindingsCore);
+
+        // Ensure keybindings directory doesn't exist
+        let keybindings_dir = std::env::temp_dir().join("test_keybindings");
+        if keybindings_dir.exists() {
+            if let Err(_) = fs::remove_dir_all(&keybindings_dir).await {
+                // If we can't remove it, that's ok - might be a permission issue
+                // Just continue with the test
+            }
+        }
+
+        let result = plugin.validate().await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("directory not found"));
+    }
+
+    /// Test keybindings plugin with invalid config
+    /// Verifies that invalid config falls back to defaults
+    #[tokio::test]
+    async fn test_keybindings_plugin_with_invalid_config() {
+        let invalid_config = toml::Value::String("invalid".to_string());
+        let plugin = KeybindingsPlugin::with_config(MockKeybindingsCore, invalid_config);
+
+        // Should fall back to defaults
+        assert_eq!(ConfigMixin::get_target_path(&plugin), None);
+        assert_eq!(ConfigMixin::get_output_file(&plugin), None);
+    }
+
+    /// Test keybindings plugin restore with nested target directory
+    /// Verifies that parent directories are created during restore
+    #[tokio::test]
+    async fn test_keybindings_plugin_restore_nested_target() {
+        let plugin = KeybindingsPlugin::new(MockKeybindingsCore);
+
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        let target_dir = temp_dir.path().join("deep").join("nested").join("target");
+
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+        // Don't create target_dir - should be created by restore
+
+        // Create test keybindings file
+        let keybindings_path = snapshot_dir.join("keybindings.json");
+        fs::write(&keybindings_path, "test content").await.unwrap();
+
+        // Test restore
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, false)
+            .await
+            .unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(target_dir.join("keybindings.json").exists());
+    }
+
+    /// Test keybindings plugin mixin implementations
+    /// Verifies that all mixin traits are properly implemented
+    #[test]
+    fn test_keybindings_plugin_mixins() {
+        let plugin = KeybindingsPlugin::new(MockKeybindingsCore);
+
+        // Test ConfigMixin methods
+        assert!(plugin.config().is_some());
+        assert_eq!(ConfigMixin::get_target_path(&plugin), None);
+        assert_eq!(ConfigMixin::get_output_file(&plugin), None);
+        assert_eq!(ConfigMixin::get_restore_target_dir(&plugin), None);
+    }
+
+    /// Test keybindings plugin with complex config
+    /// Verifies that complex configuration options are handled correctly
+    #[tokio::test]
+    async fn test_keybindings_plugin_with_complex_config() {
+        let config_toml = r#"
+            target_path = "custom/path"
+            output_file = "custom_keybindings.json"
+            restore_target_dir = "~/custom/restore"
+            [hooks]
+            pre_snapshot = ["echo before"]
+            post_snapshot = ["echo after"]
+        "#;
+        let config: toml::Value = toml::from_str(config_toml).unwrap();
+        let plugin = KeybindingsPlugin::with_config(MockKeybindingsCore, config);
+
+        assert_eq!(
+            ConfigMixin::get_target_path(&plugin),
+            Some("custom/path".to_string())
+        );
+        assert_eq!(
+            ConfigMixin::get_output_file(&plugin),
+            Some("custom_keybindings.json".to_string())
+        );
+        assert_eq!(
+            ConfigMixin::get_restore_target_dir(&plugin),
+            Some("~/custom/restore".to_string())
+        );
+    }
+
+    /// Test keybindings core trait methods
+    /// Verifies that all KeybindingsCore methods work correctly
+    #[tokio::test]
+    async fn test_keybindings_core_methods() {
+        let core = MockKeybindingsCore;
+
+        assert_eq!(core.app_name(), "TestApp");
+        assert_eq!(core.keybindings_file_name(), "keybindings.json");
+        assert_eq!(core.icon(), SYMBOL_TOOL_COMPUTER);
+
+        let keybindings_dir = core.get_keybindings_dir().unwrap();
+        assert!(keybindings_dir.ends_with("test_keybindings"));
+
+        let content = core.read_keybindings().await.unwrap();
+        assert_eq!(content, "[]");
+    }
+
+    /// Test keybindings plugin restore error handling
+    /// Verifies that file operation errors are properly handled
+    #[tokio::test]
+    async fn test_keybindings_plugin_restore_error_handling() {
+        let plugin = KeybindingsPlugin::new(MockKeybindingsCore);
+
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        let target_dir = temp_dir.path().join("target");
+
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+
+        // Create a regular file where we expect a directory
+        fs::write(&target_dir, "not a directory").await.unwrap();
+
+        // Create test keybindings file
+        let keybindings_path = snapshot_dir.join("keybindings.json");
+        fs::write(&keybindings_path, "test content").await.unwrap();
+
+        // Test restore should handle directory creation error
+        let result = plugin.restore(&snapshot_dir, &target_dir, false).await;
+
+        // Should get an error because target_dir is a file, not a directory
+        assert!(result.is_err());
+    }
 }

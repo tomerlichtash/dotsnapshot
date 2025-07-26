@@ -318,7 +318,7 @@ impl RestoreManager {
                     // Recursively plan for subdirectories
                     self.plan_directory_restore(
                         &source_path,
-                        target_path.parent().unwrap_or(target_dir),
+                        &target_path,
                         plugin_name,
                         operations,
                     )
@@ -536,5 +536,634 @@ impl RestoreManager {
             backup_path.display()
         );
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+    use tokio::fs;
+
+    /// Helper function to create a test RestoreManager
+    async fn create_test_restore_manager(
+        snapshot_path: PathBuf,
+        target_dir: PathBuf,
+        dry_run: bool,
+    ) -> RestoreManager {
+        let config = Config::default();
+        RestoreManager::new(
+            snapshot_path,
+            target_dir.clone(),
+            None, // global_target_override
+            config,
+            dry_run,
+            false, // backup
+            true,  // force
+        )
+    }
+
+    /// Test RestoreManager creation
+    /// Verifies that RestoreManager is created with correct configuration
+    #[tokio::test]
+    async fn test_restore_manager_new() {
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_path = temp_dir.path().join("snapshot");
+        let target_dir = temp_dir.path().join("target");
+        let config = Config::default();
+
+        let manager = RestoreManager::new(
+            snapshot_path.clone(),
+            target_dir.clone(),
+            Some(PathBuf::from("/override")),
+            config,
+            true,  // dry_run
+            true,  // backup
+            false, // force
+        );
+
+        assert_eq!(manager.snapshot_path, snapshot_path);
+        assert_eq!(manager.default_target_directory, target_dir);
+        assert_eq!(
+            manager.global_target_override,
+            Some(PathBuf::from("/override"))
+        );
+        assert!(manager.dry_run);
+        assert!(manager.backup);
+        assert!(!manager.force);
+    }
+
+    /// Test RestoreOperation creation and equality
+    /// Verifies RestoreOperation struct functionality
+    #[test]
+    fn test_restore_operation() {
+        let op = RestoreOperation {
+            source_path: PathBuf::from("/source/file.txt"),
+            target_path: PathBuf::from("/target/file.txt"),
+            plugin_name: "test_plugin".to_string(),
+            operation_type: RestoreOperationType::Copy,
+        };
+
+        assert_eq!(op.source_path, PathBuf::from("/source/file.txt"));
+        assert_eq!(op.target_path, PathBuf::from("/target/file.txt"));
+        assert_eq!(op.plugin_name, "test_plugin");
+        assert_eq!(op.operation_type, RestoreOperationType::Copy);
+
+        // Test clone
+        let cloned = op.clone();
+        assert_eq!(cloned.source_path, op.source_path);
+        assert_eq!(cloned.plugin_name, op.plugin_name);
+    }
+
+    /// Test RestoreOperationType variants
+    /// Verifies operation type functionality
+    #[test]
+    fn test_restore_operation_type() {
+        assert_eq!(RestoreOperationType::Copy, RestoreOperationType::Copy);
+        assert_eq!(RestoreOperationType::Skip, RestoreOperationType::Skip);
+        assert_ne!(RestoreOperationType::Copy, RestoreOperationType::Skip);
+    }
+
+    /// Test discovering plugins in empty snapshot
+    /// Verifies behavior when snapshot has no plugin directories
+    #[tokio::test]
+    async fn test_discover_snapshot_plugins_empty() {
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_path = temp_dir.path().join("snapshot");
+        fs::create_dir_all(&snapshot_path).await.unwrap();
+
+        let manager =
+            create_test_restore_manager(snapshot_path, temp_dir.path().join("target"), true).await;
+
+        let plugins = manager.discover_snapshot_plugins().await.unwrap();
+        assert!(plugins.is_empty());
+    }
+
+    /// Test discovering plugins in snapshot
+    /// Verifies correct plugin discovery from snapshot structure
+    #[tokio::test]
+    async fn test_discover_snapshot_plugins_with_plugins() {
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_path = temp_dir.path().join("snapshot");
+
+        // Create plugin directories
+        fs::create_dir_all(snapshot_path.join("vscode"))
+            .await
+            .unwrap();
+        fs::create_dir_all(snapshot_path.join("homebrew"))
+            .await
+            .unwrap();
+        fs::create_dir_all(snapshot_path.join(".hidden"))
+            .await
+            .unwrap(); // Should be ignored
+        fs::create_dir_all(snapshot_path.join("metadata"))
+            .await
+            .unwrap(); // Should be ignored
+
+        // Create a file (should be ignored)
+        fs::write(snapshot_path.join("file.txt"), "test")
+            .await
+            .unwrap();
+
+        let manager =
+            create_test_restore_manager(snapshot_path, temp_dir.path().join("target"), true).await;
+
+        let mut plugins = manager.discover_snapshot_plugins().await.unwrap();
+        plugins.sort(); // Sort for consistent test results
+
+        assert_eq!(plugins, vec!["homebrew", "vscode"]);
+    }
+
+    /// Test filter plugins with exact matches
+    /// Verifies plugin filtering with exact names
+    #[test]
+    fn test_filter_plugins_exact_match() {
+        let temp_dir = TempDir::new().unwrap();
+        let manager = RestoreManager::new(
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().to_path_buf(),
+            None,
+            Config::default(),
+            false,
+            false,
+            false,
+        );
+
+        let available = vec![
+            "vscode".to_string(),
+            "homebrew".to_string(),
+            "npm".to_string(),
+        ];
+        let selected = vec!["vscode".to_string(), "npm".to_string()];
+
+        let filtered = manager.filter_plugins(&available, &selected).unwrap();
+        assert_eq!(filtered, vec!["npm", "vscode"]); // Sorted
+    }
+
+    /// Test filter plugins with wildcards
+    /// Verifies wildcard pattern matching
+    #[test]
+    fn test_filter_plugins_wildcard() {
+        let temp_dir = TempDir::new().unwrap();
+        let manager = RestoreManager::new(
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().to_path_buf(),
+            None,
+            Config::default(),
+            false,
+            false,
+            false,
+        );
+
+        let available = vec![
+            "vscode_settings".to_string(),
+            "vscode_extensions".to_string(),
+            "homebrew".to_string(),
+            "npm".to_string(),
+        ];
+        let selected = vec!["vscode*".to_string()];
+
+        let filtered = manager.filter_plugins(&available, &selected).unwrap();
+        assert_eq!(filtered, vec!["vscode_extensions", "vscode_settings"]); // Sorted
+    }
+
+    /// Test filter plugins with no matches
+    /// Verifies error when no plugins match selection
+    #[test]
+    fn test_filter_plugins_no_matches() {
+        let temp_dir = TempDir::new().unwrap();
+        let manager = RestoreManager::new(
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().to_path_buf(),
+            None,
+            Config::default(),
+            false,
+            false,
+            false,
+        );
+
+        let available = vec!["vscode".to_string(), "homebrew".to_string()];
+        let selected = vec!["nonexistent".to_string()];
+
+        let result = manager.filter_plugins(&available, &selected);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("None of the selected plugins"));
+    }
+
+    /// Test filter plugins with duplicates
+    /// Verifies duplicate removal in filtered results
+    #[test]
+    fn test_filter_plugins_duplicates() {
+        let temp_dir = TempDir::new().unwrap();
+        let manager = RestoreManager::new(
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().to_path_buf(),
+            None,
+            Config::default(),
+            false,
+            false,
+            false,
+        );
+
+        let available = vec!["vscode".to_string(), "homebrew".to_string()];
+        let selected = vec![
+            "vscode".to_string(),
+            "vscode".to_string(),
+            "homebrew".to_string(),
+        ];
+
+        let filtered = manager.filter_plugins(&available, &selected).unwrap();
+        assert_eq!(filtered, vec!["homebrew", "vscode"]); // Sorted and deduplicated
+    }
+
+    /// Test determine operation type for new file
+    /// Verifies Copy operation for non-existent target
+    #[tokio::test]
+    async fn test_determine_operation_type_new_file() {
+        let temp_dir = TempDir::new().unwrap();
+        let source = temp_dir.path().join("source.txt");
+        let target = temp_dir.path().join("target.txt");
+
+        fs::write(&source, "content").await.unwrap();
+        // target doesn't exist
+
+        let manager = create_test_restore_manager(
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().to_path_buf(),
+            true,
+        )
+        .await;
+
+        let op_type = manager
+            .determine_operation_type(&source, &target)
+            .await
+            .unwrap();
+        assert_eq!(op_type, RestoreOperationType::Copy);
+    }
+
+    /// Test determine operation type for identical files
+    /// Verifies Skip operation for identical files
+    #[tokio::test]
+    async fn test_determine_operation_type_identical_files() {
+        let temp_dir = TempDir::new().unwrap();
+        let source = temp_dir.path().join("source.txt");
+        let target = temp_dir.path().join("target.txt");
+
+        let content = "identical content";
+        fs::write(&source, content).await.unwrap();
+        fs::write(&target, content).await.unwrap();
+
+        let manager = create_test_restore_manager(
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().to_path_buf(),
+            true,
+        )
+        .await;
+
+        let op_type = manager
+            .determine_operation_type(&source, &target)
+            .await
+            .unwrap();
+        assert_eq!(op_type, RestoreOperationType::Skip);
+    }
+
+    /// Test determine operation type for different files
+    /// Verifies Copy operation for different files
+    #[tokio::test]
+    async fn test_determine_operation_type_different_files() {
+        let temp_dir = TempDir::new().unwrap();
+        let source = temp_dir.path().join("source.txt");
+        let target = temp_dir.path().join("target.txt");
+
+        fs::write(&source, "source content").await.unwrap();
+        fs::write(&target, "target content").await.unwrap();
+
+        let manager = create_test_restore_manager(
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().to_path_buf(),
+            true,
+        )
+        .await;
+
+        let op_type = manager
+            .determine_operation_type(&source, &target)
+            .await
+            .unwrap();
+        assert_eq!(op_type, RestoreOperationType::Copy);
+    }
+
+    /// Test execute restore with empty snapshot
+    /// Verifies behavior when snapshot contains no plugins
+    #[tokio::test]
+    async fn test_execute_restore_empty_snapshot() {
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_path = temp_dir.path().join("snapshot");
+        fs::create_dir_all(&snapshot_path).await.unwrap();
+
+        let manager =
+            create_test_restore_manager(snapshot_path, temp_dir.path().join("target"), false).await;
+
+        let result = manager.execute_restore(None).await.unwrap();
+        assert!(result.is_empty());
+    }
+
+    /// Test execute restore with plugin selection
+    /// Verifies restore with specific plugin selection
+    #[tokio::test]
+    async fn test_execute_restore_with_plugin_selection() {
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_path = temp_dir.path().join("snapshot");
+
+        // Create plugin directories with files
+        let vscode_dir = snapshot_path.join("vscode");
+        fs::create_dir_all(&vscode_dir).await.unwrap();
+        fs::write(vscode_dir.join("settings.json"), "{}")
+            .await
+            .unwrap();
+
+        let homebrew_dir = snapshot_path.join("homebrew");
+        fs::create_dir_all(&homebrew_dir).await.unwrap();
+        fs::write(homebrew_dir.join("Brewfile"), "brew 'git'")
+            .await
+            .unwrap();
+
+        let manager = create_test_restore_manager(
+            snapshot_path,
+            temp_dir.path().join("target"),
+            true, // dry_run
+        )
+        .await;
+
+        // Select only vscode
+        let result = manager
+            .execute_restore(Some(vec!["vscode".to_string()]))
+            .await
+            .unwrap();
+        assert!(!result.is_empty());
+    }
+
+    /// Test execute restore with no matching plugins
+    /// Verifies behavior when selected plugins don't exist
+    #[tokio::test]
+    async fn test_execute_restore_no_matching_plugins() {
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_path = temp_dir.path().join("snapshot");
+
+        // Create a plugin directory
+        fs::create_dir_all(snapshot_path.join("vscode"))
+            .await
+            .unwrap();
+
+        let manager =
+            create_test_restore_manager(snapshot_path, temp_dir.path().join("target"), true).await;
+
+        // Try to restore non-existent plugin
+        let result = manager
+            .execute_restore(Some(vec!["nonexistent".to_string()]))
+            .await;
+        assert!(result.is_err());
+    }
+
+    /// Test plan directory restore
+    /// Verifies recursive directory restoration planning
+    #[tokio::test]
+    async fn test_plan_directory_restore() {
+        let temp_dir = TempDir::new().unwrap();
+        let source_dir = temp_dir.path().join("source");
+        let target_dir = temp_dir.path().join("target");
+
+        // Create nested directory structure
+        fs::create_dir_all(source_dir.join("subdir")).await.unwrap();
+        fs::write(source_dir.join("file1.txt"), "content1")
+            .await
+            .unwrap();
+        fs::write(source_dir.join("subdir/file2.txt"), "content2")
+            .await
+            .unwrap();
+
+        let manager =
+            create_test_restore_manager(temp_dir.path().to_path_buf(), target_dir.clone(), true)
+                .await;
+
+        let mut operations = Vec::new();
+        manager
+            .plan_directory_restore(&source_dir, &target_dir, "test_plugin", &mut operations)
+            .await
+            .unwrap();
+
+        assert_eq!(operations.len(), 2);
+        assert!(operations
+            .iter()
+            .any(|op| op.target_path.ends_with("file1.txt")));
+        assert!(operations
+            .iter()
+            .any(|op| op.target_path.ends_with("subdir/file2.txt")));
+    }
+
+    /// Test backup existing file
+    /// Verifies file backup functionality
+    #[tokio::test]
+    async fn test_backup_existing_file() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.txt");
+        fs::write(&file_path, "original content").await.unwrap();
+
+        let manager = RestoreManager::new(
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().to_path_buf(),
+            None,
+            Config::default(),
+            false,
+            true, // backup enabled
+            false,
+        );
+
+        manager.backup_existing_file(&file_path).await.unwrap();
+
+        // Check that backup file was created
+        let mut entries_stream = fs::read_dir(temp_dir.path()).await.unwrap();
+        let mut entries = Vec::new();
+        while let Some(entry) = entries_stream.next_entry().await.unwrap() {
+            entries.push(entry);
+        }
+
+        assert_eq!(entries.len(), 2); // Original + backup
+
+        // Verify backup file exists with correct naming pattern
+        let has_backup = entries
+            .iter()
+            .any(|entry| entry.file_name().to_string_lossy().contains(".backup."));
+        assert!(has_backup);
+    }
+
+    /// Test execute copy operation
+    /// Verifies file copy with directory creation
+    #[tokio::test]
+    async fn test_execute_copy_operation() {
+        let temp_dir = TempDir::new().unwrap();
+        let source = temp_dir.path().join("source.txt");
+        let target = temp_dir.path().join("nested/dir/target.txt");
+
+        fs::write(&source, "test content").await.unwrap();
+
+        let manager = RestoreManager::new(
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().to_path_buf(),
+            None,
+            Config::default(),
+            false,
+            false, // no backup
+            false,
+        );
+
+        let operation = RestoreOperation {
+            source_path: source,
+            target_path: target.clone(),
+            plugin_name: "test".to_string(),
+            operation_type: RestoreOperationType::Copy,
+        };
+
+        manager.execute_copy_operation(&operation).await.unwrap();
+
+        // Verify file was copied
+        assert!(target.exists());
+        let content = fs::read_to_string(&target).await.unwrap();
+        assert_eq!(content, "test content");
+    }
+
+    /// Test execute copy operation with backup
+    /// Verifies file copy with existing file backup
+    #[tokio::test]
+    async fn test_execute_copy_operation_with_backup() {
+        let temp_dir = TempDir::new().unwrap();
+        let source = temp_dir.path().join("source.txt");
+        let target = temp_dir.path().join("target.txt");
+
+        fs::write(&source, "new content").await.unwrap();
+        fs::write(&target, "old content").await.unwrap();
+
+        let manager = RestoreManager::new(
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().to_path_buf(),
+            None,
+            Config::default(),
+            false,
+            true, // backup enabled
+            false,
+        );
+
+        let operation = RestoreOperation {
+            source_path: source,
+            target_path: target.clone(),
+            plugin_name: "test".to_string(),
+            operation_type: RestoreOperationType::Copy,
+        };
+
+        manager.execute_copy_operation(&operation).await.unwrap();
+
+        // Verify file was overwritten
+        let content = fs::read_to_string(&target).await.unwrap();
+        assert_eq!(content, "new content");
+
+        // Verify backup was created
+        let mut entries_stream = fs::read_dir(temp_dir.path()).await.unwrap();
+        let mut entries = Vec::new();
+        while let Some(entry) = entries_stream.next_entry().await.unwrap() {
+            entries.push(entry);
+        }
+
+        let backup_count = entries
+            .iter()
+            .filter(|entry| entry.file_name().to_string_lossy().contains(".backup."))
+            .count();
+        assert_eq!(backup_count, 1);
+    }
+
+    /// Test execute operations with mixed types
+    /// Verifies execution of both Copy and Skip operations
+    #[tokio::test]
+    async fn test_execute_operations_mixed() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Create source files
+        let source1 = temp_dir.path().join("source1.txt");
+        let source2 = temp_dir.path().join("source2.txt");
+        fs::write(&source1, "content1").await.unwrap();
+        fs::write(&source2, "content2").await.unwrap();
+
+        let target1 = temp_dir.path().join("target1.txt");
+        let target2 = temp_dir.path().join("target2.txt");
+
+        let manager = RestoreManager::new(
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().to_path_buf(),
+            None,
+            Config::default(),
+            false,
+            false,
+            false,
+        );
+
+        let operations = vec![
+            RestoreOperation {
+                source_path: source1,
+                target_path: target1.clone(),
+                plugin_name: "test".to_string(),
+                operation_type: RestoreOperationType::Copy,
+            },
+            RestoreOperation {
+                source_path: source2,
+                target_path: target2.clone(),
+                plugin_name: "test".to_string(),
+                operation_type: RestoreOperationType::Skip,
+            },
+        ];
+
+        let restored = manager.execute_operations(&operations).await.unwrap();
+
+        // Only Copy operations should be in restored files
+        assert_eq!(restored.len(), 1);
+        assert_eq!(restored[0], target1);
+        assert!(target1.exists());
+        assert!(!target2.exists()); // Skip operation shouldn't create file
+    }
+
+    /// Test plan plugin restore with no plugin implementation
+    /// Verifies fallback to generic restore logic
+    #[tokio::test]
+    async fn test_plan_plugin_restore_no_implementation() {
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_path = temp_dir.path().join("snapshot");
+        let plugin_dir = snapshot_path.join("custom_plugin");
+
+        fs::create_dir_all(&plugin_dir).await.unwrap();
+        fs::write(plugin_dir.join("config.toml"), "[config]")
+            .await
+            .unwrap();
+
+        let manager =
+            create_test_restore_manager(snapshot_path, temp_dir.path().join("target"), true).await;
+
+        let operations = manager.plan_plugin_restore("custom_plugin").await.unwrap();
+        assert_eq!(operations.len(), 1);
+        assert!(operations[0].source_path.ends_with("config.toml"));
+    }
+
+    /// Test plan plugin restore with nonexistent plugin
+    /// Verifies handling of missing plugin directory
+    #[tokio::test]
+    async fn test_plan_plugin_restore_nonexistent() {
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_path = temp_dir.path().join("snapshot");
+        fs::create_dir_all(&snapshot_path).await.unwrap();
+
+        let manager =
+            create_test_restore_manager(snapshot_path, temp_dir.path().join("target"), true).await;
+
+        let operations = manager.plan_plugin_restore("nonexistent").await.unwrap();
+        assert!(operations.is_empty());
     }
 }
