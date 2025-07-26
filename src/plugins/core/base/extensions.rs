@@ -5,11 +5,10 @@ use tracing::{info, warn};
 
 use crate::core::plugin::Plugin;
 use crate::plugins::core::mixins::{
-    AllMixins, CommandMixin, ConfigMixin, FilesMixin, StandardConfig, StandardConfigMixin,
+    CommandMixin, ConfigMixin, FilesMixin, StandardConfig, StandardConfigMixin,
 };
 
 /// Core trait that defines application-specific extensions behavior
-#[allow(dead_code)]
 pub trait ExtensionsCore: Send + Sync + CommandMixin {
     /// The name of the application (e.g., "VSCode", "Cursor")
     fn app_name(&self) -> &'static str;
@@ -63,7 +62,6 @@ pub trait ExtensionsCore: Send + Sync + CommandMixin {
 }
 
 /// Generic extensions plugin that can be used for any application
-#[allow(dead_code)]
 pub struct ExtensionsPlugin<T: ExtensionsCore + CommandMixin> {
     config: Option<StandardConfig>,
     core: T,
@@ -71,13 +69,11 @@ pub struct ExtensionsPlugin<T: ExtensionsCore + CommandMixin> {
 
 impl<T: ExtensionsCore + CommandMixin> ExtensionsPlugin<T> {
     /// Create a new extensions plugin without configuration
-    #[allow(dead_code)]
     pub fn new(core: T) -> Self {
         Self { config: None, core }
     }
 
     /// Create a new extensions plugin with configuration
-    #[allow(dead_code)]
     pub fn with_config(core: T, config: toml::Value) -> Self {
         let (parsed_config, is_valid) = Self::with_config_validation(
             config,
@@ -114,12 +110,6 @@ impl<T: ExtensionsCore + CommandMixin> ExtensionsPlugin<T> {
             config: Some(parsed_config),
             core,
         }
-    }
-
-    /// Get access to the core implementation
-    #[allow(dead_code)]
-    pub fn core(&self) -> &T {
-        &self.core
     }
 }
 
@@ -168,15 +158,6 @@ impl<T: ExtensionsCore + CommandMixin> CommandMixin for ExtensionsPlugin<T> {
     }
 }
 
-// Implement HooksMixin for the extensions plugin
-impl<T: ExtensionsCore + CommandMixin> crate::plugins::core::mixins::HooksMixin
-    for ExtensionsPlugin<T>
-{
-    fn get_hooks(&self) -> Vec<crate::core::hooks::HookAction> {
-        self.get_standard_hooks()
-    }
-}
-
 // Implement FilesMixin for the extensions plugin
 impl<T: ExtensionsCore + CommandMixin> crate::plugins::core::mixins::FilesMixin
     for ExtensionsPlugin<T>
@@ -184,7 +165,6 @@ impl<T: ExtensionsCore + CommandMixin> crate::plugins::core::mixins::FilesMixin
 }
 
 // The plugin trait implementation gets all the mixin functionality automatically
-impl<T: ExtensionsCore + CommandMixin> AllMixins for ExtensionsPlugin<T> {}
 
 #[async_trait]
 impl<T: ExtensionsCore + CommandMixin + Send + Sync> Plugin for ExtensionsPlugin<T> {
@@ -224,7 +204,8 @@ impl<T: ExtensionsCore + CommandMixin + Send + Sync> Plugin for ExtensionsPlugin
     }
 
     fn get_hooks(&self) -> Vec<crate::core::hooks::HookAction> {
-        self.get_standard_hooks()
+        // Extensions plugins don't have hooks by default
+        Vec::new()
     }
 
     async fn restore(
@@ -416,5 +397,294 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(restored_content, test_extensions);
+    }
+
+    #[tokio::test]
+    async fn test_extensions_plugin_restore_dry_run() {
+        let core = MockExtensionsCore;
+        let plugin = ExtensionsPlugin::new(core);
+
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        let target_dir = temp_dir.path().join("target");
+
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+        fs::create_dir_all(&target_dir).await.unwrap();
+
+        // Create test extensions file
+        let test_extensions = "extension1@1.0.0\nextension2@2.0.0";
+        let extensions_path = snapshot_dir.join("extensions.txt");
+        fs::write(&extensions_path, test_extensions).await.unwrap();
+
+        // Test dry run restore
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, true)
+            .await
+            .unwrap();
+        assert_eq!(result.len(), 1);
+        // File should not actually be created in dry run
+        assert!(!target_dir.join("testapp_extensions.txt").exists());
+    }
+
+    #[tokio::test]
+    async fn test_extensions_plugin_restore_alternative_names() {
+        let core = MockExtensionsCore;
+        let plugin = ExtensionsPlugin::new(core);
+
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        let target_dir = temp_dir.path().join("target");
+
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+        fs::create_dir_all(&target_dir).await.unwrap();
+
+        // Create test extensions file with alternative name
+        let test_extensions = "extension1@1.0.0\nextension2@2.0.0";
+        let extensions_path = snapshot_dir.join("extensions.list");
+        fs::write(&extensions_path, test_extensions).await.unwrap();
+
+        // Test restore with alternative filename
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, false)
+            .await
+            .unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(target_dir.join("testapp_extensions.txt").exists());
+    }
+
+    #[tokio::test]
+    async fn test_extensions_plugin_restore_no_file() {
+        let core = MockExtensionsCore;
+        let plugin = ExtensionsPlugin::new(core);
+
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        let target_dir = temp_dir.path().join("target");
+
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+        fs::create_dir_all(&target_dir).await.unwrap();
+
+        // No extensions file in snapshot
+        let result = plugin
+            .restore(&snapshot_dir, &target_dir, false)
+            .await
+            .unwrap();
+        assert_eq!(result.len(), 0); // No files restored
+    }
+
+    #[tokio::test]
+    async fn test_extensions_plugin_validate() {
+        let core = MockExtensionsCore;
+        let plugin = ExtensionsPlugin::new(core);
+
+        let result = plugin.validate().await;
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_extensions_core_defaults() {
+        let core = MockExtensionsCore;
+
+        assert_eq!(core.app_name(), "TestApp");
+        assert_eq!(core.extensions_command(), "testapp");
+        assert_eq!(core.list_extensions_args(), &["--list-extensions"]);
+        assert_eq!(core.icon(), "📦");
+        assert_eq!(core.extensions_file_name(), "extensions.txt");
+        assert_eq!(core.restore_file_name(), "testapp_extensions.txt");
+        assert_eq!(core.allowed_extensions(), &["txt", "list"]);
+
+        let restore_dir = core.get_default_restore_dir().unwrap();
+        assert!(restore_dir.is_dir() || restore_dir == PathBuf::from("."));
+    }
+
+    #[test]
+    fn test_extensions_plugin_with_config() {
+        let core = MockExtensionsCore;
+        let config_toml = toml::toml! {
+            target_path = "custom/path"
+            output_file = "custom_extensions.txt"
+            restore_target_dir = "/custom/restore"
+        };
+
+        let plugin = ExtensionsPlugin::with_config(core, toml::Value::Table(config_toml));
+        assert!(plugin.config.is_some());
+
+        let config = plugin.config.as_ref().unwrap();
+        assert_eq!(config.target_path, Some("custom/path".to_string()));
+        assert_eq!(
+            config.output_file,
+            Some("custom_extensions.txt".to_string())
+        );
+        assert_eq!(
+            config.restore_target_dir,
+            Some("/custom/restore".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extensions_plugin_with_invalid_config() {
+        let core = MockExtensionsCore;
+        let config_toml = toml::toml! {
+            target_path = "custom/path"
+            output_file = "invalid_file.exe" // Invalid extension
+        };
+
+        let plugin = ExtensionsPlugin::with_config(core, toml::Value::Table(config_toml));
+        assert!(plugin.config.is_some());
+        // Config is still created even with invalid extension (warning is logged)
+    }
+
+    #[test]
+    fn test_config_mixin_methods() {
+        let core = MockExtensionsCore;
+        let config_toml = toml::toml! {
+            target_path = "test/path"
+            output_file = "test.txt"
+            restore_target_dir = "/test/restore"
+        };
+
+        let plugin = ExtensionsPlugin::with_config(core, toml::Value::Table(config_toml));
+
+        assert_eq!(
+            ConfigMixin::get_target_path(&plugin),
+            Some("test/path".to_string())
+        );
+        assert_eq!(
+            ConfigMixin::get_output_file(&plugin),
+            Some("test.txt".to_string())
+        );
+        assert_eq!(
+            ConfigMixin::get_restore_target_dir(&plugin),
+            Some("/test/restore".to_string())
+        );
+    }
+
+    #[test]
+    fn test_command_mixin_delegation() {
+        let core = MockExtensionsCore;
+        let plugin = ExtensionsPlugin::new(core);
+
+        assert!(plugin.command_exists("testapp"));
+    }
+
+    #[tokio::test]
+    async fn test_command_mixin_async_delegation() {
+        let core = MockExtensionsCore;
+        let plugin = ExtensionsPlugin::new(core);
+
+        let result = plugin
+            .execute_command("testapp", &["--list-extensions"])
+            .await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "extension1@1.0.0\nextension2@2.0.0");
+
+        let validate_result = plugin.validate_command_exists("testapp").await;
+        assert!(validate_result.is_ok());
+    }
+
+    #[test]
+    fn test_plugin_trait_methods() {
+        let core = MockExtensionsCore;
+        let plugin = ExtensionsPlugin::new(core);
+
+        assert_eq!(plugin.icon(), "📦");
+        assert_eq!(
+            plugin.description(),
+            "Lists installed extensions for application"
+        );
+
+        let hooks = plugin.get_hooks();
+        assert!(hooks.is_empty());
+
+        let default_restore_dir = plugin.get_default_restore_target_dir().unwrap();
+        assert!(default_restore_dir.is_dir() || default_restore_dir == PathBuf::from("."));
+    }
+
+    struct CustomExtensionsCore;
+
+    impl ExtensionsCore for CustomExtensionsCore {
+        fn app_name(&self) -> &'static str {
+            "CustomApp"
+        }
+
+        fn extensions_command(&self) -> &'static str {
+            "customapp"
+        }
+
+        fn list_extensions_args(&self) -> &'static [&'static str] {
+            &["--list", "--extensions"]
+        }
+
+        fn icon(&self) -> &'static str {
+            "🔧"
+        }
+
+        fn extensions_file_name(&self) -> String {
+            "custom_extensions.list".to_string()
+        }
+
+        fn restore_file_name(&self) -> String {
+            "custom_restored_extensions.list".to_string()
+        }
+
+        fn allowed_extensions(&self) -> &'static [&'static str] {
+            &["list", "json"]
+        }
+
+        fn get_default_restore_dir(&self) -> Result<PathBuf> {
+            Ok(PathBuf::from("/custom/restore"))
+        }
+    }
+
+    impl CommandMixin for CustomExtensionsCore {
+        fn execute_command(
+            &self,
+            _cmd: &str,
+            _args: &[&str],
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send + '_>>
+        {
+            Box::pin(async { Ok("custom_extension@1.0.0".to_string()) })
+        }
+
+        fn validate_command_exists(
+            &self,
+            _cmd: &str,
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>> {
+            Box::pin(async { Ok(()) })
+        }
+
+        fn command_exists(&self, _cmd: &str) -> bool {
+            true
+        }
+    }
+
+    #[test]
+    fn test_custom_extensions_core() {
+        let core = CustomExtensionsCore;
+
+        assert_eq!(core.app_name(), "CustomApp");
+        assert_eq!(core.extensions_command(), "customapp");
+        assert_eq!(core.list_extensions_args(), &["--list", "--extensions"]);
+        assert_eq!(core.icon(), "🔧");
+        assert_eq!(core.extensions_file_name(), "custom_extensions.list");
+        assert_eq!(core.restore_file_name(), "custom_restored_extensions.list");
+        assert_eq!(core.allowed_extensions(), &["list", "json"]);
+
+        let restore_dir = core.get_default_restore_dir().unwrap();
+        assert_eq!(restore_dir, PathBuf::from("/custom/restore"));
+    }
+
+    #[tokio::test]
+    async fn test_custom_extensions_plugin() {
+        let core = CustomExtensionsCore;
+        let plugin = ExtensionsPlugin::new(core);
+
+        assert_eq!(plugin.icon(), "🔧");
+
+        let result = plugin.execute().await.unwrap();
+        assert_eq!(result, "custom_extension@1.0.0");
+
+        let default_restore_dir = plugin.get_default_restore_target_dir().unwrap();
+        assert_eq!(default_restore_dir, PathBuf::from("/custom/restore"));
     }
 }

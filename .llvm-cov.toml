@@ -1,0 +1,38 @@
+# LLVM Coverage Configuration
+# This file configures cargo-llvm-cov behavior for consistent coverage analysis
+
+[coverage]
+# Minimum coverage threshold (enforced by CI and local scripts)
+threshold = 90
+
+# Coverage reporting options
+html = true
+lcov = true
+summary = true
+
+# Exclusions (use sparingly and justify)
+exclude = [
+    # Exclude Rust standard library source code paths
+    "*/rustc-*-src/*",
+    "*/.cargo/registry/*",
+    "*/target/debug/deps/*",
+    "*/rustlib/*",
+    "/private/tmp/rust-*",
+    "/usr/local/Cellar/rust/*",
+    "/opt/homebrew/Cellar/rust/*",
+    # Example: Exclude generated code or external dependencies
+    # "src/generated/*",
+]
+
+# Include all workspace members
+workspace = true
+all-features = true
+
+# Report configuration
+[report]
+# Show detailed line-by-line coverage
+show-lines = true
+# Show branch coverage if available
+show-branches = true
+# Show function coverage
+show-functions = true

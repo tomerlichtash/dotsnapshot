@@ -4,12 +4,9 @@ use std::path::PathBuf;
 use tracing::warn;
 
 use crate::core::plugin::Plugin;
-use crate::plugins::core::mixins::{
-    AllMixins, ConfigMixin, FilesMixin, StandardConfig, StandardConfigMixin,
-};
+use crate::plugins::core::mixins::{ConfigMixin, FilesMixin, StandardConfig, StandardConfigMixin};
 
 /// Core trait that defines application-specific settings behavior
-#[allow(dead_code)]
 pub trait SettingsCore: Send + Sync {
     /// The name of the application (e.g., "VSCode", "Cursor")
     fn app_name(&self) -> &'static str;
@@ -37,7 +34,6 @@ pub trait SettingsCore: Send + Sync {
 }
 
 /// Generic settings plugin that can be used for any application
-#[allow(dead_code)]
 pub struct SettingsPlugin<T: SettingsCore> {
     config: Option<StandardConfig>,
     core: T,
@@ -45,13 +41,11 @@ pub struct SettingsPlugin<T: SettingsCore> {
 
 impl<T: SettingsCore> SettingsPlugin<T> {
     /// Create a new settings plugin without configuration
-    #[allow(dead_code)]
     pub fn new(core: T) -> Self {
         Self { config: None, core }
     }
 
     /// Create a new settings plugin with configuration
-    #[allow(dead_code)]
     pub fn with_config(core: T, config: toml::Value) -> Self {
         let (parsed_config, is_valid) = Self::with_config_validation(
             config,
@@ -89,12 +83,6 @@ impl<T: SettingsCore> SettingsPlugin<T> {
             core,
         }
     }
-
-    /// Get access to the core implementation
-    #[allow(dead_code)]
-    pub fn core(&self) -> &T {
-        &self.core
-    }
 }
 
 // Implement mixins for the settings plugin
@@ -120,21 +108,11 @@ impl<T: SettingsCore> ConfigMixin for SettingsPlugin<T> {
 
 impl<T: SettingsCore> StandardConfigMixin for SettingsPlugin<T> {}
 
-// Implement HooksMixin for the settings plugin
-impl<T: SettingsCore> crate::plugins::core::mixins::HooksMixin for SettingsPlugin<T> {
-    fn get_hooks(&self) -> Vec<crate::core::hooks::HookAction> {
-        self.get_standard_hooks()
-    }
-}
-
 // Implement CommandMixin for the settings plugin (basic implementation)
 impl<T: SettingsCore> crate::plugins::core::mixins::CommandMixin for SettingsPlugin<T> {}
 
 // Implement FilesMixin for the settings plugin
 impl<T: SettingsCore> crate::plugins::core::mixins::FilesMixin for SettingsPlugin<T> {}
-
-// The plugin trait implementation gets all the mixin functionality automatically
-impl<T: SettingsCore> AllMixins for SettingsPlugin<T> {}
 
 #[async_trait]
 impl<T: SettingsCore + Send + Sync> Plugin for SettingsPlugin<T> {
@@ -182,7 +160,8 @@ impl<T: SettingsCore + Send + Sync> Plugin for SettingsPlugin<T> {
     }
 
     fn get_hooks(&self) -> Vec<crate::core::hooks::HookAction> {
-        self.get_standard_hooks()
+        // Settings plugins don't have hooks by default
+        Vec::new()
     }
 
     async fn restore(

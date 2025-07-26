@@ -9,15 +9,3 @@ pub mod keybindings;
 pub mod package;
 pub mod settings;
 pub mod static_files;
-
-// Re-export the main types for easier access
-#[allow(unused_imports)]
-pub use extensions::{ExtensionsCore, ExtensionsPlugin};
-#[allow(unused_imports)]
-pub use keybindings::{KeybindingsCore, KeybindingsPlugin};
-#[allow(unused_imports)]
-pub use package::{PackageCore, PackagePlugin};
-#[allow(unused_imports)]
-pub use settings::{SettingsCore, SettingsPlugin};
-#[allow(unused_imports)]
-pub use static_files::{StaticFilesCore, StaticFilesPlugin};

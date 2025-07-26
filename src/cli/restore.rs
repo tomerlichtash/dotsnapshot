@@ -45,7 +45,7 @@ pub async fn handle_restore_command(
     if !actual_snapshot_path.exists() {
         error!(
             "{} Snapshot path does not exist: {}",
-            INDICATOR_ERROR,
+            SYMBOL_INDICATOR_ERROR,
             actual_snapshot_path.display()
         );
         return Err(anyhow::anyhow!(
@@ -57,7 +57,7 @@ pub async fn handle_restore_command(
     if !actual_snapshot_path.is_dir() {
         error!(
             "{} Snapshot path is not a directory: {}",
-            INDICATOR_ERROR,
+            SYMBOL_INDICATOR_ERROR,
             actual_snapshot_path.display()
         );
         return Err(anyhow::anyhow!(
@@ -78,33 +78,37 @@ pub async fn handle_restore_command(
 
     info!(
         "{} Starting restore from snapshot: {}",
-        ACTION_RESTORE,
+        SYMBOL_ACTION_RESTORE,
         actual_snapshot_path.display()
     );
     if let Some(ref target) = global_target_override {
         info!(
             "{} Global target directory: {}",
-            CONTENT_FOLDER,
+            SYMBOL_CONTENT_FOLDER,
             target.display()
         );
     } else {
         info!(
             "{} Target directory: per-plugin configuration or home directory",
-            CONTENT_FOLDER
+            SYMBOL_CONTENT_FOLDER
         );
     }
 
     if dry_run {
         info!(
             "{} DRY RUN MODE: No changes will be made",
-            INDICATOR_WARNING
+            SYMBOL_INDICATOR_WARNING
         );
     }
 
     if let Some(ref plugins) = selected_plugins {
-        info!("{} Restoring plugins: {}", TOOL_PLUGIN, plugins.join(", "));
+        info!(
+            "{} Restoring plugins: {}",
+            SYMBOL_TOOL_PLUGIN,
+            plugins.join(", ")
+        );
     } else {
-        info!("{} Restoring all plugins from snapshot", SCOPE_WORLD);
+        info!("{} Restoring all plugins from snapshot", SYMBOL_SCOPE_WORLD);
     }
 
     // Create restore manager
@@ -127,44 +131,50 @@ pub async fn handle_restore_command(
             if dry_run {
                 info!(
                     "{} DRY RUN: Would restore {} files",
-                    INDICATOR_SUCCESS,
+                    SYMBOL_INDICATOR_SUCCESS,
                     restored_files.len()
                 );
-                info!("{} Preview completed successfully", EXPERIENCE_SUCCESS);
+                info!(
+                    "{} Preview completed successfully",
+                    SYMBOL_EXPERIENCE_SUCCESS
+                );
             } else {
                 info!(
                     "{} Successfully restored {} files",
-                    INDICATOR_SUCCESS,
+                    SYMBOL_INDICATOR_SUCCESS,
                     restored_files.len()
                 );
-                info!("{} Restoration completed successfully", EXPERIENCE_SUCCESS);
+                info!(
+                    "{} Restoration completed successfully",
+                    SYMBOL_EXPERIENCE_SUCCESS
+                );
             }
 
             // Show summary of restored files
             if !restored_files.is_empty() {
-                info!("{} Restored files:", DOC_NOTE);
+                info!("{} Restored files:", SYMBOL_DOC_NOTE);
                 for file in restored_files.iter().take(10) {
-                    info!("   {} {}", CONTENT_FILE, file.display());
+                    info!("   {} {}", SYMBOL_CONTENT_FILE, file.display());
                 }
                 if restored_files.len() > 10 {
                     info!(
                         "   {} ... and {} more files",
-                        DOC_NOTE,
+                        SYMBOL_DOC_NOTE,
                         restored_files.len() - 10
                     );
                 }
             }
         }
         Err(e) => {
-            error!("{} Restoration failed: {}", INDICATOR_ERROR, e);
+            error!("{} Restoration failed: {}", SYMBOL_INDICATOR_ERROR, e);
             if !dry_run {
                 warn!(
                     "{} Some files may have been partially restored",
-                    INDICATOR_WARNING
+                    SYMBOL_INDICATOR_WARNING
                 );
                 warn!(
                     "{} Check the logs above for specific failures",
-                    EXPERIENCE_IDEA
+                    SYMBOL_EXPERIENCE_IDEA
                 );
             }
             return Err(e);
@@ -213,7 +223,7 @@ async fn find_latest_snapshot(config: &Config) -> Result<PathBuf> {
     let latest_snapshot_path = snapshot_dirs[0].1.clone();
     info!(
         "{} Found latest snapshot: {}",
-        EXPERIENCE_IDEA,
+        SYMBOL_EXPERIENCE_IDEA,
         latest_snapshot_path.display()
     );
 
@@ -242,7 +252,11 @@ fn is_snapshot_directory(dir_name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::TempDir;
+    use tokio::fs;
 
+    /// Test snapshot directory name validation
+    /// Verifies that snapshot directory patterns are correctly identified
     #[test]
     fn test_is_snapshot_directory() {
         // Valid snapshot directory names
@@ -263,10 +277,10 @@ mod tests {
         assert!(!is_snapshot_directory("not_a_snapshot"));
     }
 
+    /// Test finding latest snapshot in empty directory
+    /// Verifies appropriate error when no snapshots exist
     #[tokio::test]
     async fn test_find_latest_snapshot_empty_directory() {
-        use tempfile::TempDir;
-
         let temp_dir = TempDir::new().unwrap();
         let config = Config {
             output_dir: Some(temp_dir.path().to_path_buf()),
@@ -281,11 +295,10 @@ mod tests {
             .contains("No snapshot directories found"));
     }
 
+    /// Test finding latest snapshot when multiple exist
+    /// Verifies correct selection of most recent snapshot
     #[tokio::test]
     async fn test_find_latest_snapshot_with_snapshots() {
-        use tempfile::TempDir;
-        use tokio::fs;
-
         let temp_dir = TempDir::new().unwrap();
         let config = Config {
             output_dir: Some(temp_dir.path().to_path_buf()),
@@ -307,6 +320,8 @@ mod tests {
         assert_eq!(result, snapshot2); // Should be the latest (20240117_143022)
     }
 
+    /// Test finding latest snapshot with nonexistent directory
+    /// Verifies appropriate error when snapshot directory doesn't exist
     #[tokio::test]
     async fn test_find_latest_snapshot_nonexistent_directory() {
         let config = Config {
@@ -320,5 +335,310 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("Snapshot directory does not exist"));
+    }
+
+    /// Test handle_restore_command with missing snapshot path
+    /// Verifies error when neither snapshot path nor --latest is provided
+    #[tokio::test]
+    async fn test_handle_restore_command_missing_snapshot_path() {
+        let result = handle_restore_command(
+            None,  // snapshot_path
+            false, // latest
+            None,  // plugins
+            false, // dry_run
+            true,  // backup
+            false, // force
+            None,  // target_dir
+            None,  // config_path
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Either provide a snapshot path or use --latest flag"));
+    }
+
+    /// Test handle_restore_command with nonexistent snapshot path
+    /// Verifies error when provided snapshot path doesn't exist
+    #[tokio::test]
+    async fn test_handle_restore_command_nonexistent_snapshot() {
+        let nonexistent_path = PathBuf::from("/nonexistent/snapshot");
+        let result = handle_restore_command(
+            Some(nonexistent_path.clone()),
+            false, // latest
+            None,  // plugins
+            false, // dry_run
+            true,  // backup
+            false, // force
+            None,  // target_dir
+            None,  // config_path
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Snapshot path does not exist"));
+    }
+
+    /// Test handle_restore_command with file instead of directory
+    /// Verifies error when snapshot path points to a file
+    #[tokio::test]
+    async fn test_handle_restore_command_snapshot_is_file() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("not_a_directory.txt");
+        fs::write(&file_path, "test content").await.unwrap();
+
+        let result = handle_restore_command(
+            Some(file_path),
+            false, // latest
+            None,  // plugins
+            false, // dry_run
+            true,  // backup
+            false, // force
+            None,  // target_dir
+            None,  // config_path
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Snapshot path is not a directory"));
+    }
+
+    /// Test handle_restore_command with custom config path
+    /// Verifies config loading from custom path
+    #[tokio::test]
+    async fn test_handle_restore_command_with_custom_config() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("custom_config.toml");
+        let snapshot_dir = temp_dir.path().join("snapshot");
+
+        // Create minimal config file
+        let config = Config::default();
+        config.save_to_file(&config_path).await.unwrap();
+
+        // Create a valid snapshot directory
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+        fs::write(snapshot_dir.join("metadata.json"), "{}")
+            .await
+            .unwrap();
+
+        let result = handle_restore_command(
+            Some(snapshot_dir),
+            false, // latest
+            None,  // plugins
+            true,  // dry_run - use dry run to avoid actual restoration
+            true,  // backup
+            false, // force
+            None,  // target_dir
+            Some(config_path),
+        )
+        .await;
+
+        // This should succeed in dry run mode
+        assert!(result.is_ok());
+    }
+
+    /// Test handle_restore_command with nonexistent custom config path
+    /// Verifies fallback to default config when custom config doesn't exist
+    #[tokio::test]
+    async fn test_handle_restore_command_with_nonexistent_config() {
+        let temp_dir = TempDir::new().unwrap();
+        let nonexistent_config = temp_dir.path().join("nonexistent_config.toml");
+        let snapshot_dir = temp_dir.path().join("snapshot");
+
+        // Create a valid snapshot directory
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+        fs::write(snapshot_dir.join("metadata.json"), "{}")
+            .await
+            .unwrap();
+
+        let result = handle_restore_command(
+            Some(snapshot_dir),
+            false, // latest
+            None,  // plugins
+            true,  // dry_run - use dry run to avoid actual restoration
+            true,  // backup
+            false, // force
+            None,  // target_dir
+            Some(nonexistent_config),
+        )
+        .await;
+
+        // Should succeed using default config
+        assert!(result.is_ok());
+    }
+
+    /// Test handle_restore_command with plugins filter
+    /// Verifies plugin filtering functionality
+    #[tokio::test]
+    async fn test_handle_restore_command_with_plugins_filter() {
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_dir = temp_dir.path().join("snapshot");
+
+        // Create a valid snapshot directory
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+        fs::write(snapshot_dir.join("metadata.json"), "{}")
+            .await
+            .unwrap();
+
+        let result = handle_restore_command(
+            Some(snapshot_dir),
+            false,                               // latest
+            Some("vscode,homebrew".to_string()), // plugins filter
+            true,  // dry_run - use dry run to avoid actual restoration
+            true,  // backup
+            false, // force
+            None,  // target_dir
+            None,  // config_path
+        )
+        .await;
+
+        assert!(result.is_ok());
+    }
+
+    /// Test handle_restore_command with target directory override
+    /// Verifies global target directory functionality
+    #[tokio::test]
+    async fn test_handle_restore_command_with_target_dir() {
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        let target_dir = temp_dir.path().join("target");
+
+        // Create a valid snapshot directory
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+        fs::write(snapshot_dir.join("metadata.json"), "{}")
+            .await
+            .unwrap();
+
+        // Create target directory
+        fs::create_dir_all(&target_dir).await.unwrap();
+
+        let result = handle_restore_command(
+            Some(snapshot_dir),
+            false, // latest
+            None,  // plugins
+            true,  // dry_run - use dry run to avoid actual restoration
+            true,  // backup
+            false, // force
+            Some(target_dir),
+            None, // config_path
+        )
+        .await;
+
+        assert!(result.is_ok());
+    }
+
+    /// Test handle_restore_command with --latest flag
+    /// Verifies finding and using latest snapshot
+    #[tokio::test]
+    async fn test_handle_restore_command_with_latest_flag() {
+        let temp_dir = TempDir::new().unwrap();
+        let snapshots_dir = temp_dir.path().join("snapshots");
+        fs::create_dir_all(&snapshots_dir).await.unwrap();
+
+        // Create a snapshot directory
+        let snapshot_dir = snapshots_dir.join("20240117_143022");
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+        fs::write(snapshot_dir.join("metadata.json"), "{}")
+            .await
+            .unwrap();
+
+        // Create config pointing to our snapshots directory
+        let config = Config {
+            output_dir: Some(snapshots_dir),
+            ..Default::default()
+        };
+        let config_path = temp_dir.path().join("config.toml");
+        config.save_to_file(&config_path).await.unwrap();
+
+        let result = handle_restore_command(
+            None,  // snapshot_path
+            true,  // latest - find latest snapshot
+            None,  // plugins
+            true,  // dry_run - use dry run to avoid actual restoration
+            true,  // backup
+            false, // force
+            None,  // target_dir
+            Some(config_path),
+        )
+        .await;
+
+        assert!(result.is_ok());
+    }
+
+    /// Test handle_restore_command with all options enabled
+    /// Verifies complex restore scenario with multiple options
+    #[tokio::test]
+    async fn test_handle_restore_command_all_options() {
+        let temp_dir = TempDir::new().unwrap();
+        let snapshot_dir = temp_dir.path().join("snapshot");
+        let target_dir = temp_dir.path().join("target");
+        let config_path = temp_dir.path().join("config.toml");
+
+        // Create a valid snapshot directory
+        fs::create_dir_all(&snapshot_dir).await.unwrap();
+        fs::write(snapshot_dir.join("metadata.json"), "{}")
+            .await
+            .unwrap();
+
+        // Create target directory
+        fs::create_dir_all(&target_dir).await.unwrap();
+
+        // Create config file
+        let config = Config::default();
+        config.save_to_file(&config_path).await.unwrap();
+
+        let result = handle_restore_command(
+            Some(snapshot_dir),
+            false,                                      // latest
+            Some("vscode, homebrew , npm".to_string()), // plugins with spaces
+            true,                                       // dry_run
+            false,                                      // backup (disabled)
+            true,                                       // force
+            Some(target_dir),
+            Some(config_path),
+        )
+        .await;
+
+        assert!(result.is_ok());
+    }
+
+    /// Test plugins parsing with different formats
+    /// Verifies that plugin strings are parsed correctly
+    #[test]
+    fn test_plugins_parsing() {
+        // Test the plugins parsing logic that happens in handle_restore_command
+        let plugins_str = "vscode, homebrew , npm";
+        let parsed: Vec<String> = plugins_str
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .collect();
+
+        assert_eq!(parsed, vec!["vscode", "homebrew", "npm"]);
+
+        // Test single plugin
+        let single_plugin = "vscode";
+        let parsed_single: Vec<String> = single_plugin
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .collect();
+
+        assert_eq!(parsed_single, vec!["vscode"]);
+
+        // Test empty string handling
+        let empty_plugins = "";
+        let parsed_empty: Vec<String> = empty_plugins
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .collect();
+
+        assert_eq!(parsed_empty, vec![""]);
     }
 }

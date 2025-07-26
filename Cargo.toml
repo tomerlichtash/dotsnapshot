@@ -53,3 +53,21 @@ features = ["serde"]
 
 [dev-dependencies]
 tempfile = "3.0"
+
+# Coverage configuration to exclude standard library and external dependencies
+[package.metadata.coverage]
+exclude = [
+    "*/rustc-*-src/*",
+    "*/.cargo/registry/*",
+    "*/target/debug/deps/*",
+    "*/rustlib/*"
+]
+
+# LLVM coverage configuration
+[package.metadata.llvm-cov]
+exclude = [
+    "*/rustc-*-src/*",
+    "*/.cargo/registry/*", 
+    "*/target/debug/deps/*",
+    "*/rustlib/*"
+]

@@ -10,3 +10,9 @@ dotsnapshot-*
 # Snapshot directories
 .snapshots
 test-snapshots
+.internal-docs
+
+# Coverage reports
+lcov.info
+coverage-report/
+coverage/

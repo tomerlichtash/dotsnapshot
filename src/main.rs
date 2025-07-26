@@ -457,34 +457,40 @@ async fn main() -> Result<()> {
 
     // Handle --info flag early
     if args.info {
-        println!("{TOOL_CONFIG} dotsnapshot v{}", env!("CARGO_PKG_VERSION"));
-        println!("{DOC_NOTE} {}", env!("CARGO_PKG_DESCRIPTION"));
         println!(
-            "{SCOPE_GLOBAL} Repository: {}",
+            "{SYMBOL_TOOL_CONFIG} dotsnapshot v{}",
+            env!("CARGO_PKG_VERSION")
+        );
+        println!("{SYMBOL_DOC_NOTE} {}", env!("CARGO_PKG_DESCRIPTION"));
+        println!(
+            "{SYMBOL_SCOPE_GLOBAL} Repository: {}",
             env!("CARGO_PKG_REPOSITORY")
         );
-        println!("{CONTENT_FILE} License: {}", env!("CARGO_PKG_LICENSE"));
-        println!("{DOC_TAG}  Keywords: dotfiles, backup, configuration, snapshots, cli");
+        println!(
+            "{SYMBOL_CONTENT_FILE} License: {}",
+            env!("CARGO_PKG_LICENSE")
+        );
+        println!("{SYMBOL_DOC_TAG}  Keywords: dotfiles, backup, configuration, snapshots, cli");
         println!();
-        println!("{CONTENT_PACKAGE} Supported Plugins:");
+        println!("{SYMBOL_CONTENT_PACKAGE} Supported Plugins:");
         println!("  • Homebrew Brewfile generation");
         println!("  • VSCode settings, keybindings, and extensions");
         println!("  • Cursor settings, keybindings, and extensions");
         println!("  • NPM global packages and configuration");
         println!();
-        println!("{ACTION_LAUNCH} Usage:");
+        println!("{SYMBOL_ACTION_LAUNCH} Usage:");
         println!("   dotsnapshot [OPTIONS]              Create a snapshot (default)");
         println!("   dotsnapshot hooks <SUBCOMMAND>     Manage plugin hooks");
         println!("   Use --help for detailed options");
         println!();
-        println!("{TOOL_CONFIG} Shell Completions:");
+        println!("{SYMBOL_TOOL_CONFIG} Shell Completions:");
         println!(
             "   dotsnapshot --completions bash > /usr/local/etc/bash_completion.d/dotsnapshot"
         );
         println!("   dotsnapshot --completions zsh > ~/.zfunc/_dotsnapshot");
         println!("   dotsnapshot --completions fish > ~/.config/fish/completions/dotsnapshot.fish");
         println!();
-        println!("{DOC_BOOK} Man Page:");
+        println!("{SYMBOL_DOC_BOOK} Man Page:");
         println!("   dotsnapshot --man > /usr/local/share/man/man1/dotsnapshot.1");
         return Ok(());
     }
@@ -502,7 +508,7 @@ async fn main() -> Result<()> {
     if let Some(config_path) = &args.config {
         info!(
             "{} Using custom config file: {}",
-            INDICATOR_INFO,
+            SYMBOL_INDICATOR_INFO,
             config_path.display()
         );
     }
@@ -538,13 +544,16 @@ async fn main() -> Result<()> {
             let duration = start_time.elapsed();
             info!(
                 "{} Snapshot created successfully at: {}",
-                INDICATOR_SUCCESS,
+                SYMBOL_INDICATOR_SUCCESS,
                 snapshot_path.display()
             );
-            info!("{}  Execution time: {:.2?}", EXPERIENCE_TIME, duration);
+            info!(
+                "{}  Execution time: {:.2?}",
+                SYMBOL_EXPERIENCE_TIME, duration
+            );
         }
         Err(e) => {
-            error!("{} Snapshot creation failed: {}", INDICATOR_ERROR, e);
+            error!("{} Snapshot creation failed: {}", SYMBOL_INDICATOR_ERROR, e);
             std::process::exit(1);
         }
     }
@@ -556,6 +565,8 @@ async fn main() -> Result<()> {
 mod tests {
     use super::*;
 
+    /// Test basic argument parsing with default values
+    /// Verifies that command-line arguments are parsed correctly
     #[test]
     fn test_args_parsing() {
         // Test default values
@@ -586,5 +597,896 @@ mod tests {
         // Test --list flag
         let args = Args::parse_from(["dotsnapshot", "--list"]);
         assert!(args.list);
+    }
+
+    /// Test parsing of info and utility flags
+    /// Verifies that special flags like --info, --man, --completions are parsed correctly
+    #[test]
+    fn test_utility_flags_parsing() {
+        // Test --info flag
+        let args = Args::parse_from(["dotsnapshot", "--info"]);
+        assert!(args.info);
+
+        // Test --man flag
+        let args = Args::parse_from(["dotsnapshot", "--man"]);
+        assert!(args.man);
+
+        // Test --completions flag
+        let args = Args::parse_from(["dotsnapshot", "--completions", "bash"]);
+        assert_eq!(args.completions, Some(Shell::Bash));
+
+        let args = Args::parse_from(["dotsnapshot", "--completions", "zsh"]);
+        assert_eq!(args.completions, Some(Shell::Zsh));
+    }
+
+    /// Test hooks command parsing
+    /// Verifies that hooks subcommands are parsed correctly
+    #[test]
+    fn test_hooks_command_parsing() {
+        // Test hooks add command
+        let args = Args::parse_from([
+            "dotsnapshot",
+            "hooks",
+            "add",
+            "--pre-snapshot",
+            "--script",
+            "test.sh",
+        ]);
+
+        match args.command {
+            Some(Commands::Hooks { .. }) => {
+                // Command structure is correct
+            }
+            _ => panic!("Expected hooks command"),
+        }
+
+        // Test hooks list command
+        let args = Args::parse_from(["dotsnapshot", "hooks", "list"]);
+        match args.command {
+            Some(Commands::Hooks { .. }) => {
+                // Command structure is correct
+            }
+            _ => panic!("Expected hooks command"),
+        }
+    }
+
+    /// Test restore command parsing
+    /// Verifies that restore subcommands are parsed correctly
+    #[test]
+    fn test_restore_command_parsing() {
+        // Test restore with snapshot path
+        let args = Args::parse_from(["dotsnapshot", "restore", "/path/to/snapshot"]);
+
+        match args.command {
+            Some(Commands::Restore { snapshot_path, .. }) => {
+                assert_eq!(snapshot_path, Some(PathBuf::from("/path/to/snapshot")));
+            }
+            _ => panic!("Expected restore command"),
+        }
+
+        // Test restore with --latest flag
+        let args = Args::parse_from(["dotsnapshot", "restore", "--latest"]);
+
+        match args.command {
+            Some(Commands::Restore { latest, .. }) => {
+                assert!(latest);
+            }
+            _ => panic!("Expected restore command"),
+        }
+
+        // Test restore with options
+        let args = Args::parse_from([
+            "dotsnapshot",
+            "restore",
+            "--latest",
+            "--plugins",
+            "vscode,cursor",
+            "--dry-run",
+            "--force",
+        ]);
+
+        match args.command {
+            Some(Commands::Restore {
+                latest,
+                plugins,
+                dry_run,
+                force,
+                ..
+            }) => {
+                assert!(latest);
+                assert_eq!(plugins, Some("vscode,cursor".to_string()));
+                assert!(dry_run);
+                assert!(force);
+            }
+            _ => panic!("Expected restore command"),
+        }
+    }
+
+    /// Test subscriber creation with different configurations
+    /// Verifies that logging subscribers are created correctly
+    #[test]
+    fn test_create_subscriber() {
+        // Test verbose subscriber
+        let subscriber = create_subscriber(true, "[hour]:[minute]:[second]".to_string());
+        // Just verify it creates without panicking
+        drop(subscriber);
+
+        // Test non-verbose subscriber
+        let subscriber = create_subscriber(false, "[month]-[day] [hour]:[minute]".to_string());
+        drop(subscriber);
+
+        // Test with different time formats
+        let subscriber = create_subscriber(
+            false,
+            "[year]/[month]/[day] [hour]:[minute]:[second]".to_string(),
+        );
+        drop(subscriber);
+
+        // Test with default format (unsupported format should fall back)
+        let subscriber = create_subscriber(false, "unsupported-format".to_string());
+        drop(subscriber);
+    }
+
+    /// Test hook target parsing
+    /// Verifies that hook targets are parsed correctly
+    #[test]
+    fn test_hook_target_parsing() {
+        // Test pre-snapshot hook target
+        let args = Args::parse_from([
+            "dotsnapshot",
+            "hooks",
+            "add",
+            "--pre-snapshot",
+            "--script",
+            "test.sh",
+        ]);
+
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::Add { target, .. } => {
+                    assert!(target.pre_snapshot);
+                }
+                _ => panic!("Expected add command"),
+            }
+        }
+
+        // Test plugin-specific hook target
+        let args = Args::parse_from([
+            "dotsnapshot",
+            "hooks",
+            "add",
+            "--pre-plugin",
+            "vscode",
+            "--log",
+            "Starting VSCode backup",
+        ]);
+
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::Add { target, .. } => {
+                    assert_eq!(target.pre_plugin, Some("vscode".to_string()));
+                }
+                _ => panic!("Expected add command"),
+            }
+        }
+    }
+
+    /// Test hook action parsing
+    /// Verifies that different hook actions are parsed correctly
+    #[test]
+    fn test_hook_action_parsing() {
+        // Test basic script action (without args/timeout to avoid CLI conflicts)
+        let args = Args::parse_from([
+            "dotsnapshot",
+            "hooks",
+            "add",
+            "--pre-snapshot",
+            "--script",
+            "backup.sh",
+        ]);
+
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::Add { action, .. } => {
+                    assert_eq!(action.script, Some("backup.sh".to_string()));
+                }
+                _ => panic!("Expected add command"),
+            }
+        }
+
+        // Test log action (basic without level to avoid CLI conflicts)
+        let args = Args::parse_from([
+            "dotsnapshot",
+            "hooks",
+            "add",
+            "--post-snapshot",
+            "--log",
+            "Backup completed",
+        ]);
+
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::Add { action, .. } => {
+                    assert_eq!(action.log, Some("Backup completed".to_string()));
+                }
+                _ => panic!("Expected add command"),
+            }
+        }
+
+        // Test notify action (basic without title to avoid CLI conflicts)
+        let args = Args::parse_from([
+            "dotsnapshot",
+            "hooks",
+            "add",
+            "--post-plugin",
+            "homebrew",
+            "--notify",
+            "Homebrew backup complete",
+        ]);
+
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::Add { action, .. } => {
+                    assert_eq!(action.notify, Some("Homebrew backup complete".to_string()));
+                }
+                _ => panic!("Expected add command"),
+            }
+        }
+
+        // Test backup action (basic without path/destination to avoid CLI conflicts)
+        let args = Args::parse_from([
+            "dotsnapshot",
+            "hooks",
+            "add",
+            "--pre-plugin",
+            "vscode",
+            "--backup",
+        ]);
+
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::Add { action, .. } => {
+                    assert!(action.backup);
+                }
+                _ => panic!("Expected add command"),
+            }
+        }
+
+        // Test cleanup action (basic without additional flags to avoid CLI conflicts)
+        let args = Args::parse_from([
+            "dotsnapshot",
+            "hooks",
+            "add",
+            "--post-snapshot",
+            "--cleanup",
+        ]);
+
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::Add { action, .. } => {
+                    assert!(action.cleanup);
+                }
+                _ => panic!("Expected add command"),
+            }
+        }
+    }
+
+    /// Test hooks list command parsing
+    /// Verifies that hooks list command options are parsed correctly
+    #[test]
+    fn test_hooks_list_parsing() {
+        // Test basic list
+        let args = Args::parse_from(["dotsnapshot", "hooks", "list"]);
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::List { .. } => {
+                    // Command parsed correctly
+                }
+                _ => panic!("Expected list command"),
+            }
+        }
+
+        // Test list with plugin filter
+        let args = Args::parse_from([
+            "dotsnapshot",
+            "hooks",
+            "list",
+            "--plugin",
+            "vscode",
+            "--verbose",
+        ]);
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::List {
+                    plugin, verbose, ..
+                } => {
+                    assert_eq!(plugin, Some("vscode".to_string()));
+                    assert!(verbose);
+                }
+                _ => panic!("Expected list command"),
+            }
+        }
+
+        // Test list with hook type filters
+        let args = Args::parse_from(["dotsnapshot", "hooks", "list", "--pre-plugin"]);
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::List { pre_plugin, .. } => {
+                    assert!(pre_plugin);
+                }
+                _ => panic!("Expected list command"),
+            }
+        }
+    }
+
+    /// Test hooks remove command parsing
+    /// Verifies that hooks remove command options are parsed correctly
+    #[test]
+    fn test_hooks_remove_parsing() {
+        // Test remove by index
+        let args = Args::parse_from([
+            "dotsnapshot",
+            "hooks",
+            "remove",
+            "--pre-snapshot",
+            "--index",
+            "2",
+        ]);
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::Remove { index, .. } => {
+                    assert_eq!(index, Some(2));
+                }
+                _ => panic!("Expected remove command"),
+            }
+        }
+
+        // Test remove by script name
+        let args = Args::parse_from([
+            "dotsnapshot",
+            "hooks",
+            "remove",
+            "--post-plugin",
+            "homebrew",
+            "--script",
+            "backup.sh",
+        ]);
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::Remove { script, .. } => {
+                    assert_eq!(script, Some("backup.sh".to_string()));
+                }
+                _ => panic!("Expected remove command"),
+            }
+        }
+
+        // Test remove all
+        let args = Args::parse_from([
+            "dotsnapshot",
+            "hooks",
+            "remove",
+            "--pre-plugin",
+            "vscode",
+            "--all",
+        ]);
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::Remove { all, .. } => {
+                    assert!(all);
+                }
+                _ => panic!("Expected remove command"),
+            }
+        }
+    }
+
+    /// Test hooks validate command parsing
+    /// Verifies that hooks validate command options are parsed correctly
+    #[test]
+    fn test_hooks_validate_parsing() {
+        // Test basic validate
+        let args = Args::parse_from(["dotsnapshot", "hooks", "validate"]);
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::Validate { .. } => {
+                    // Command parsed correctly
+                }
+                _ => panic!("Expected validate command"),
+            }
+        }
+
+        // Test validate with filters
+        let args = Args::parse_from([
+            "dotsnapshot",
+            "hooks",
+            "validate",
+            "--plugin",
+            "cursor",
+            "--pre-plugin",
+            "--post-snapshot",
+        ]);
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::Validate {
+                    plugin,
+                    pre_plugin,
+                    post_snapshot,
+                    ..
+                } => {
+                    assert_eq!(plugin, Some("cursor".to_string()));
+                    assert!(pre_plugin);
+                    assert!(post_snapshot);
+                }
+                _ => panic!("Expected validate command"),
+            }
+        }
+    }
+
+    /// Test hooks scripts-dir command parsing
+    /// Verifies that scripts directory management commands are parsed correctly
+    #[test]
+    fn test_hooks_scripts_dir_parsing() {
+        // Test set scripts directory
+        let args = Args::parse_from([
+            "dotsnapshot",
+            "hooks",
+            "scripts-dir",
+            "--set",
+            "/home/user/scripts",
+        ]);
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::ScriptsDir { set, .. } => {
+                    assert_eq!(set, Some(PathBuf::from("/home/user/scripts")));
+                }
+                _ => panic!("Expected scripts-dir command"),
+            }
+        }
+
+        // Test create scripts directory
+        let args = Args::parse_from(["dotsnapshot", "hooks", "scripts-dir", "--create"]);
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::ScriptsDir { create, .. } => {
+                    assert!(create);
+                }
+                _ => panic!("Expected scripts-dir command"),
+            }
+        }
+    }
+
+    /// Test that create_subscriber handles all time format cases
+    /// Verifies that time format parsing covers all branches
+    #[test]
+    fn test_create_subscriber_time_formats() {
+        // Test all supported time formats
+        let formats = vec![
+            "[hour]:[minute]:[second]",
+            "[month]-[day] [hour]:[minute]",
+            "[year]/[month]/[day] [hour]:[minute]:[second]",
+            "[year]-[month]-[day] [hour]:[minute]:[second]", // default
+        ];
+
+        for format in formats {
+            let subscriber = create_subscriber(false, format.to_string());
+            drop(subscriber); // Just ensure it creates without panic
+        }
+
+        // Test unsupported format (should fall back to default)
+        let subscriber = create_subscriber(true, "custom-unsupported-format".to_string());
+        drop(subscriber);
+    }
+
+    /// Test list_plugins function
+    /// Verifies that plugin listing works correctly
+    #[tokio::test]
+    async fn test_list_plugins() {
+        // This test verifies that list_plugins doesn't panic and can discover plugins
+        // We can't easily test the exact output without mocking, but we can test execution
+        list_plugins().await;
+        // If we reach here, the function completed without panicking
+    }
+
+    /// Test config loading scenarios
+    /// Verifies different config loading paths work correctly
+    #[tokio::test]
+    async fn test_config_loading_scenarios() {
+        use tempfile::TempDir;
+        use tokio::fs;
+
+        let temp_dir = TempDir::new().unwrap();
+
+        // Test with existing config file
+        let config_path = temp_dir.path().join("test_config.toml");
+        let config_content = r#"
+            output_dir = "/tmp/test-snapshots"
+            
+            [logging]
+            verbose = true
+            time_format = "[hour]:[minute]:[second]"
+        "#;
+        fs::write(&config_path, config_content).await.unwrap();
+
+        // Simulate args with custom config
+        let args = Args::parse_from([
+            "dotsnapshot",
+            "--config",
+            config_path.to_str().unwrap(),
+            "--list",
+        ]);
+
+        // Test that config can be loaded from custom path
+        let config = if let Some(config_path) = &args.config {
+            if config_path.exists() {
+                Config::load_from_file(config_path).await.unwrap()
+            } else {
+                Config::default()
+            }
+        } else {
+            Config::load().await.unwrap_or_default()
+        };
+
+        // Verify config was loaded correctly
+        assert!(config.is_verbose_default());
+        assert_eq!(config.get_time_format(), "[hour]:[minute]:[second]");
+    }
+
+    /// Test config loading with nonexistent file
+    #[tokio::test]
+    async fn test_config_loading_nonexistent_file() {
+        let args = Args::parse_from([
+            "dotsnapshot",
+            "--config",
+            "/nonexistent/path/config.toml",
+            "--list",
+        ]);
+
+        // Should fall back to default config when file doesn't exist
+        let config = if let Some(config_path) = &args.config {
+            if config_path.exists() {
+                Config::load_from_file(config_path).await.unwrap()
+            } else {
+                Config::default()
+            }
+        } else {
+            Config::load().await.unwrap_or_default()
+        };
+
+        // Should be default config
+        assert!(!config.is_verbose_default()); // Default is false
+    }
+
+    /// Test argument validation and conflicts
+    #[test]
+    fn test_argument_validation() {
+        // Test that certain argument combinations work
+        let args = Args::parse_from([
+            "dotsnapshot",
+            "--verbose",
+            "--output",
+            "/tmp/test",
+            "--plugins",
+            "vscode,homebrew",
+        ]);
+
+        assert!(args.verbose);
+        assert_eq!(args.output, Some(PathBuf::from("/tmp/test")));
+        assert_eq!(args.plugins, Some("vscode,homebrew".to_string()));
+    }
+
+    /// Test hooks command variations
+    #[test]
+    fn test_hooks_command_variations() {
+        // Test hooks remove with different target types
+        let args = Args::parse_from(["dotsnapshot", "hooks", "remove", "--post-snapshot", "--all"]);
+
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::Remove { all, target, .. } => {
+                    assert!(all);
+                    assert!(target.post_snapshot);
+                }
+                _ => panic!("Expected remove command"),
+            }
+        }
+
+        // Test hooks validate with multiple filters
+        let args = Args::parse_from([
+            "dotsnapshot",
+            "hooks",
+            "validate",
+            "--pre-snapshot",
+            "--post-plugin",
+        ]);
+
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::Validate {
+                    pre_snapshot,
+                    post_plugin,
+                    ..
+                } => {
+                    assert!(pre_snapshot);
+                    assert!(post_plugin);
+                }
+                _ => panic!("Expected validate command"),
+            }
+        }
+    }
+
+    /// Test hook action parsing with additional options
+    #[test]
+    fn test_hook_action_extended_parsing() {
+        // Test script action (basic without conflicting args)
+        let args = Args::parse_from([
+            "dotsnapshot",
+            "hooks",
+            "add",
+            "--pre-plugin",
+            "vscode",
+            "--script",
+            "backup.sh",
+        ]);
+
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::Add { action, .. } => {
+                    assert_eq!(action.script, Some("backup.sh".to_string()));
+                }
+                _ => panic!("Expected add command"),
+            }
+        }
+
+        // Test log action (basic without conflicting level)
+        let args = Args::parse_from([
+            "dotsnapshot",
+            "hooks",
+            "add",
+            "--post-snapshot",
+            "--log",
+            "Backup completed successfully",
+        ]);
+
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::Add { action, .. } => {
+                    assert_eq!(
+                        action.log,
+                        Some("Backup completed successfully".to_string())
+                    );
+                }
+                _ => panic!("Expected add command"),
+            }
+        }
+
+        // Test notify action (basic without conflicting title)
+        let args = Args::parse_from([
+            "dotsnapshot",
+            "hooks",
+            "add",
+            "--pre-plugin",
+            "homebrew",
+            "--notify",
+            "Starting Homebrew backup",
+        ]);
+
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::Add { action, .. } => {
+                    assert_eq!(action.notify, Some("Starting Homebrew backup".to_string()));
+                }
+                _ => panic!("Expected add command"),
+            }
+        }
+
+        // Test backup action (basic without conflicting paths)
+        let args = Args::parse_from(["dotsnapshot", "hooks", "add", "--pre-snapshot", "--backup"]);
+
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::Add { action, .. } => {
+                    assert!(action.backup);
+                }
+                _ => panic!("Expected add command"),
+            }
+        }
+
+        // Test cleanup action (basic without conflicting options)
+        let args = Args::parse_from([
+            "dotsnapshot",
+            "hooks",
+            "add",
+            "--post-snapshot",
+            "--cleanup",
+        ]);
+
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::Add { action, .. } => {
+                    assert!(action.cleanup);
+                }
+                _ => panic!("Expected add command"),
+            }
+        }
+    }
+
+    /// Test restore command extended options
+    #[test]
+    fn test_restore_command_extended_options() {
+        // Test restore with all options
+        let args = Args::parse_from([
+            "dotsnapshot",
+            "restore",
+            "/path/to/snapshot",
+            "--plugins",
+            "vscode,cursor,homebrew",
+            "--dry-run",
+            "--backup",
+            "--force",
+            "--target-dir",
+            "/custom/restore/target",
+        ]);
+
+        match args.command {
+            Some(Commands::Restore {
+                snapshot_path,
+                plugins,
+                dry_run,
+                backup,
+                force,
+                target_dir,
+                latest,
+            }) => {
+                assert_eq!(snapshot_path, Some(PathBuf::from("/path/to/snapshot")));
+                assert_eq!(plugins, Some("vscode,cursor,homebrew".to_string()));
+                assert!(dry_run);
+                assert!(backup);
+                assert!(force);
+                assert_eq!(target_dir, Some(PathBuf::from("/custom/restore/target")));
+                assert!(!latest);
+            }
+            _ => panic!("Expected restore command"),
+        }
+
+        // Test restore without backup
+        let args = Args::parse_from(["dotsnapshot", "restore", "--latest", "--backup", "false"]);
+
+        match args.command {
+            Some(Commands::Restore { backup, .. }) => {
+                // Note: backup defaults to true, so this tests the default behavior
+                assert!(backup); // Default value
+            }
+            _ => panic!("Expected restore command"),
+        }
+    }
+
+    /// Test edge cases in argument parsing
+    #[test]
+    fn test_argument_parsing_edge_cases() {
+        // Test with empty plugin list (should still parse)
+        let args = Args::parse_from(["dotsnapshot", "--plugins", ""]);
+        assert_eq!(args.plugins, Some("".to_string()));
+
+        // Test with multiple output formats
+        let args = Args::parse_from(["dotsnapshot", "--output", "/path/with spaces/snapshots"]);
+        assert_eq!(
+            args.output,
+            Some(PathBuf::from("/path/with spaces/snapshots"))
+        );
+
+        // Test completions with different shells
+        for shell in ["bash", "zsh", "fish", "powershell", "elvish"] {
+            let args = Args::parse_from(["dotsnapshot", "--completions", shell]);
+            assert!(args.completions.is_some());
+        }
+    }
+
+    /// Test hooks list command with all filter combinations
+    #[test]
+    fn test_hooks_list_all_filters() {
+        // Test pre-plugin filter
+        let args = Args::parse_from(["dotsnapshot", "hooks", "list", "--pre-plugin"]);
+
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::List { pre_plugin, .. } => assert!(pre_plugin),
+                _ => panic!("Expected list command"),
+            }
+        }
+
+        // Test post-plugin filter
+        let args = Args::parse_from(["dotsnapshot", "hooks", "list", "--post-plugin"]);
+
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::List { post_plugin, .. } => assert!(post_plugin),
+                _ => panic!("Expected list command"),
+            }
+        }
+
+        // Test pre-snapshot filter
+        let args = Args::parse_from(["dotsnapshot", "hooks", "list", "--pre-snapshot"]);
+
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::List { pre_snapshot, .. } => assert!(pre_snapshot),
+                _ => panic!("Expected list command"),
+            }
+        }
+
+        // Test post-snapshot filter
+        let args = Args::parse_from(["dotsnapshot", "hooks", "list", "--post-snapshot"]);
+
+        if let Some(Commands::Hooks { command }) = args.command {
+            match *command {
+                HooksCommands::List { post_snapshot, .. } => assert!(post_snapshot),
+                _ => panic!("Expected list command"),
+            }
+        }
+    }
+
+    /// Test plugin selection parsing logic
+    #[test]
+    fn test_plugin_selection_parsing() {
+        // Test various plugin string formats
+        let test_cases = vec![
+            ("vscode", vec!["vscode"]),
+            ("vscode,homebrew", vec!["vscode", "homebrew"]),
+            ("vscode,homebrew,npm", vec!["vscode", "homebrew", "npm"]),
+            ("single", vec!["single"]),
+            ("", vec![""]), // Edge case: empty plugin
+        ];
+
+        for (input, expected) in test_cases {
+            let parsed: Vec<String> = input.split(',').map(|s| s.to_string()).collect();
+            assert_eq!(parsed, expected, "Failed to parse plugin string: {input}");
+        }
+    }
+
+    /// Test default argument values
+    #[test]
+    fn test_default_argument_values() {
+        let args = Args::parse_from(["dotsnapshot"]);
+
+        // Verify all default values
+        assert!(!args.verbose);
+        assert!(args.config.is_none());
+        assert!(args.command.is_none());
+        assert!(args.output.is_none());
+        assert!(args.plugins.is_none());
+        assert!(!args.list);
+        assert!(!args.info);
+        assert!(args.completions.is_none());
+        assert!(!args.man);
+    }
+
+    /// Test version information access
+    #[test]
+    fn test_version_info() {
+        // Test that version info can be accessed (used in --info command)
+        let version = env!("CARGO_PKG_VERSION");
+        let description = env!("CARGO_PKG_DESCRIPTION");
+        let repository = env!("CARGO_PKG_REPOSITORY");
+        let license = env!("CARGO_PKG_LICENSE");
+
+        assert!(!version.is_empty());
+        assert!(!description.is_empty());
+        assert!(!repository.is_empty());
+        assert!(!license.is_empty());
+    }
+
+    /// Test create_subscriber with edge cases
+    #[test]
+    fn test_create_subscriber_edge_cases() {
+        // Test with empty time format (should use default)
+        let subscriber = create_subscriber(false, "".to_string());
+        drop(subscriber);
+
+        // Test with malformed time format (should use default)
+        let subscriber = create_subscriber(true, "[invalid-format]".to_string());
+        drop(subscriber);
+
+        // Test with partial match (should use default)
+        let subscriber = create_subscriber(false, "[hour]:[minute]".to_string());
+        drop(subscriber);
     }
 }

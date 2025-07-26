@@ -54,7 +54,7 @@ impl SettingsCore for CursorCore {
     }
 
     fn icon(&self) -> &'static str {
-        TOOL_EDITOR
+        SYMBOL_TOOL_EDITOR
     }
 
     fn allowed_extensions(&self) -> &'static [&'static str] {
@@ -82,7 +82,7 @@ mod tests {
         let core = CursorCore;
         assert_eq!(core.app_name(), "Cursor");
         assert_eq!(core.settings_file_name(), "settings.json");
-        assert_eq!(core.icon(), TOOL_EDITOR);
+        assert_eq!(core.icon(), SYMBOL_TOOL_EDITOR);
         assert_eq!(core.allowed_extensions(), &["json", "jsonc"]);
     }
 
@@ -93,7 +93,7 @@ mod tests {
             plugin.description(),
             "Captures application settings configuration"
         );
-        assert_eq!(plugin.icon(), TOOL_EDITOR);
+        assert_eq!(plugin.icon(), SYMBOL_TOOL_EDITOR);
     }
 
     #[tokio::test]
