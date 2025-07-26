@@ -330,33 +330,89 @@ mod tests {
     /// Verifies that validation passes when keybindings directory exists
     #[tokio::test]
     async fn test_keybindings_plugin_validation() {
-        let plugin = KeybindingsPlugin::new(MockKeybindingsCore);
+        // Use TempDir to avoid conflicts between concurrent tests
+        let temp_dir = TempDir::new().unwrap();
+        let keybindings_dir = temp_dir.path().join("test_keybindings");
+
+        // Create mock that returns our unique temp directory
+        struct ValidatingMockCore {
+            keybindings_dir: PathBuf,
+        }
+
+        impl KeybindingsCore for ValidatingMockCore {
+            fn app_name(&self) -> &'static str {
+                "TestApp"
+            }
+            fn keybindings_file_name(&self) -> &'static str {
+                "keybindings.json"
+            }
+            fn get_keybindings_dir(&self) -> Result<PathBuf> {
+                Ok(self.keybindings_dir.clone())
+            }
+            fn read_keybindings(
+                &self,
+            ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send + '_>>
+            {
+                Box::pin(async { Ok("[]".to_string()) })
+            }
+            fn icon(&self) -> &'static str {
+                SYMBOL_TOOL_COMPUTER
+            }
+        }
+
+        let mock_core = ValidatingMockCore {
+            keybindings_dir: keybindings_dir.clone(),
+        };
+        let plugin = KeybindingsPlugin::new(mock_core);
 
         // Create the keybindings directory
-        let keybindings_dir = std::env::temp_dir().join("test_keybindings");
         fs::create_dir_all(&keybindings_dir).await.unwrap();
 
         let result = plugin.validate().await;
         assert!(result.is_ok());
-
-        // Clean up
-        if (fs::remove_dir_all(&keybindings_dir).await).is_err() {
-            // If we can't remove it, that's ok - might be a permission issue
-        }
     }
 
     /// Test keybindings plugin validation failure
     /// Verifies that validation fails when keybindings directory doesn't exist
     #[tokio::test]
     async fn test_keybindings_plugin_validation_failure() {
-        let plugin = KeybindingsPlugin::new(MockKeybindingsCore);
+        // Use TempDir to get a unique path that definitely doesn't exist
+        let temp_dir = TempDir::new().unwrap();
+        let nonexistent_dir = temp_dir.path().join("nonexistent_keybindings");
 
-        // Ensure keybindings directory doesn't exist
-        let keybindings_dir = std::env::temp_dir().join("test_keybindings");
-        if keybindings_dir.exists() && (fs::remove_dir_all(&keybindings_dir).await).is_err() {
-            // If we can't remove it, that's ok - might be a permission issue
-            // Just continue with the test
+        // Create mock that returns the nonexistent directory
+        struct FailingMockCore {
+            keybindings_dir: PathBuf,
         }
+
+        impl KeybindingsCore for FailingMockCore {
+            fn app_name(&self) -> &'static str {
+                "TestApp"
+            }
+            fn keybindings_file_name(&self) -> &'static str {
+                "keybindings.json"
+            }
+            fn get_keybindings_dir(&self) -> Result<PathBuf> {
+                Ok(self.keybindings_dir.clone())
+            }
+            fn read_keybindings(
+                &self,
+            ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send + '_>>
+            {
+                Box::pin(async { Ok("[]".to_string()) })
+            }
+            fn icon(&self) -> &'static str {
+                SYMBOL_TOOL_COMPUTER
+            }
+        }
+
+        let mock_core = FailingMockCore {
+            keybindings_dir: nonexistent_dir.clone(),
+        };
+        let plugin = KeybindingsPlugin::new(mock_core);
+
+        // The directory should not exist
+        assert!(!nonexistent_dir.exists());
 
         let result = plugin.validate().await;
         assert!(result.is_err());
