@@ -56,6 +56,10 @@ pub trait CommandMixin: Send + Sync {
     }
 
     /// Check if a command exists without failing
+    // WORKAROUND: False positive dead code warning in Rust beta toolchain
+    // This method is actually used in extensions.rs, package.rs, static_files.rs and tests
+    // but the beta compiler's dead code analysis doesn't detect trait method usage properly
+    #[allow(dead_code)]
     fn command_exists(&self, cmd: &str) -> bool {
         which(cmd).is_ok()
     }
