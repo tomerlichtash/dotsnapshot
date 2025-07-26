@@ -323,12 +323,12 @@ impl StaticFilesAppCore {
                         // On Windows, remove the drive letter and colon (e.g., "C:\\" -> "")
                         let path_str = file_path.to_string_lossy();
                         if let Some(stripped) = path_str.strip_prefix(r"C:\") {
-                            std::path::Path::new(stripped)
+                            std::path::PathBuf::from(stripped)
                         } else if path_str.len() >= 3 && path_str.chars().nth(1) == Some(':') {
                             // Handle other drive letters like D:\, E:\, etc.
-                            std::path::Path::new(&path_str[3..])
+                            std::path::PathBuf::from(&path_str[3..])
                         } else {
-                            file_path
+                            file_path.to_path_buf()
                         }
                     };
                     static_dir.join(relative_path)
@@ -342,11 +342,11 @@ impl StaticFilesAppCore {
                     // On Windows, remove the drive letter and colon
                     let path_str = file_path.to_string_lossy();
                     if let Some(stripped) = path_str.strip_prefix(r"C:\") {
-                        std::path::Path::new(stripped)
+                        std::path::PathBuf::from(stripped)
                     } else if path_str.len() >= 3 && path_str.chars().nth(1) == Some(':') {
-                        std::path::Path::new(&path_str[3..])
+                        std::path::PathBuf::from(&path_str[3..])
                     } else {
-                        file_path
+                        file_path.to_path_buf()
                     }
                 };
                 static_dir.join(relative_path)
