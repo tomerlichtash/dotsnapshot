@@ -2,22 +2,12 @@ use anyhow::Result;
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::Path;
-use tokio::fs as async_fs;
 
 /// Calculates SHA256 checksum of a string
 pub fn calculate_checksum(content: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(content.as_bytes());
     format!("{:x}", hasher.finalize())
-}
-
-/// Calculates SHA256 checksum of a file
-#[allow(dead_code)]
-pub async fn calculate_file_checksum(path: &Path) -> Result<String> {
-    let content = async_fs::read(path).await?;
-    let mut hasher = Sha256::new();
-    hasher.update(&content);
-    Ok(format!("{:x}", hasher.finalize()))
 }
 
 /// Calculates checksum of directory contents (recursive)

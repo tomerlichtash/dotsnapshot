@@ -53,11 +53,7 @@ impl KeybindingsCore for CursorKeybindingsCore {
     }
 
     fn icon(&self) -> &'static str {
-        TOOL_COMPUTER
-    }
-
-    fn allowed_extensions(&self) -> &'static [&'static str] {
-        &["json", "jsonc"]
+        SYMBOL_TOOL_COMPUTER
     }
 }
 
@@ -77,8 +73,7 @@ mod tests {
         let core = CursorKeybindingsCore;
         assert_eq!(core.app_name(), "Cursor");
         assert_eq!(core.keybindings_file_name(), "keybindings.json");
-        assert_eq!(core.icon(), TOOL_COMPUTER);
-        assert_eq!(core.allowed_extensions(), &["json", "jsonc"]);
+        assert_eq!(core.icon(), SYMBOL_TOOL_COMPUTER);
     }
 
     #[tokio::test]
@@ -88,7 +83,7 @@ mod tests {
             plugin.description(),
             "Captures application keybindings configuration"
         );
-        assert_eq!(plugin.icon(), TOOL_COMPUTER);
+        assert_eq!(plugin.icon(), SYMBOL_TOOL_COMPUTER);
     }
 
     #[tokio::test]

@@ -14,12 +14,8 @@ use crate::symbols::*;
 pub struct StaticFilesAppCore;
 
 impl StaticFilesCore for StaticFilesAppCore {
-    fn app_name(&self) -> &'static str {
-        "StaticFiles"
-    }
-
     fn icon(&self) -> &'static str {
-        CONTENT_FILE
+        SYMBOL_CONTENT_FILE
     }
 
     fn read_config<'a>(
@@ -169,7 +165,7 @@ impl StaticFilesCore for StaticFilesAppCore {
                 if self.should_ignore(&file_path, ignore_patterns) {
                     info!(
                         "{} Ignoring static item: {} (matches ignore pattern)",
-                        ACTION_BLOCK,
+                        SYMBOL_ACTION_BLOCK,
                         file_path.display()
                     );
                     ignored_files.push(file_path.display().to_string());
@@ -188,7 +184,7 @@ impl StaticFilesCore for StaticFilesAppCore {
                         };
                         info!(
                             "{} Copied static {}: {} -> {}",
-                            CONTENT_FILE,
+                            SYMBOL_CONTENT_FILE,
                             item_type,
                             file_path.display(),
                             dest_path.display()
@@ -199,7 +195,7 @@ impl StaticFilesCore for StaticFilesAppCore {
                         let error_msg = format!("{}: {}", file_path.display(), e);
                         info!(
                             "{} Failed to copy static item: {}",
-                            INDICATOR_ERROR, error_msg
+                            SYMBOL_INDICATOR_ERROR, error_msg
                         );
                         failed_files.push(error_msg);
                     }
@@ -319,13 +315,40 @@ impl StaticFilesAppCore {
                     // Path is in home directory, use path relative to home
                     static_dir.join("home").join(relative_to_home)
                 } else {
-                    // Path is outside home directory, use full path but remove leading slash
+                    // Path is outside home directory, use path without root prefix
+                    #[cfg(unix)]
                     let relative_path = file_path.strip_prefix("/").unwrap_or(file_path);
+                    #[cfg(windows)]
+                    let relative_path = {
+                        // On Windows, remove the drive letter and colon (e.g., "C:\\" -> "")
+                        let path_str = file_path.to_string_lossy();
+                        if let Some(stripped) = path_str.strip_prefix(r"C:\") {
+                            std::path::PathBuf::from(stripped)
+                        } else if path_str.len() >= 3 && path_str.chars().nth(1) == Some(':') {
+                            // Handle other drive letters like D:\, E:\, etc.
+                            std::path::PathBuf::from(&path_str[3..])
+                        } else {
+                            file_path.to_path_buf()
+                        }
+                    };
                     static_dir.join(relative_path)
                 }
             } else {
-                // Can't determine home directory, use full path
+                // Can't determine home directory, use path without root prefix
+                #[cfg(unix)]
                 let relative_path = file_path.strip_prefix("/").unwrap_or(file_path);
+                #[cfg(windows)]
+                let relative_path = {
+                    // On Windows, remove the drive letter and colon
+                    let path_str = file_path.to_string_lossy();
+                    if let Some(stripped) = path_str.strip_prefix(r"C:\") {
+                        std::path::PathBuf::from(stripped)
+                    } else if path_str.len() >= 3 && path_str.chars().nth(1) == Some(':') {
+                        std::path::PathBuf::from(&path_str[3..])
+                    } else {
+                        file_path.to_path_buf()
+                    }
+                };
                 static_dir.join(relative_path)
             }
         } else {
@@ -382,7 +405,7 @@ impl StaticFilesAppCore {
                 if self.should_ignore(&src_path, ignore_patterns) {
                     info!(
                         "{} Ignoring static item: {} (matches ignore pattern)",
-                        ACTION_BLOCK,
+                        SYMBOL_ACTION_BLOCK,
                         src_path.display()
                     );
                     continue;
@@ -458,10 +481,6 @@ impl StaticFilesAppCore {
     }
 }
 
-/// Type alias for the static files plugin (used for external references)
-#[allow(dead_code)]
-pub type StaticFilesPluginApp = StaticFilesPlugin<StaticFilesAppCore>;
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -474,8 +493,7 @@ mod tests {
     #[tokio::test]
     async fn test_static_files_core_app_info() {
         let core = StaticFilesAppCore;
-        assert_eq!(core.app_name(), "StaticFiles");
-        assert_eq!(core.icon(), CONTENT_FILE);
+        assert_eq!(core.icon(), SYMBOL_CONTENT_FILE);
     }
 
     #[tokio::test]
@@ -485,7 +503,7 @@ mod tests {
             plugin.description(),
             "Copies arbitrary static files and directories based on configuration"
         );
-        assert_eq!(plugin.icon(), CONTENT_FILE);
+        assert_eq!(plugin.icon(), SYMBOL_CONTENT_FILE);
     }
 
     #[tokio::test]
@@ -638,6 +656,502 @@ mod tests {
         // Default restore target is filesystem root
         let default_dir = plugin.get_default_restore_target_dir().unwrap();
         assert_eq!(default_dir, std::path::PathBuf::from("/"));
+    }
+
+    /// Test expand_path method with various path formats
+    /// Verifies that path expansion handles home directory and environment variables
+    #[tokio::test]
+    async fn test_expand_path() {
+        let core = StaticFilesAppCore;
+
+        // Test home directory expansion
+        let expanded = core.expand_path("~/test/file.txt").unwrap();
+        let home_dir = dirs::home_dir().unwrap();
+        assert_eq!(expanded, home_dir.join("test/file.txt"));
+
+        // Test environment variable expansion
+        std::env::set_var("TEST_VAR", "/custom/path");
+        let expanded = core.expand_path("$HOME/test").unwrap();
+        assert!(expanded.to_string_lossy().contains("test"));
+
+        // Test plain path (no expansion needed)
+        let expanded = core.expand_path("/absolute/path").unwrap();
+        assert_eq!(expanded, PathBuf::from("/absolute/path"));
+
+        let expanded = core.expand_path("relative/path").unwrap();
+        assert_eq!(expanded, PathBuf::from("relative/path"));
+
+        // Clean up
+        std::env::remove_var("TEST_VAR");
+    }
+
+    /// Test get_ignore_patterns with various configurations
+    /// Verifies that ignore patterns are correctly extracted from config
+    #[test]
+    fn test_get_ignore_patterns() {
+        let core = StaticFilesAppCore;
+
+        // Test with no config
+        let patterns = core.get_ignore_patterns(None);
+        assert!(patterns.is_empty());
+
+        // Test with config that has ignore patterns
+        let config = Config {
+            output_dir: None,
+            include_plugins: None,
+            logging: None,
+            hooks: None,
+            global: None,
+            static_files: None,
+            plugins: Some(PluginsConfig {
+                plugins: {
+                    let mut map = std::collections::HashMap::new();
+                    map.insert(
+                        "static".to_string(),
+                        toml::Value::try_from(StaticPluginConfig {
+                            target_path: None,
+                            output_file: None,
+                            files: None,
+                            ignore: Some(vec!["*.tmp".to_string(), "cache/".to_string()]),
+                        })
+                        .unwrap(),
+                    );
+                    map
+                },
+            }),
+            ui: None,
+        };
+
+        let patterns = core.get_ignore_patterns(Some(&Arc::new(config)));
+        assert_eq!(patterns.len(), 2);
+        assert!(patterns.contains(&"*.tmp".to_string()));
+        assert!(patterns.contains(&"cache/".to_string()));
+    }
+
+    /// Test copy_single_file with non-existent file
+    /// Verifies that copy_single_file handles missing files correctly
+    #[tokio::test]
+    async fn test_copy_single_file_not_exist() {
+        let core = StaticFilesAppCore;
+        let temp_dir = TempDir::new().unwrap();
+        let static_dir = temp_dir.path().join("static");
+        fs::create_dir_all(&static_dir).await.unwrap();
+
+        let non_existent = temp_dir.path().join("does_not_exist.txt");
+        let result = core.copy_single_file(&non_existent, &static_dir, &[]).await;
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("does not exist"));
+    }
+
+    /// Test copy_single_file with relative paths
+    /// Verifies that relative paths are handled correctly
+    #[tokio::test]
+    async fn test_copy_single_file_relative_path() {
+        let core = StaticFilesAppCore;
+        let temp_dir = TempDir::new().unwrap();
+        let static_dir = temp_dir.path().join("static");
+        fs::create_dir_all(&static_dir).await.unwrap();
+
+        // Create a test file with relative path
+        let test_file = temp_dir.path().join("test.txt");
+        fs::write(&test_file, "test content").await.unwrap();
+
+        // Get relative path
+        let current_dir = std::env::current_dir().unwrap();
+        let relative_path = test_file.strip_prefix(&current_dir).unwrap_or(&test_file);
+
+        let result = core.copy_single_file(relative_path, &static_dir, &[]).await;
+        assert!(result.is_ok());
+
+        let dest_path = result.unwrap();
+        assert!(dest_path.exists());
+
+        let content = fs::read_to_string(&dest_path).await.unwrap();
+        assert_eq!(content, "test content");
+    }
+
+    /// Test copy_single_file with directory
+    /// Verifies that directories are copied recursively
+    #[tokio::test]
+    async fn test_copy_single_file_directory() {
+        let core = StaticFilesAppCore;
+        let temp_dir = TempDir::new().unwrap();
+        let static_dir = temp_dir.path().join("static");
+        let test_dir = temp_dir.path().join("test_dir");
+
+        fs::create_dir_all(&static_dir).await.unwrap();
+        fs::create_dir_all(&test_dir).await.unwrap();
+
+        // Create test files in directory
+        fs::write(test_dir.join("file1.txt"), "content1")
+            .await
+            .unwrap();
+        fs::write(test_dir.join("file2.txt"), "content2")
+            .await
+            .unwrap();
+
+        let result = core.copy_single_file(&test_dir, &static_dir, &[]).await;
+        assert!(result.is_ok());
+
+        let dest_path = result.unwrap();
+        assert!(dest_path.exists());
+        assert!(dest_path.is_dir());
+
+        // Verify files were copied
+        assert!(dest_path.join("file1.txt").exists());
+        assert!(dest_path.join("file2.txt").exists());
+    }
+
+    /// Test copy_directory_recursive with ignore patterns
+    /// Verifies that ignored files are skipped during directory copy
+    #[tokio::test]
+    async fn test_copy_directory_recursive_with_ignore() {
+        let core = StaticFilesAppCore;
+        let temp_dir = TempDir::new().unwrap();
+        let src_dir = temp_dir.path().join("src");
+        let dest_dir = temp_dir.path().join("dest");
+
+        fs::create_dir_all(&src_dir).await.unwrap();
+        fs::create_dir_all(&dest_dir).await.unwrap();
+
+        // Create test files
+        fs::write(src_dir.join("keep.txt"), "keep").await.unwrap();
+        fs::write(src_dir.join("ignore.tmp"), "ignore")
+            .await
+            .unwrap();
+        fs::create_dir_all(src_dir.join("subdir")).await.unwrap();
+        fs::write(src_dir.join("subdir/file.txt"), "content")
+            .await
+            .unwrap();
+
+        let ignore_patterns = vec!["*.tmp".to_string()];
+
+        core.copy_directory_recursive(&src_dir, &dest_dir, &ignore_patterns)
+            .await
+            .unwrap();
+
+        // Verify only non-ignored files were copied
+        assert!(dest_dir.join("keep.txt").exists());
+        assert!(!dest_dir.join("ignore.tmp").exists());
+        assert!(dest_dir.join("subdir/file.txt").exists());
+    }
+
+    /// Test restore_directory_recursive_static
+    /// Verifies that directory restoration works correctly
+    #[tokio::test]
+    async fn test_restore_directory_recursive_static() {
+        let temp_dir = TempDir::new().unwrap();
+        let src_dir = temp_dir.path().join("src");
+        let dest_dir = temp_dir.path().join("dest");
+
+        // Create source directory structure
+        fs::create_dir_all(src_dir.join("subdir")).await.unwrap();
+        fs::write(src_dir.join("file1.txt"), "content1")
+            .await
+            .unwrap();
+        fs::write(src_dir.join("subdir/file2.txt"), "content2")
+            .await
+            .unwrap();
+
+        let restored = StaticFilesAppCore::restore_directory_recursive_static(&src_dir, &dest_dir)
+            .await
+            .unwrap();
+
+        assert_eq!(restored.len(), 2);
+        assert!(dest_dir.join("file1.txt").exists());
+        assert!(dest_dir.join("subdir/file2.txt").exists());
+
+        // Verify content
+        let content1 = fs::read_to_string(dest_dir.join("file1.txt"))
+            .await
+            .unwrap();
+        assert_eq!(content1, "content1");
+
+        let content2 = fs::read_to_string(dest_dir.join("subdir/file2.txt"))
+            .await
+            .unwrap();
+        assert_eq!(content2, "content2");
+    }
+
+    /// Test read_config with various configuration scenarios
+    /// Verifies that file paths are correctly read from plugin config
+    #[tokio::test]
+    async fn test_read_config_scenarios() {
+        let core = StaticFilesAppCore;
+
+        // Test with no config
+        let files = core.read_config(None).await.unwrap();
+        assert!(files.is_empty());
+
+        // Test with empty plugins section
+        let config = Config {
+            output_dir: None,
+            include_plugins: None,
+            logging: None,
+            hooks: None,
+            global: None,
+            static_files: None,
+            plugins: None,
+            ui: None,
+        };
+        let files = core.read_config(Some(&Arc::new(config))).await.unwrap();
+        assert!(files.is_empty());
+
+        // Test with static plugin config but no files
+        let config = Config {
+            output_dir: None,
+            include_plugins: None,
+            logging: None,
+            hooks: None,
+            global: None,
+            static_files: None,
+            plugins: Some(PluginsConfig {
+                plugins: {
+                    let mut map = std::collections::HashMap::new();
+                    map.insert(
+                        "static".to_string(),
+                        toml::Value::try_from(StaticPluginConfig {
+                            target_path: None,
+                            output_file: None,
+                            files: None,
+                            ignore: None,
+                        })
+                        .unwrap(),
+                    );
+                    map
+                },
+            }),
+            ui: None,
+        };
+        let files = core.read_config(Some(&Arc::new(config))).await.unwrap();
+        assert!(files.is_empty());
+
+        // Test with files that include empty strings
+        let config = Config {
+            output_dir: None,
+            include_plugins: None,
+            logging: None,
+            hooks: None,
+            global: None,
+            static_files: None,
+            plugins: Some(PluginsConfig {
+                plugins: {
+                    let mut map = std::collections::HashMap::new();
+                    map.insert(
+                        "static".to_string(),
+                        toml::Value::try_from(StaticPluginConfig {
+                            target_path: None,
+                            output_file: None,
+                            files: Some(vec![
+                                "~/test.txt".to_string(),
+                                "".to_string(),    // Empty string should be skipped
+                                "   ".to_string(), // Whitespace should be skipped
+                                "/etc/hosts".to_string(),
+                            ]),
+                            ignore: None,
+                        })
+                        .unwrap(),
+                    );
+                    map
+                },
+            }),
+            ui: None,
+        };
+        let files = core.read_config(Some(&Arc::new(config))).await.unwrap();
+        assert_eq!(files.len(), 2); // Only non-empty paths
+    }
+
+    /// Test copy_files with various scenarios
+    /// Verifies that copy_files handles multiple files and generates correct summary
+    #[tokio::test]
+    async fn test_copy_files_summary() {
+        let core = StaticFilesAppCore;
+        let temp_dir = TempDir::new().unwrap();
+        let static_dir = temp_dir.path().join("static");
+
+        // Create test files
+        let file1 = temp_dir.path().join("file1.txt");
+        let file2 = temp_dir.path().join("file2.txt");
+        let file3 = temp_dir.path().join("ignored.tmp");
+
+        fs::write(&file1, "content1").await.unwrap();
+        fs::write(&file2, "content2").await.unwrap();
+        fs::write(&file3, "ignored").await.unwrap();
+
+        let file_paths = vec![file1, file2, file3];
+        let ignore_patterns = vec!["*.tmp".to_string()];
+
+        let summary = core
+            .copy_files(file_paths, &static_dir, &ignore_patterns)
+            .await
+            .unwrap();
+
+        // Parse summary JSON
+        let summary_json: serde_json::Value = serde_json::from_str(&summary).unwrap();
+        let summary_obj = summary_json["summary"].as_object().unwrap();
+
+        assert_eq!(summary_obj["total_files"].as_u64().unwrap(), 3);
+        assert_eq!(summary_obj["copied"].as_u64().unwrap(), 2);
+        assert_eq!(summary_obj["ignored"].as_u64().unwrap(), 1);
+        assert_eq!(summary_obj["failed"].as_u64().unwrap(), 0);
+
+        // Verify static directory was created
+        assert!(static_dir.exists());
+    }
+
+    /// Test restore_static_files with home directory structure
+    /// Verifies that files in home directory are restored correctly
+    #[tokio::test]
+    async fn test_restore_static_files_home_directory() {
+        let core = StaticFilesAppCore;
+        let temp_dir = TempDir::new().unwrap();
+        let static_snapshot_dir = temp_dir.path().join("static");
+        let target_dir = temp_dir.path().join("target");
+
+        // Create home directory structure in snapshot
+        let home_snapshot = static_snapshot_dir.join("home");
+        fs::create_dir_all(home_snapshot.join("config"))
+            .await
+            .unwrap();
+        fs::write(home_snapshot.join("config/app.conf"), "config data")
+            .await
+            .unwrap();
+
+        // Also create non-home file
+        fs::write(static_snapshot_dir.join("other.txt"), "other data")
+            .await
+            .unwrap();
+
+        let restored = core
+            .restore_static_files(&static_snapshot_dir, &target_dir)
+            .await
+            .unwrap();
+
+        // Should restore both home and non-home files
+        assert!(!restored.is_empty());
+
+        // Verify non-home file was restored to target directory
+        assert!(target_dir.join("other.txt").exists());
+        let content = fs::read_to_string(target_dir.join("other.txt"))
+            .await
+            .unwrap();
+        assert_eq!(content, "other data");
+    }
+
+    /// Test should_ignore with complex patterns
+    /// Verifies that pattern matching works for various path structures
+    #[test]
+    fn test_should_ignore_complex_patterns() {
+        let core = StaticFilesAppCore;
+        let patterns = vec![
+            "*.log".to_string(),
+            "temp/*".to_string(),
+            "**/.git".to_string(),
+            "build".to_string(), // Remove trailing slash - glob pattern should match directory name
+        ];
+
+        // Test file extension pattern
+        assert!(core.should_ignore(&PathBuf::from("/var/log/app.log"), &patterns));
+        assert!(!core.should_ignore(&PathBuf::from("/var/log/app.txt"), &patterns));
+
+        // Test directory pattern - should match "build" as a component
+        assert!(core.should_ignore(&PathBuf::from("/project/build/"), &patterns));
+        assert!(core.should_ignore(&PathBuf::from("/project/build/output.js"), &patterns));
+
+        // Test component matching
+        assert!(core.should_ignore(&PathBuf::from("/project/.git/config"), &patterns));
+        assert!(core.should_ignore(&PathBuf::from("/deep/path/.git/hooks"), &patterns));
+    }
+
+    /// Test plugin trait methods
+    /// Verifies that all Plugin trait methods work correctly
+    #[tokio::test]
+    async fn test_static_files_plugin_trait_methods() {
+        let plugin = StaticFilesPlugin::new(StaticFilesAppCore);
+
+        // Test basic plugin trait methods
+        assert!(plugin.description().contains("static files"));
+        assert_eq!(plugin.icon(), SYMBOL_CONTENT_FILE);
+        assert_eq!(plugin.get_target_path(), None);
+        assert_eq!(plugin.get_output_file(), None);
+        assert_eq!(plugin.get_restore_target_dir(), None);
+        assert!(plugin.creates_own_output_files());
+        assert!(plugin.get_hooks().is_empty());
+
+        // Test validation (should always pass for static files)
+        assert!(plugin.validate().await.is_ok());
+    }
+
+    /// Test copy_single_file with absolute paths outside home
+    /// Verifies that absolute paths are handled correctly
+    #[tokio::test]
+    async fn test_copy_single_file_absolute_path_outside_home() {
+        let core = StaticFilesAppCore;
+        let temp_dir = TempDir::new().unwrap();
+        let static_dir = temp_dir.path().join("static");
+        fs::create_dir_all(&static_dir).await.unwrap();
+
+        // Create a test file with absolute path
+        let test_file = temp_dir.path().join("absolute_test.txt");
+        fs::write(&test_file, "absolute content").await.unwrap();
+
+        let result = core.copy_single_file(&test_file, &static_dir, &[]).await;
+        assert!(result.is_ok());
+
+        let dest_path = result.unwrap();
+        assert!(dest_path.exists());
+
+        // For absolute paths outside home, structure should be preserved
+        let content = fs::read_to_string(&dest_path).await.unwrap();
+        assert_eq!(content, "absolute content");
+    }
+
+    /// Test error handling in copy_directory_recursive
+    /// Verifies that errors are propagated correctly
+    #[tokio::test]
+    async fn test_copy_directory_recursive_error_handling() {
+        let core = StaticFilesAppCore;
+        let temp_dir = TempDir::new().unwrap();
+        let src_dir = temp_dir.path().join("nonexistent");
+        let dest_dir = temp_dir.path().join("dest");
+
+        // Try to copy non-existent directory
+        let result = core
+            .copy_directory_recursive(&src_dir, &dest_dir, &[])
+            .await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Failed to read source directory"));
+    }
+
+    /// Test restore_static_files with filesystem root target
+    /// Verifies that restoration to root directory works correctly
+    #[tokio::test]
+    async fn test_restore_static_files_to_root() {
+        let core = StaticFilesAppCore;
+        let temp_dir = TempDir::new().unwrap();
+        let static_snapshot_dir = temp_dir.path().join("static");
+
+        // Create test file in snapshot
+        fs::create_dir_all(&static_snapshot_dir).await.unwrap();
+        fs::write(static_snapshot_dir.join("test_root.txt"), "root data")
+            .await
+            .unwrap();
+
+        // Use a subdirectory as simulated root to avoid actual filesystem root
+        let simulated_root = temp_dir.path().join("simulated_root");
+        fs::create_dir_all(&simulated_root).await.unwrap();
+
+        let restored = core
+            .restore_static_files(&static_snapshot_dir, &simulated_root)
+            .await
+            .unwrap();
+
+        assert!(!restored.is_empty());
+        assert!(simulated_root.join("test_root.txt").exists());
     }
 }
 

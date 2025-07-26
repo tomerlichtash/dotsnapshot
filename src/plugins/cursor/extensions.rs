@@ -23,7 +23,7 @@ impl ExtensionsCore for CursorExtensionsCore {
     }
 
     fn icon(&self) -> &'static str {
-        TOOL_EDITOR
+        SYMBOL_TOOL_EDITOR
     }
 
     fn extensions_file_name(&self) -> String {
@@ -69,7 +69,7 @@ mod tests {
             core.list_extensions_args(),
             &["--list-extensions", "--show-versions"]
         );
-        assert_eq!(core.icon(), TOOL_EDITOR);
+        assert_eq!(core.icon(), SYMBOL_TOOL_EDITOR);
         assert_eq!(core.extensions_file_name(), "extensions.txt");
         assert_eq!(core.restore_file_name(), "cursor_extensions.txt");
         assert_eq!(core.allowed_extensions(), &["txt", "log", "list"]);
@@ -82,7 +82,7 @@ mod tests {
             plugin.description(),
             "Lists installed extensions for application"
         );
-        assert_eq!(plugin.icon(), TOOL_EDITOR);
+        assert_eq!(plugin.icon(), SYMBOL_TOOL_EDITOR);
     }
 
     #[tokio::test]

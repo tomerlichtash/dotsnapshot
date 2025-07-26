@@ -40,13 +40,6 @@ pub trait ConfigSchema: DeserializeOwned + JsonSchema {
 pub struct ValidationHelpers;
 
 impl ValidationHelpers {
-    /// Validate that a command exists in PATH
-    #[allow(dead_code)]
-    pub fn validate_command_exists(command: &str) -> Result<()> {
-        which::which(command).with_context(|| format!("Command '{command}' not found in PATH"))?;
-        Ok(())
-    }
-
     /// Validate file extension
     pub fn validate_file_extension(filename: &str, allowed_extensions: &[&str]) -> Result<()> {
         if let Some(extension) = std::path::Path::new(filename).extension() {
@@ -83,7 +76,7 @@ impl ValidationHelpers {
             .unwrap_or_else(|| error.to_string());
 
         format!(
-            "{INDICATOR_WARNING} Configuration validation failed for {plugin_display_name}\n\
+            "{SYMBOL_INDICATOR_WARNING} Configuration validation failed for {plugin_display_name}\n\
              Error: {root_error}\n\
              Check: [plugins.{plugin_config_key}] in dotsnapshot.toml\n\
              Valid fields: {valid_fields}\n\
@@ -218,5 +211,176 @@ mod tests {
         // Verify the error message is specific about what failed
         let error = result.unwrap_err();
         assert!(error.to_string().contains("Invalid file extension"));
+    }
+
+    /// Test format_validation_error helper function
+    /// This ensures comprehensive error formatting for plugin configuration issues
+    #[test]
+    fn test_format_validation_error() {
+        let test_error = anyhow::anyhow!("Test validation error");
+
+        let formatted_error = ValidationHelpers::format_validation_error(
+            "Test Plugin",
+            "test_plugin",
+            "target_path, output_file",
+            "target_path = \"~/test\"",
+            &test_error,
+        );
+
+        // Verify all components are included in the formatted error
+        assert!(formatted_error.contains("Test Plugin"));
+        assert!(formatted_error.contains("test_plugin"));
+        assert!(formatted_error.contains("target_path, output_file"));
+        assert!(formatted_error.contains("target_path = \"~/test\""));
+        assert!(formatted_error.contains("Test validation error"));
+        assert!(formatted_error.contains("Plugin will continue with default configuration"));
+    }
+
+    /// Test format_validation_error with error chain
+    /// This verifies that complex error chains are properly handled
+    #[test]
+    fn test_format_validation_error_with_chain() {
+        // Create a chain of errors
+        let root_error = anyhow::anyhow!("Root cause error");
+        let wrapped_error = root_error.context("Wrapper error").context("Outer error");
+
+        let formatted_error = ValidationHelpers::format_validation_error(
+            "Complex Plugin",
+            "complex",
+            "complex_field",
+            "complex_field = \"value\"",
+            &wrapped_error,
+        );
+
+        // Should extract the root cause (last error in chain)
+        assert!(formatted_error.contains("Root cause error"));
+    }
+
+    /// Test file extension validation with empty allowed extensions
+    /// This ensures proper behavior when no specific extensions are required
+    #[test]
+    fn test_validation_helpers_empty_extensions() {
+        // When empty extensions are allowed, only files WITHOUT extensions should pass
+        assert!(ValidationHelpers::validate_file_extension("any.file", &[]).is_err());
+        assert!(ValidationHelpers::validate_file_extension("no_extension", &[]).is_ok());
+        assert!(ValidationHelpers::validate_file_extension("complex.ext.name", &[]).is_err());
+
+        // Files with just names (no extension) should pass
+        assert!(ValidationHelpers::validate_file_extension("filename", &[]).is_ok());
+        assert!(ValidationHelpers::validate_file_extension("simple", &[]).is_ok());
+    }
+
+    /// Test file extension validation with edge cases
+    /// This ensures robust handling of unusual file names
+    #[test]
+    fn test_validation_helpers_extension_edge_cases() {
+        // Files with multiple dots
+        assert!(ValidationHelpers::validate_file_extension("file.tar.gz", &["gz"]).is_ok());
+        assert!(
+            ValidationHelpers::validate_file_extension("config.backup.json", &["json"]).is_ok()
+        );
+
+        // Hidden files with extensions
+        assert!(ValidationHelpers::validate_file_extension(".hidden.json", &["json"]).is_ok());
+        assert!(ValidationHelpers::validate_file_extension(".hidden", &["json"]).is_err());
+
+        // Files with just dots
+        assert!(ValidationHelpers::validate_file_extension(".", &["json"]).is_err());
+        assert!(ValidationHelpers::validate_file_extension("..", &["json"]).is_err());
+    }
+
+    /// Test ConfigSchema trait default validate method
+    /// This ensures the default implementation works as expected
+    #[derive(Debug, Deserialize, Serialize, JsonSchema)]
+    struct MinimalTestConfig {
+        name: Option<String>,
+    }
+
+    impl ConfigSchema for MinimalTestConfig {
+        fn schema_name() -> &'static str {
+            "MinimalTestConfig"
+        }
+        // Uses default validate() implementation
+    }
+
+    #[test]
+    fn test_config_schema_default_validation() {
+        let config = MinimalTestConfig {
+            name: Some("test".to_string()),
+        };
+
+        // Default implementation should always return Ok(())
+        assert!(config.validate().is_ok());
+    }
+
+    /// Test ConfigSchema from_toml_value with serialization failure
+    /// This verifies proper error handling when TOML cannot be deserialized
+    #[test]
+    fn test_config_from_toml_value_serialization_failure() {
+        // TOML with wrong type for expected field
+        let invalid_toml_str = r#"
+            target_path = 123  # Should be string, not number
+            output_file = "test.json"
+        "#;
+
+        let toml_value: toml::Value = toml::from_str(invalid_toml_str).unwrap();
+        let result = TestConfig::from_toml_value(&toml_value);
+
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("Failed to parse TestConfig configuration"));
+    }
+
+    /// Test ConfigSchema from_toml_value with validation failure
+    /// This verifies that validation errors are properly contextized
+    #[test]
+    fn test_config_from_toml_value_validation_failure() {
+        // Valid TOML but fails validation
+        let invalid_toml_str = r#"
+            target_path = "test"
+            output_file = "test.invalid"  # Invalid extension
+        "#;
+
+        let toml_value: toml::Value = toml::from_str(invalid_toml_str).unwrap();
+        let result = TestConfig::from_toml_value(&toml_value);
+
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        let error_string = error.to_string();
+        assert!(error_string.contains("Invalid TestConfig configuration"));
+    }
+
+    /// Test schema_name method access
+    /// This ensures the trait method works correctly
+    #[test]
+    fn test_config_schema_name() {
+        assert_eq!(<TestConfig as ConfigSchema>::schema_name(), "TestConfig");
+        assert_eq!(
+            <MinimalTestConfig as ConfigSchema>::schema_name(),
+            "MinimalTestConfig"
+        );
+    }
+
+    /// Test file extension validation error messages
+    /// This ensures error messages are helpful and specific
+    #[test]
+    fn test_validation_helpers_error_messages() {
+        // Test error for invalid extension
+        let result = ValidationHelpers::validate_file_extension("file.exe", &["json", "yaml"]);
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.to_string().contains("Invalid file extension 'exe'"));
+        assert!(error
+            .to_string()
+            .contains("Allowed extensions: [\"json\", \"yaml\"]"));
+
+        // Test error for missing extension
+        let result = ValidationHelpers::validate_file_extension("noext", &["json"]);
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.to_string().contains("File must have an extension"));
+        assert!(error.to_string().contains("Allowed extensions: [\"json\"]"));
     }
 }
