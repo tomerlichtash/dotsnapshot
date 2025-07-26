@@ -10,7 +10,7 @@ A fast, extensible Rust CLI utility that creates snapshots of dotfiles and confi
 - **Async Execution**: All plugins run concurrently for better performance
 - **Checksum Optimization**: Reuses existing files when content hasn't changed
 - **Cross-Platform**: Works on macOS, Linux, and Windows
-- **Comprehensive Logging**: Detailed logging with tracing support
+- **Configurable Logging**: Multiple logging levels with configurable output formats
 
 ## Supported Plugins
 
@@ -148,12 +148,16 @@ dotsnapshot --man | sudo tee /usr/local/share/man/man1/dotsnapshot.1
 
 # Enable verbose logging
 ./target/release/dotsnapshot --verbose
+
+# Enable debug logging (shows DEBUG level messages)
+./target/release/dotsnapshot --debug
 ```
 
 ### Options
 
 - `-o, --output <PATH>`: Output directory for snapshots (overrides config file)
 - `-v, --verbose`: Enable verbose logging (overrides config file)
+- `--debug`: Enable debug logging (shows DEBUG level messages)
 - `-p, --plugins <PLUGINS>`: Comma-separated list of plugins to run
 - `-c, --config <PATH>`: Path to config file
 - `-h, --help`: Show help information
@@ -455,6 +459,9 @@ verbose = true
 
 # Time format for log timestamps (uses time crate format syntax)
 time_format = "[year]-[month]-[day] [hour]:[minute]:[second]"
+
+# Note: Use --debug flag to show DEBUG level messages
+# DEBUG messages provide detailed plugin execution information
 ```
 
 ### Example Configuration
@@ -485,6 +492,44 @@ time_format = "[hour]:[minute]:[second]"
 ```
 
 **Note**: CLI arguments always override config file settings.
+
+## Logging and Verbosity
+
+Dotsnapshot provides multiple logging levels to help you control the amount of output information:
+
+### Logging Levels
+
+- **Default**: Shows INFO, WARN, and ERROR messages (standard operation output)
+- **Verbose** (`--verbose`): Shows INFO, WARN, and ERROR messages with additional detail
+- **Debug** (`--debug`): Shows DEBUG, INFO, WARN, and ERROR messages (detailed execution information)
+
+### When to Use Each Level
+
+```bash
+# Standard usage - minimal output
+dotsnapshot
+
+# Verbose logging for general troubleshooting
+dotsnapshot --verbose
+
+# Debug logging for detailed plugin execution information
+dotsnapshot --debug
+```
+
+### Debug Information
+
+The `--debug` flag shows detailed information including:
+- Plugin execution steps and timings
+- Hook execution details and parameters
+- File operation specifics
+- Internal plugin state and configuration
+- Command execution output and errors
+
+Use debug logging when:
+- Troubleshooting plugin issues
+- Understanding hook execution flow
+- Debugging configuration problems
+- Contributing to development
 
 #### Time Format Options
 
