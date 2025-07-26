@@ -315,13 +315,40 @@ impl StaticFilesAppCore {
                     // Path is in home directory, use path relative to home
                     static_dir.join("home").join(relative_to_home)
                 } else {
-                    // Path is outside home directory, use full path but remove leading slash
+                    // Path is outside home directory, use path without root prefix
+                    #[cfg(unix)]
                     let relative_path = file_path.strip_prefix("/").unwrap_or(file_path);
+                    #[cfg(windows)]
+                    let relative_path = {
+                        // On Windows, remove the drive letter and colon (e.g., "C:\\" -> "")
+                        let path_str = file_path.to_string_lossy();
+                        if let Some(stripped) = path_str.strip_prefix(r"C:\") {
+                            std::path::Path::new(stripped)
+                        } else if path_str.len() >= 3 && path_str.chars().nth(1) == Some(':') {
+                            // Handle other drive letters like D:\, E:\, etc.
+                            std::path::Path::new(&path_str[3..])
+                        } else {
+                            file_path
+                        }
+                    };
                     static_dir.join(relative_path)
                 }
             } else {
-                // Can't determine home directory, use full path
+                // Can't determine home directory, use path without root prefix
+                #[cfg(unix)]
                 let relative_path = file_path.strip_prefix("/").unwrap_or(file_path);
+                #[cfg(windows)]
+                let relative_path = {
+                    // On Windows, remove the drive letter and colon
+                    let path_str = file_path.to_string_lossy();
+                    if let Some(stripped) = path_str.strip_prefix(r"C:\") {
+                        std::path::Path::new(stripped)
+                    } else if path_str.len() >= 3 && path_str.chars().nth(1) == Some(':') {
+                        std::path::Path::new(&path_str[3..])
+                    } else {
+                        file_path
+                    }
+                };
                 static_dir.join(relative_path)
             }
         } else {

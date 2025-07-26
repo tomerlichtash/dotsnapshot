@@ -1710,7 +1710,8 @@ mod tests {
         #[cfg(unix)]
         let script_content = "#!/bin/bash\nsleep 5\necho 'Should not see this'";
         #[cfg(windows)]
-        let script_content = "@echo off\ntimeout /t 5 /nobreak >nul\necho Should not see this";
+        let script_content =
+            "@echo off\npowershell -Command \"Start-Sleep -Seconds 5\"\necho Should not see this";
 
         #[cfg(unix)]
         let script_name = "timeout-test.sh";
