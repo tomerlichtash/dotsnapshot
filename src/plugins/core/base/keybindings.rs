@@ -340,7 +340,7 @@ mod tests {
         assert!(result.is_ok());
 
         // Clean up
-        if let Err(_) = fs::remove_dir_all(&keybindings_dir).await {
+        if (fs::remove_dir_all(&keybindings_dir).await).is_err() {
             // If we can't remove it, that's ok - might be a permission issue
         }
     }
@@ -353,11 +353,9 @@ mod tests {
 
         // Ensure keybindings directory doesn't exist
         let keybindings_dir = std::env::temp_dir().join("test_keybindings");
-        if keybindings_dir.exists() {
-            if let Err(_) = fs::remove_dir_all(&keybindings_dir).await {
-                // If we can't remove it, that's ok - might be a permission issue
-                // Just continue with the test
-            }
+        if keybindings_dir.exists() && (fs::remove_dir_all(&keybindings_dir).await).is_err() {
+            // If we can't remove it, that's ok - might be a permission issue
+            // Just continue with the test
         }
 
         let result = plugin.validate().await;

@@ -1798,7 +1798,7 @@ mod tests {
 
         for level in levels {
             let log_action = HookAction::Log {
-                message: format!("Test {} message", level),
+                message: format!("Test {level} message"),
                 level: level.to_string(),
             };
 
@@ -1806,7 +1806,7 @@ mod tests {
             assert!(result.success);
             assert_eq!(
                 result.output.as_ref().unwrap(),
-                &format!("Test {} message", level)
+                &format!("Test {level} message")
             );
         }
     }

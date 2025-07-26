@@ -938,7 +938,7 @@ mod tests {
         let plugin_count = registry.plugins().len();
         // We can't assert exact count since it depends on inventory, but we can verify behavior
         // The test serves to document that empty selection with current logic may register plugins
-        println!("Registered {} plugins with empty selection", plugin_count);
+        println!("Registered {plugin_count} plugins with empty selection");
     }
 
     /// Test PluginRegistry register_from_descriptors with specific selection
@@ -963,8 +963,7 @@ mod tests {
         // The all selection should typically have more or equal plugins
         assert!(all_count >= specific_count);
         println!(
-            "Specific selection: {} plugins, All selection: {} plugins",
-            specific_count, all_count
+            "Specific selection: {specific_count} plugins, All selection: {all_count} plugins"
         );
     }
 
@@ -1072,7 +1071,7 @@ mod tests {
 
         // Should have discovered some plugins from inventory
         // In a real system this would be > 0, but in tests it might be 0
-        println!("Discovered {} plugins from inventory", plugin_count);
+        println!("Discovered {plugin_count} plugins from inventory");
 
         // Test discover_plugins with empty config
         let empty_config = Config::default();
@@ -1368,7 +1367,7 @@ mod tests {
 
         // Note: In a real system with plugins in inventory, this might not be 0
         // The important thing is that empty selection affects filtering
-        println!("Empty selection registered {} plugins", empty_count);
+        println!("Empty selection registered {empty_count} plugins");
 
         // Test with category-based selection
         let mut category_registry = PluginRegistry::new();
@@ -1387,8 +1386,7 @@ mod tests {
 
         // Both should work (counts may be 0 in test environment)
         println!(
-            "Category selection: {} plugins, Name selection: {} plugins",
-            category_count, name_count
+            "Category selection: {category_count} plugins, Name selection: {name_count} plugins"
         );
     }
 
