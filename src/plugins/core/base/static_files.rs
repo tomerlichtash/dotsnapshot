@@ -1352,10 +1352,10 @@ mod tests {
         let plugin = StaticFilesPlugin::new(MockStaticFilesCore);
 
         // Test command_exists method from CommandMixin
-        let result = plugin.command_exists("ls");
+        let _result = plugin.command_exists("ls");
         // ls should exist on Unix systems
         #[cfg(unix)]
-        assert!(result);
+        assert!(_result);
 
         // Test with non-existent command
         let result = plugin.command_exists("this_command_definitely_does_not_exist_12345");

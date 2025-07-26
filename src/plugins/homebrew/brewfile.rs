@@ -557,7 +557,7 @@ brew "curl"
     /// Verifies that restore handles error scenarios gracefully
     #[tokio::test]
     async fn test_homebrew_plugin_restore_error_handling() {
-        let plugin = PackagePlugin::new(HomebrewCore);
+        let _plugin = PackagePlugin::new(HomebrewCore);
 
         let temp_dir = TempDir::new().unwrap();
         let snapshot_dir = temp_dir.path().join("snapshot");
@@ -582,7 +582,7 @@ brew "curl"
             fs::set_permissions(&readonly_dir, perms).await.unwrap();
 
             // This should fail due to permissions
-            let result = plugin.restore(&snapshot_dir, &readonly_dir, false).await;
+            let result = _plugin.restore(&snapshot_dir, &readonly_dir, false).await;
             // Note: This test might not fail on all systems due to different permission handling
             // So we just verify it completes without panicking
             let _ = result;
