@@ -195,7 +195,7 @@ mod tests {
             .await
             .unwrap();
 
-        let mut config = create_config_with_scripts_dir(scripts_dir);
+        let mut config = Config::default();
         config.global = Some(crate::config::GlobalConfig {
             hooks: Some(crate::config::GlobalHooks {
                 pre_snapshot: vec![
@@ -229,6 +229,9 @@ mod tests {
                 post_snapshot: vec![],
             }),
         });
+
+        let mut hooks_config = config.get_hooks_config();
+        hooks_config.scripts_dir = scripts_dir;
 
         setup_config_file(&config, &config_path).await;
 
