@@ -138,6 +138,16 @@ Releases are fully automated using semantic-release based on conventional commit
   - When something is used only in tests, it should not be part of the main code base logic
   - For example, if you use `SYMBOL_ACTION_TEST` only in tests - it should be part of the tests, not part of the code base symbols file
 
+## Testing Methodology
+
+- **Test File Separation**
+  - Never add `cfg(test)` inline testing in main code
+  - Keep all tests in external test files
+  - Separate tests into different files based on concern or aspect
+  - Follow the hooks test approach: tests in dedicated, external files
+  - Prevent tests from overshadowing actual code logic
+  - Ensure code readability by maintaining clean separation
+
 ---
 
 **Claude: Reference this file before starting any work. These rules are non-negotiable.**
