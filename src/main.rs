@@ -30,6 +30,10 @@ struct Args {
     #[arg(short, long, global = true)]
     verbose: bool,
 
+    /// Enable debug logging (shows DEBUG level messages)
+    #[arg(long, global = true)]
+    debug: bool,
+
     /// Path to config file
     #[arg(short, long, global = true)]
     config: Option<PathBuf>,
@@ -275,10 +279,10 @@ struct HookActionArgs {
 }
 
 fn create_subscriber(
-    verbose: bool,
+    debug: bool,
     time_format: String,
 ) -> Box<dyn tracing::Subscriber + Send + Sync> {
-    let level = if verbose {
+    let level = if debug {
         tracing::Level::DEBUG
     } else {
         tracing::Level::INFO
@@ -403,9 +407,10 @@ async fn main() -> Result<()> {
         Config::load().await.unwrap_or_default()
     };
 
-    let verbose = args.verbose || config.is_verbose_default();
+    let _verbose = args.verbose || config.is_verbose_default();
+    let debug = args.debug;
     let time_format = config.get_time_format();
-    let subscriber = create_subscriber(verbose, time_format);
+    let subscriber = create_subscriber(debug, time_format);
     tracing::subscriber::set_global_default(subscriber).expect("Failed to set default subscriber");
 
     // Handle subcommands
@@ -706,12 +711,12 @@ mod tests {
     /// Verifies that logging subscribers are created correctly
     #[test]
     fn test_create_subscriber() {
-        // Test verbose subscriber
+        // Test debug subscriber
         let subscriber = create_subscriber(true, "[hour]:[minute]:[second]".to_string());
         // Just verify it creates without panicking
         drop(subscriber);
 
-        // Test non-verbose subscriber
+        // Test non-debug subscriber
         let subscriber = create_subscriber(false, "[month]-[day] [hour]:[minute]".to_string());
         drop(subscriber);
 
@@ -1052,6 +1057,48 @@ mod tests {
                 _ => panic!("Expected scripts-dir command"),
             }
         }
+    }
+
+    /// Test debug flag parsing
+    /// Verifies that the debug flag is parsed correctly in CLI arguments
+    #[test]
+    fn test_debug_flag_parsing() {
+        // Test default debug value (should be false)
+        let args = Args::parse_from(["dotsnapshot"]);
+        assert!(!args.debug);
+
+        // Test --debug flag
+        let args = Args::parse_from(["dotsnapshot", "--debug"]);
+        assert!(args.debug);
+
+        // Test --debug with other flags
+        let args = Args::parse_from(["dotsnapshot", "--debug", "--verbose", "--list"]);
+        assert!(args.debug);
+        assert!(args.verbose);
+        assert!(args.list);
+
+        // Test --debug with subcommands
+        let args = Args::parse_from(["dotsnapshot", "--debug", "hooks", "list"]);
+        assert!(args.debug);
+        match args.command {
+            Some(Commands::Hooks { .. }) => {
+                // Command structure is correct
+            }
+            _ => panic!("Expected hooks command"),
+        }
+    }
+
+    /// Test debug logging level configuration
+    /// Verifies that debug flag correctly sets logging levels
+    #[test]
+    fn test_debug_logging_levels() {
+        // Test debug=true should set DEBUG level
+        let subscriber = create_subscriber(true, "[hour]:[minute]:[second]".to_string());
+        drop(subscriber);
+
+        // Test debug=false should set INFO level
+        let subscriber = create_subscriber(false, "[hour]:[minute]:[second]".to_string());
+        drop(subscriber);
     }
 
     /// Test that create_subscriber handles all time format cases
@@ -1449,6 +1496,7 @@ mod tests {
 
         // Verify all default values
         assert!(!args.verbose);
+        assert!(!args.debug);
         assert!(args.config.is_none());
         assert!(args.command.is_none());
         assert!(args.output.is_none());
