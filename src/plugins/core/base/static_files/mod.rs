@@ -269,3 +269,6 @@ impl<T: StaticFilesCore> FilesMixin for StaticFilesPlugin<T> {
 impl<T: StaticFilesCore> CommandMixin for StaticFilesPlugin<T> {
     // Uses default implementation
 }
+
+#[cfg(test)]
+pub mod tests;
