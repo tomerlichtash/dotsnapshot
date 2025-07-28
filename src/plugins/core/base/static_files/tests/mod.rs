@@ -7,6 +7,7 @@ pub mod test_utils;
 
 // Test modules organized by functionality
 pub mod configuration;
+pub mod edge_cases;
 pub mod error_handling;
 pub mod execution;
 pub mod integration;
