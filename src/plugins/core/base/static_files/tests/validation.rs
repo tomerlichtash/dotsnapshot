@@ -173,6 +173,7 @@ mod tests {
             }),
             plugins: None,
             ui: None,
+            validation: None,
         });
 
         // The with_config constructor should be available for testing validation scenarios

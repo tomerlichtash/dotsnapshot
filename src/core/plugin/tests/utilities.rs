@@ -48,6 +48,7 @@ fn test_extract_category_from_plugin_name() {
         ui: Some(UiConfig {
             plugin_categories: Some(categories),
         }),
+        validation: None,
     };
 
     assert_eq!(

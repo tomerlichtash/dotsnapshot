@@ -559,6 +559,7 @@ mod tests {
                 },
             }),
             ui: None,
+            validation: None,
         };
 
         let plugin = StaticFilesPlugin::with_config(StaticFilesAppCore, Arc::new(config));
@@ -757,6 +758,7 @@ mod tests {
                 },
             }),
             ui: None,
+            validation: None,
         };
 
         let patterns = core.get_ignore_patterns(Some(&Arc::new(config)));
@@ -931,6 +933,7 @@ mod tests {
             static_files: None,
             plugins: None,
             ui: None,
+            validation: None,
         };
         let files = core.read_config(Some(&Arc::new(config))).await.unwrap();
         assert!(files.is_empty());
@@ -960,6 +963,7 @@ mod tests {
                 },
             }),
             ui: None,
+            validation: None,
         };
         let files = core.read_config(Some(&Arc::new(config))).await.unwrap();
         assert!(files.is_empty());
@@ -994,6 +998,7 @@ mod tests {
                 },
             }),
             ui: None,
+            validation: None,
         };
         let files = core.read_config(Some(&Arc::new(config))).await.unwrap();
         assert_eq!(files.len(), 2); // Only non-empty paths

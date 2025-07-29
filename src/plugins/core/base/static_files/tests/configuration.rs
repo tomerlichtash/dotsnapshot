@@ -27,6 +27,7 @@ mod tests {
             }),
             plugins: None,
             ui: None,
+            validation: None,
         });
 
         let plugin = StaticFilesPlugin::with_config(MockStaticFilesCore::new(), config.clone());
@@ -102,6 +103,7 @@ mod tests {
             static_files: None,
             plugins: None,
             ui: None,
+            validation: None,
         });
         let plugin = StaticFilesPlugin::with_config(MockStaticFilesCore::new(), empty_config);
 
@@ -137,6 +139,7 @@ mod tests {
             }),
             plugins: None,
             ui: None,
+            validation: None,
         });
 
         let plugin = StaticFilesPlugin::with_config(MockStaticFilesCore::new(), config);
@@ -242,6 +245,7 @@ mod tests {
             }),
             plugins: None,
             ui: None,
+            validation: None,
         });
 
         let plugin = StaticFilesPlugin::with_config(MockStaticFilesCore::new(), config);

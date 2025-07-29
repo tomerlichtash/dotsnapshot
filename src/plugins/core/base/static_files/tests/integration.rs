@@ -279,6 +279,7 @@ mod tests {
             }),
             plugins: None,
             ui: None,
+            validation: None,
         });
 
         let plugin = StaticFilesPlugin::with_config(AdvancedMockCore::new(), config);

@@ -115,6 +115,7 @@ fn test_plugin_registry_list_plugins_detailed_with_config() {
         ui: Some(UiConfig {
             plugin_categories: Some(categories),
         }),
+        validation: None,
     };
 
     let detailed_list = registry.list_plugins_detailed(Some(&config));
