@@ -3,7 +3,6 @@ name = "dotsnapshot"
 version = "1.2.3"
 edition = "2021"
 rust-version = "1.81"
-# Force CI cache invalidation
 description = "A CLI utility to create snapshots of dotfiles and configuration for seamless backup and restoration"
 license = "MIT"
 repository = "https://github.com/tomerlichtash/dotsnapshot"
