@@ -7,6 +7,7 @@ use async_trait::async_trait;
 pub mod hooks;
 pub mod performance;
 pub mod plugins;
+pub mod progress;
 pub mod snapshots;
 pub mod test_utils;
 
