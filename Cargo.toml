@@ -28,7 +28,7 @@ schemars = "0.8"
 shellexpand = "3.0"
 
 [dependencies.tokio]
-version = "1.0"
+version = "1.47"
 features = ["full"]
 
 [dependencies.serde]
