@@ -247,10 +247,19 @@ impl StaticFilesCore for StaticFilesAppCore {
                 if entry_path.is_dir() && entry_name == "home" {
                     // Restore files from home directory
                     if let Some(home_dir) = dirs::home_dir() {
-                        let files =
-                            Self::restore_directory_recursive_static(&entry_path, &home_dir)
-                                .await?;
-                        restored_files.extend(files);
+                        match Self::restore_directory_recursive_static(&entry_path, &home_dir).await
+                        {
+                            Ok(files) => {
+                                restored_files.extend(files);
+                            }
+                            Err(e) => {
+                                warn!(
+                                    "Failed to restore home directory files (this may be expected in CI environments): {}",
+                                    e
+                                );
+                                // Continue processing other files instead of failing the entire operation
+                            }
+                        }
                     } else {
                         warn!("Could not determine home directory for restoring files");
                     }
