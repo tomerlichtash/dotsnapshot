@@ -56,6 +56,10 @@ tempfile = "3.0"
 assert_cmd = "2.0"
 predicates = "3.0"
 
+# Lint configuration
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(test)'] }
+
 # Coverage configuration to exclude standard library and external dependencies
 [package.metadata.coverage]
 exclude = [
