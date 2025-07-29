@@ -53,6 +53,8 @@ features = ["serde"]
 
 [dev-dependencies]
 tempfile = "3.0"
+assert_cmd = "2.0"
+predicates = "3.0"
 
 # Coverage configuration to exclude standard library and external dependencies
 [package.metadata.coverage]

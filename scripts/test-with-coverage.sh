@@ -59,14 +59,14 @@ if [[ -z "$LLVM_COV" || -z "$LLVM_PROFDATA" ]]; then
 fi
 
 # Run tests with coverage
-cargo llvm-cov --lib --all-features --lcov --output-path lcov.info --color always
+cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info --color always
 
 echo ""
 echo "📈 Coverage Analysis Results:"
 echo "================================"
 
 # Get coverage summary
-COVERAGE_OUTPUT=$(cargo llvm-cov --lib --all-features --summary-only --color always)
+COVERAGE_OUTPUT=$(cargo llvm-cov --all-features --workspace --summary-only --color always)
 echo "$COVERAGE_OUTPUT"
 
 # Extract total coverage percentage
@@ -104,7 +104,7 @@ fi
 
 # Generate HTML report for detailed analysis
 echo "📄 Generating detailed HTML coverage report..."
-cargo llvm-cov --lib --all-features --html --output-dir coverage-report --color always
+cargo llvm-cov --all-features --workspace --html --output-dir coverage-report --color always
 
 echo "🔗 View detailed coverage report:"
 echo "   open coverage-report/index.html"
