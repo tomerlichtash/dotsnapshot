@@ -15,6 +15,7 @@ impl SnapshotExecutor {
             registry,
             snapshot_manager: SnapshotManager::new(base_path),
             config: None,
+            progress_monitor: None,
         }
     }
 

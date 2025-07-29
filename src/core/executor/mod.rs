@@ -10,6 +10,7 @@ use crate::config::Config;
 use crate::core::checksum::calculate_checksum;
 use crate::core::hooks::{HookContext, HookManager, HookType};
 use crate::core::plugin::{Plugin, PluginRegistry, PluginResult};
+use crate::core::progress::{ProgressConfig, ProgressMonitor};
 use crate::core::snapshot::SnapshotManager;
 use crate::symbols::*;
 
@@ -18,6 +19,7 @@ pub struct SnapshotExecutor {
     registry: Arc<PluginRegistry>,
     snapshot_manager: SnapshotManager,
     config: Option<Arc<Config>>,
+    progress_monitor: Option<Arc<ProgressMonitor>>,
 }
 
 impl SnapshotExecutor {
@@ -30,7 +32,32 @@ impl SnapshotExecutor {
             registry,
             snapshot_manager: SnapshotManager::new(base_path),
             config: Some(config),
+            progress_monitor: None,
         }
+    }
+
+    /// Create executor with progress monitoring enabled
+    #[allow(dead_code)]
+    pub fn with_progress_monitoring(
+        registry: Arc<PluginRegistry>,
+        base_path: PathBuf,
+        config: Arc<Config>,
+        progress_config: ProgressConfig,
+    ) -> Self {
+        let progress_monitor = Arc::new(ProgressMonitor::new(progress_config));
+
+        Self {
+            registry,
+            snapshot_manager: SnapshotManager::new(base_path),
+            config: Some(config),
+            progress_monitor: Some(progress_monitor),
+        }
+    }
+
+    /// Get the progress monitor if available
+    #[allow(dead_code)]
+    pub fn get_progress_monitor(&self) -> Option<Arc<ProgressMonitor>> {
+        self.progress_monitor.clone()
     }
 
     /// Executes all plugins and creates a snapshot
@@ -70,6 +97,11 @@ impl SnapshotExecutor {
         // Create initial metadata
         let mut metadata = self.snapshot_manager.create_metadata();
 
+        // Start progress monitoring if available
+        if let Some(progress_monitor) = &self.progress_monitor {
+            progress_monitor.start_monitoring().await;
+        }
+
         // Execute all plugins concurrently
         let plugins = self.registry.plugins();
         let mut plugin_tasks = Vec::new();
@@ -82,6 +114,7 @@ impl SnapshotExecutor {
             let config_clone = self.config.clone();
             let hook_manager_clone = HookManager::new(hooks_config.clone());
             let hook_context_clone = hook_context.clone();
+            let progress_monitor_clone = self.progress_monitor.clone();
 
             let task = tokio::spawn(async move {
                 Self::execute_plugin_with_hooks(
@@ -92,6 +125,7 @@ impl SnapshotExecutor {
                     config_clone.as_deref(),
                     hook_manager_clone,
                     hook_context_clone,
+                    progress_monitor_clone,
                 )
                 .await
             });
@@ -166,6 +200,7 @@ impl SnapshotExecutor {
     }
 
     /// Executes a single plugin with hooks and checksum optimization
+    #[allow(clippy::too_many_arguments)]
     pub async fn execute_plugin_with_hooks(
         plugin_name: String,
         plugin: Arc<dyn Plugin>,
@@ -174,11 +209,18 @@ impl SnapshotExecutor {
         _config: Option<&Config>,
         hook_manager: HookManager,
         hook_context: HookContext,
+        progress_monitor: Option<Arc<ProgressMonitor>>,
     ) -> Result<PluginResult> {
-        info!(
-            "{} Executing plugin: {}",
-            SYMBOL_CONTENT_PACKAGE, plugin_name
-        );
+        // Register plugin start with progress monitor
+        let started_at = std::time::Instant::now();
+        if let Some(progress_monitor) = &progress_monitor {
+            progress_monitor.start_plugin(plugin_name.clone()).await;
+        } else {
+            info!(
+                "{} Executing plugin: {}",
+                SYMBOL_CONTENT_PACKAGE, plugin_name
+            );
+        }
 
         // Create plugin-specific hook context
         let plugin_hook_context = hook_context.with_plugin(plugin_name.clone());
@@ -193,13 +235,22 @@ impl SnapshotExecutor {
 
         // Validate plugin can run
         if let Err(e) = plugin.validate().await {
+            let error_msg = format!("Validation failed: {e}");
             warn!("Plugin validation failed for {}: {}", plugin_name, e);
+
+            // Report validation failure to progress monitor
+            if let Some(progress_monitor) = &progress_monitor {
+                progress_monitor
+                    .fail_plugin(plugin_name.clone(), started_at, error_msg.clone())
+                    .await;
+            }
+
             return Ok(PluginResult {
                 plugin_name: plugin_name.clone(),
                 content: String::new(),
                 checksum: String::new(),
                 success: false,
-                error_message: Some(format!("Validation failed: {e}")),
+                error_message: Some(error_msg),
             });
         }
 
@@ -211,6 +262,13 @@ impl SnapshotExecutor {
             Ok(content) => content,
             Err(e) => {
                 error!("Plugin execution failed for {}: {}", plugin_name, e);
+
+                // Report execution failure to progress monitor
+                if let Some(progress_monitor) = &progress_monitor {
+                    progress_monitor
+                        .fail_plugin(plugin_name.clone(), started_at, e.to_string())
+                        .await;
+                }
 
                 // Execute post-plugin hooks even on failure
                 let plugin_hooks = plugin.get_hooks();
@@ -265,6 +323,13 @@ impl SnapshotExecutor {
                     error_message: None,
                 };
 
+                // Report successful completion to progress monitor
+                if let Some(progress_monitor) = &progress_monitor {
+                    progress_monitor
+                        .complete_plugin(plugin_name.clone(), started_at)
+                        .await;
+                }
+
                 // Execute post-plugin hooks for successful reuse
                 let plugin_hooks = plugin.get_hooks();
                 if !plugin_hooks.is_empty() {
@@ -303,10 +368,17 @@ impl SnapshotExecutor {
                 .context(format!("Failed to write output for plugin {plugin_name}"))?;
         }
 
-        info!(
-            "{} Plugin {} completed successfully",
-            SYMBOL_INDICATOR_SUCCESS, plugin_name
-        );
+        // Report successful completion to progress monitor
+        if let Some(progress_monitor) = &progress_monitor {
+            progress_monitor
+                .complete_plugin(plugin_name.clone(), started_at)
+                .await;
+        } else {
+            info!(
+                "{} Plugin {} completed successfully",
+                SYMBOL_INDICATOR_SUCCESS, plugin_name
+            );
+        }
 
         let result = PluginResult {
             plugin_name: plugin_name.clone(),
