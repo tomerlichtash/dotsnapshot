@@ -32,6 +32,9 @@ pub struct Config {
 
     /// UI configuration
     pub ui: Option<UiConfig>,
+
+    /// Validation configuration
+    pub validation: Option<ValidationConfig>,
 }
 
 /// Logging configuration
@@ -124,6 +127,14 @@ pub struct UiConfig {
     pub plugin_categories: Option<std::collections::HashMap<String, String>>,
 }
 
+/// Validation configuration
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ValidationConfig {
+    /// Configuration files that are allowed to have no file extension
+    /// These are well-known configuration files that traditionally don't use extensions
+    pub well_known_no_extension: Option<Vec<String>>,
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -135,6 +146,7 @@ impl Default for Config {
             static_files: None,
             plugins: None,
             ui: None,
+            validation: None,
         }
     }
 }
@@ -352,6 +364,7 @@ mod tests {
             }),
             plugins: None,
             ui: None,
+            validation: None,
         };
 
         // Save config
@@ -440,6 +453,7 @@ mod tests {
                     categories
                 }),
             }),
+            validation: None,
         };
 
         // Test hook configuration methods
@@ -499,6 +513,7 @@ mod tests {
             static_files: None,
             plugins: None,
             ui: None,
+            validation: None,
         };
 
         // Test default behaviors
@@ -553,6 +568,7 @@ mod tests {
             static_files: None,
             plugins: None,
             ui: None,
+            validation: None,
         };
 
         // Should still return false for verbose when not set
@@ -656,6 +672,7 @@ mod tests {
                     categories
                 }),
             }),
+            validation: None,
         };
 
         // Save the complex configuration

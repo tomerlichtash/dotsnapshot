@@ -40,8 +40,43 @@ pub trait ConfigSchema: DeserializeOwned + JsonSchema {
 pub struct ValidationHelpers;
 
 impl ValidationHelpers {
+    /// Get well-known configuration files that don't need extensions
+    fn get_well_known_no_extension() -> Vec<String> {
+        // Try to load from config file, fall back to defaults
+        // Note: This is called during validation, so we need to be careful about errors
+        let config_paths = crate::config::Config::get_config_paths();
+        for config_path in config_paths {
+            if config_path.exists() {
+                if let Ok(config_content) = std::fs::read_to_string(&config_path) {
+                    if let Ok(parsed_config) =
+                        toml::from_str::<crate::config::Config>(&config_content)
+                    {
+                        if let Some(validation_config) = parsed_config.validation {
+                            if let Some(custom_list) = validation_config.well_known_no_extension {
+                                return custom_list;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Default well-known configuration files that don't traditionally have extensions
+        vec![
+            "Brewfile".to_string(),    // Homebrew dependency file
+            "Dockerfile".to_string(),  // Docker container definition
+            "Makefile".to_string(),    // Make build file
+            "Vagrantfile".to_string(), // Vagrant configuration
+            "Gemfile".to_string(),     // Ruby gem dependencies
+            "Podfile".to_string(),     // CocoaPods dependencies
+        ]
+    }
+
     /// Validate file extension
     pub fn validate_file_extension(filename: &str, allowed_extensions: &[&str]) -> Result<()> {
+        let well_known_files = Self::get_well_known_no_extension();
+        let well_known_refs: Vec<&str> = well_known_files.iter().map(|s| s.as_str()).collect();
+
         if let Some(extension) = std::path::Path::new(filename).extension() {
             let ext_str = extension.to_string_lossy();
             if !allowed_extensions.contains(&ext_str.as_ref()) {
@@ -52,10 +87,18 @@ impl ValidationHelpers {
                 ));
             }
         } else if !allowed_extensions.is_empty() {
-            return Err(anyhow::anyhow!(
-                "File must have an extension. Allowed extensions: {:?}",
-                allowed_extensions
-            ));
+            // Allow well-known configuration files without extensions
+            if !well_known_refs.contains(&filename) {
+                // For dot files (like .npmrc), check if the filename without the leading dot
+                // matches any allowed extensions
+                let filename_without_dot = filename.strip_prefix('.').unwrap_or(filename);
+                if !allowed_extensions.contains(&filename_without_dot) {
+                    return Err(anyhow::anyhow!(
+                        "File must have an extension. Allowed extensions: {:?}",
+                        allowed_extensions
+                    ));
+                }
+            }
         }
         Ok(())
     }
@@ -287,6 +330,17 @@ mod tests {
         // Files with just dots
         assert!(ValidationHelpers::validate_file_extension(".", &["json"]).is_err());
         assert!(ValidationHelpers::validate_file_extension("..", &["json"]).is_err());
+
+        // Well-known configuration files without extensions should pass
+        assert!(
+            ValidationHelpers::validate_file_extension("Brewfile", &["txt", "brewfile"]).is_ok()
+        );
+        assert!(ValidationHelpers::validate_file_extension("Dockerfile", &["txt"]).is_ok());
+        assert!(ValidationHelpers::validate_file_extension("Makefile", &["txt"]).is_ok());
+
+        // Dot files should work if filename matches allowed extension
+        assert!(ValidationHelpers::validate_file_extension(".npmrc", &["npmrc", "config"]).is_ok());
+        assert!(ValidationHelpers::validate_file_extension(".gitignore", &["gitignore"]).is_ok());
     }
 
     /// Test ConfigSchema trait default validate method

@@ -141,6 +141,7 @@ async fn test_config_with_hooks_serialization() -> Result<()> {
             },
         }),
         ui: None,
+        validation: None,
     };
 
     // Save config
@@ -314,6 +315,7 @@ async fn test_config_hooks_helper_methods() -> Result<()> {
             },
         }),
         ui: None,
+        validation: None,
     };
 
     // Save and reload config

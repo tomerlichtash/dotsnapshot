@@ -19,6 +19,23 @@ output_dir = "./.snapshots"
 plugin_categories = { vscode = "VSCode", cursor = "Cursor", npm = "NPM", homebrew = "Homebrew", static = "Static Files" }
 
 # ==============================================================================
+# Validation Configuration
+# ==============================================================================
+[validation]
+# Configuration files that are allowed to have no file extension
+# These are well-known files that traditionally don't use extensions
+well_known_no_extension = [
+    "Brewfile",       # Homebrew dependency file
+    "Dockerfile",     # Docker container definition  
+    "Makefile",       # Make build file
+    "Vagrantfile",    # Vagrant configuration
+    "Gemfile",        # Ruby gem dependencies
+    "Podfile",        # CocoaPods dependencies
+    "Rakefile",       # Ruby build file
+    "Procfile",       # Process configuration (Heroku, etc.)
+]
+
+# ==============================================================================
 # Logging Configuration  
 # ==============================================================================
 [logging]
