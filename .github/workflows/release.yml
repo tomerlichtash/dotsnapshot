@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Test semantic-release configuration
         # Test the version update logic from .releaserc.json before expensive builds
@@ -86,7 +86,7 @@ jobs:
           - { os: windows-latest, target: x86_64-pc-windows-msvc, use-cross: false }    # Windows x86_64 (native)
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Rust toolchain with target
         uses: dtolnay/rust-toolchain@stable
@@ -177,7 +177,7 @@ jobs:
     needs: [test, build]  # Wait for both test and build to complete successfully
     steps:
       - name: Checkout repository with full history
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0  # Required for semantic-release to analyze commit history
           token: ${{ secrets.GITHUB_TOKEN }}
